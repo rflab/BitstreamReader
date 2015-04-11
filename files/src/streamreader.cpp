@@ -1,14 +1,17 @@
-// ’è‹`ƒtƒ@ƒCƒ‹‚É]‚Á‚ÄƒXƒgƒŠ[ƒ€‚ğ“Ç‚Ş
-// Šg’£‚·‚éê‡‚ÍCommandƒNƒ‰ƒX‚Ì”h¶ƒNƒ‰ƒX‚ğŠg’£‚µ‚Ätload_streamdef_fileŠÖ”‚Å‚»‚ê‚ğ¶¬‚·‚éƒ^ƒO‚ğw’è‚·‚é
+// å®šç¾©ãƒ•ã‚¡ã‚¤ãƒ«ã«å¾“ã£ã¦ã‚¹ãƒˆãƒªãƒ¼ãƒ ã‚’èª­ã‚€
+// ã„ã¾ã®ã¨ã“ã‚å€‹ã€…ã®èª­ã¿è¾¼ã¿ã¯512MBã¾ã§
+
 
 #include <iostream>
 #include <vector>
+#include <map>
 #include <memory>
 #include <sstream>
 #include <fstream>
 #include <algorithm>
 
 using std::vector;
+using std::map;
 using std::shared_ptr;
 using std::make_shared;
 using std::cout;
@@ -21,8 +24,8 @@ using std::string;
 using std::getline;
 using std::min;
 
-// ˆêsƒoƒCƒgƒ_ƒ“ƒv
-bool DumpLine(const unsigned char* buf, unsigned int offset, unsigned int byte_size)
+// ä¸€è¡Œãƒã‚¤ãƒˆãƒ€ãƒ³ãƒ—
+bool dump_line(const unsigned char* buf, unsigned int offset, unsigned int byte_size)
 {
 	for (unsigned int i = 0; i < byte_size; ++i)
 	{
@@ -32,8 +35,8 @@ bool DumpLine(const unsigned char* buf, unsigned int offset, unsigned int byte_s
 	return true;
 }
 
-// ƒoƒCƒgƒ_ƒ“ƒv
-bool Dump(const unsigned char* buf, unsigned int offset, unsigned int byte_size)
+// ãƒã‚¤ãƒˆãƒ€ãƒ³ãƒ—
+bool dump(const unsigned char* buf, unsigned int offset, unsigned int byte_size)
 {
 	printf(" offset    | +0 +1 +2 +3 +4 +5 +6 +7 +8 +9 +A +B +C +D +E +F\n");
 
@@ -41,20 +44,35 @@ bool Dump(const unsigned char* buf, unsigned int offset, unsigned int byte_size)
 	for (i = 0; i + 16 <= byte_size; i += 16)
 	{
 		printf(" 0x%08x| ", offset + i);
-		DumpLine(buf, offset + i, 16);
+		dump_line(buf, offset + i, 16);
 		putchar('\n');
 	}
 	if (byte_size > i)
 	{
 		printf(" 0x%08x| ", offset + i);
-		DumpLine(buf, offset + i, byte_size % 16);
+		dump_line(buf, offset + i, byte_size % 16);
 		putchar('\n');
 	}
 
 	return true;
 }
 
-// İ’è‚µ‚½ƒoƒbƒtƒ@‚©‚çƒrƒbƒg’PˆÊ‚Åƒf[ƒ^‚ğ“Ç‚İo‚·
+// ã‚¨ãƒ³ãƒ‡ã‚£ã‚¢ãƒ³å¤‰æ› - 16bit
+inline unsigned int reverse_endian_16(unsigned int value)
+{
+	return ((value >> 8) & 0xff) | ((value << 8) & 0xff00);
+}
+
+// ã‚¨ãƒ³ãƒ‡ã‚£ã‚¢ãƒ³å¤‰æ› - 32bit
+inline unsigned int reverse_endian_32(unsigned int value)
+{
+	return ((value >> 24) & 0xff) | ((value >> 8) & 0xff00)
+		| ((value << 8) & 0xff0000) | ((value << 24) & 0xff000000);
+}
+
+
+// è¨­å®šã—ãŸãƒãƒƒãƒ•ã‚¡ã‹ã‚‰ãƒ“ãƒƒãƒˆå˜ä½ã§ãƒ‡ãƒ¼ã‚¿ã‚’èª­ã¿å‡ºã™
+// ãƒ“ãƒƒã‚°ã‚¨ãƒ³ãƒ‡ã‚£ã‚¢ãƒ³
 class Bitstream
 {
 private:
@@ -68,9 +86,10 @@ public:
 
 	Bitstream():buf_(nullptr), size_(0), cur_bit_(0), cur_offset_(0){}
 
-	unsigned int&        cur_offset(){return cur_offset_;}
-	unsigned int&        cur_bit()   {return cur_bit_;}
-	const unsigned char* buf()       {return buf_;}
+	const unsigned char* buf()       { return buf_; }
+	const unsigned int&  size()      { return size_; }
+	unsigned int&        cur_offset(){ return cur_offset_; }
+	unsigned int&        cur_bit()   { return cur_bit_; }
 
 	bool reset(shared_ptr<unsigned char> sbuf_, unsigned int size)
 	{
@@ -84,11 +103,6 @@ public:
 
 	bool check_length(unsigned int read_length) const
 	{
-		if (size_ == cur_offset_)
-		{
-			cout << "EOS" << endl;
-			return false;
-		}
 		if (size_ <= (cur_offset_ + (cur_bit_ + read_length) / 8))
 		{
 			cout << "# ERROR over read" << endl;
@@ -119,7 +133,7 @@ public:
 			return false;
 		}
 		
-		// æ“ª‚Ì’†“r”¼’[‚Èƒrƒbƒg‚ğ“Ç‚ñ‚Å‚©‚çAc‚è‚ğƒoƒCƒgƒXƒgƒŠ[ƒ€‚Æ‚µ‚Ä“Ç‚Ş
+		// å…ˆé ­ã®ä¸­é€”åŠç«¯ãªãƒ“ãƒƒãƒˆã‚’èª­ã‚“ã§ã‹ã‚‰ã€æ®‹ã‚Šã‚’ãƒã‚¤ãƒˆã‚¹ãƒˆãƒªãƒ¼ãƒ ã¨ã—ã¦èª­ã‚€
 		unsigned int already_read = 0;
 		*ret_value = 0;
 		if (cur_bit_ != 0)
@@ -149,6 +163,10 @@ public:
 				already_read += 8;
 			}
 		}
+		if (cur_offset_ == size_)
+		{
+			cout << "EOS" << endl;
+		}
 
 		return true;
 	}
@@ -157,24 +175,26 @@ public:
 struct CONTEXT;
 class ICommand;
 
-// ‰ğÍó‹µ
+// è§£æçŠ¶æ³
 struct CONTEXT
 {
-	vector<shared_ptr<ICommand> > script;
-	unsigned int                  script_ix;
+	vector<shared_ptr<ICommand> > commands;
+	map<string, unsigned int>     command_jump_label;
+	unsigned int                  commands_ix;
+	map<string, unsigned int>     value_map;
 	Bitstream                     stream;
 	ifstream                      stream_ifs;
 };
 
-// ƒRƒ}ƒ“ƒhƒCƒ“ƒ^[ƒtƒF[ƒX
+// ã‚³ãƒãƒ³ãƒ‰ã‚¤ãƒ³ã‚¿ãƒ¼ãƒ•ã‚§ãƒ¼ã‚¹
 class ICommand
 {
 public:
 	virtual const string& err_str() = 0;
-	virtual bool fire(CONTEXT& ctx) = 0;
+	virtual bool execute(CONTEXT& ctx) = 0;
 };
 
-// ƒRƒ}ƒ“ƒhŠî’êƒNƒ‰ƒX
+// ã‚³ãƒãƒ³ãƒ‰åŸºåº•ã‚¯ãƒ©ã‚¹
 class Command : public ICommand
 {
 protected:
@@ -183,7 +203,7 @@ public:
 	virtual const string& err_str(){ return name_; }
 };
 
-// ƒRƒ}ƒ“ƒh - ƒtƒ@ƒCƒ‹ƒI[ƒvƒ“
+// ã‚³ãƒãƒ³ãƒ‰ - ãƒ•ã‚¡ã‚¤ãƒ«ã‚ªãƒ¼ãƒ—ãƒ³
 class CommandOpenFile : public Command
 {
 private:
@@ -198,9 +218,9 @@ public:
 		name_ = string("load ") + file_name_;
 	}
 
-	virtual bool fire(CONTEXT& ctx)
+	virtual bool execute(CONTEXT& ctx)
 	{
-		// ‚Æ‚è‚ ‚¦‚¸ƒtƒ@ƒCƒ‹‘S•”ƒoƒbƒtƒ@‚É“WŠJ‚·‚é
+		// ã¨ã‚Šã‚ãˆãšãƒ•ã‚¡ã‚¤ãƒ«å…¨éƒ¨ãƒãƒƒãƒ•ã‚¡ã«å±•é–‹ã™ã‚‹
 		ctx.stream_ifs.open(file_name_);
 		if (!ctx.stream_ifs){
 			cout << "# ERROR open file [" << file_name_ << "]" << endl;
@@ -211,120 +231,373 @@ public:
 		int stream_file_size = static_cast<int>(ctx.stream_ifs.tellg());
 		ctx.stream_ifs.seekg(0, ifstream::beg);
 		buf.reset(new unsigned char[stream_file_size]);
-		ctx.stream_ifs.read(reinterpret_cast<char*>(buf.get()), stream_file_size); // ?
+		ctx.stream_ifs.read((char*)buf.get(), stream_file_size);
 		ctx.stream_ifs.close();
 
-		// ƒrƒbƒgƒXƒgƒŠ[ƒ€ƒŠƒZƒbƒg
+		dump(buf.get(), 0, min(stream_file_size, 1024));
+
+		// ãƒ“ãƒƒãƒˆã‚¹ãƒˆãƒªãƒ¼ãƒ ãƒªã‚»ãƒƒãƒˆ
 		ctx.stream.reset(buf, stream_file_size);
 
 		printf("\n<load file>\n");
 		printf("   %s\n", file_name_.c_str());
 		printf("\n<hex>\n");
-		Dump(buf.get(), 0, min(stream_file_size, 256));
+		dump(buf.get(), 0, min(stream_file_size, 1024));
+		dump(buf.get(), 0x59c00, min(stream_file_size, 256));
 		printf("\n<report>\n");
-		printf(" offset(bit)  | name                                     | value      (dec)\n");
+		printf(" offset(bit)   | len           | name                                     | value      (dec)\n");
 
 		return true;
 	}
 };
 
-// ƒRƒ}ƒ“ƒh - ƒrƒbƒgƒXƒgƒŠ[ƒ€‚Æ‚µ‚Ä“Ç‚Ş
+// ã‚³ãƒãƒ³ãƒ‰ - ãƒ“ãƒƒãƒˆã‚¹ãƒˆãƒªãƒ¼ãƒ ã¨ã—ã¦èª­ã‚€
 class CommandReadBit : public Command
 {
+protected:
+	string option_;
+
 private:
 	unsigned int length_;
-	unsigned int last_val_;
 
 public:
 	CommandReadBit(){}
-	CommandReadBit(istringstream& iss_)
+	CommandReadBit(CONTEXT& ctx, istringstream& iss_)
 	{
-		iss_ >> name_ >> length_;
+		iss_ >> name_ >> length_ >> option_;
+		ctx.value_map[name_] = 0;
 	}
 
 	unsigned int read_value(CONTEXT& ctx, unsigned int bit_length)
 	{
+		unsigned int value;
+
+		printf(" 0x%08x(+%d)| 0x%08x(+%d)| %-40s | ",
+			ctx.stream.cur_offset(), ctx.stream.cur_bit(), bit_length / 8, bit_length % 8, name_.c_str());
+
 		if (bit_length <= 32)
 		{
-			ctx.stream.bit_read(bit_length, &last_val_);
-			printf(" 0x%08x(%d)| %-40s | 0x%-8x (%d)\n",
-				ctx.stream.cur_offset(), ctx.stream.cur_bit(), name_.c_str(), last_val_, last_val_);
-			return last_val_;
+			if (!ctx.stream.bit_read(bit_length, &value))
+			{
+				cerr << "#ERROR bit_read [" << name_ << "]"<< endl;
+			}
+
+			if (option_ == "le")
+			{
+				if (bit_length == 16)
+				{
+					value = reverse_endian_16(value);
+				}
+				else if (bit_length == 32)
+				{
+					value = reverse_endian_32(value);
+				}
+				else
+				{
+					cerr << "# ERROR need 16 or 32 bit to reverse endian" << endl;
+				}
+			}
+
+			printf("0x%-8x (%d)\n", value, value);
+			return value;
 		}
 		else
 		{
-			printf(" 0x%08x(%d)| %-40s | ", ctx.stream.cur_offset(), ctx.stream.cur_bit(), name_.c_str());
-			DumpLine(ctx.stream.buf(), ctx.stream.cur_offset(), min(16, (int)(bit_length/8)));
+			dump_line(ctx.stream.buf(), ctx.stream.cur_offset(), min(16, (int)(bit_length / 8)));
 			printf(" ...\n");
-			ctx.stream.bit_advance(bit_length);
+
+			if (!ctx.stream.bit_advance(bit_length))
+			{
+				cerr << "# ERROR bit_read " << name_ << "cur:" << ctx.stream.cur_offset() << ", read_length:" << bit_length << "bit" << endl;
+			}
 			return 0;
 		}
 		return 0;
 	}
-	virtual bool fire(CONTEXT& ctx)
+	virtual bool execute(CONTEXT& ctx)
 	{
-		last_val_ = read_value(ctx, length_);
+		ctx.value_map[name_] = read_value(ctx, length_);
 		return true;
 	}
 };
 
-// ƒRƒ}ƒ“ƒh - ƒoƒCƒgƒXƒgƒŠ[ƒ€‚Æ‚µ‚Ä“Ç‚Ş
+// ã‚³ãƒãƒ³ãƒ‰ - ãƒã‚¤ãƒˆã‚¹ãƒˆãƒªãƒ¼ãƒ ã¨ã—ã¦èª­ã‚€
 class CommandReadByte : public CommandReadBit
 {
 private:
 	unsigned int length_;
-	unsigned int last_val_;
 
 public:
 	CommandReadByte(){}
-	CommandReadByte(istringstream& iss_)
+	CommandReadByte(CONTEXT& ctx, istringstream& iss_)
 	{
-		iss_ >> name_ >> length_;
+		iss_ >> name_ >> length_ >> option_;
+		ctx.value_map[name_] = 0;
 	}
-		
-	virtual bool fire(CONTEXT& ctx)
+
+	virtual bool execute(CONTEXT& ctx)
 	{
-		// 8”{“Ç‚İ‚Ş
-		last_val_ = CommandReadBit::read_value(ctx, 8 * length_);
+		// 8å€èª­ã¿è¾¼ã‚€
+		ctx.value_map[name_] = CommandReadBit::read_value(ctx, 8 * length_);
 		return true;
 	}
 };
 
-// ’è‹`ƒtƒ@ƒCƒ‹‚Ìƒ^ƒO‚©‚çƒRƒ}ƒ“ƒh‚ğ¶¬‚·‚é
+// ã‚³ãƒãƒ³ãƒ‰ - ãƒã‚¤ãƒˆã‚¹ãƒˆãƒªãƒ¼ãƒ ã¨ã—ã¦èª­ã‚€
+class CommandReadBitRef : public CommandReadBit
+{
+private:
+	string ref_name_;
+
+public:
+	CommandReadBitRef(){}
+	CommandReadBitRef(CONTEXT& ctx, istringstream& iss_)
+	{
+		iss_ >> name_ >> ref_name_ >> option_;
+		if (ctx.value_map.find(ref_name_) == ctx.value_map.end())
+		{
+			cerr << "# ERROR ref name not found [" << ref_name_ << "]" << endl;
+		}
+		ctx.value_map[name_] = 0;
+	}
+
+	virtual bool execute(CONTEXT& ctx)
+	{
+		ctx.value_map[name_] = CommandReadBit::read_value(ctx, ctx.value_map[ref_name_]);
+		return true;
+	}
+};
+
+// ã‚³ãƒãƒ³ãƒ‰ - ãƒã‚¤ãƒˆã‚¹ãƒˆãƒªãƒ¼ãƒ ã¨ã—ã¦èª­ã‚€
+class CommandReadByteRef : public CommandReadBit
+{
+private:
+	string ref_name_;
+
+public:
+	CommandReadByteRef(){}
+	CommandReadByteRef(CONTEXT& ctx, istringstream& iss_)
+	{
+		iss_ >> name_ >> ref_name_ >> option_;
+		if (ctx.value_map.find(ref_name_) == ctx.value_map.end())
+		{
+			cerr << "# ERROR ref name not found [" << ref_name_ << "]" << endl;
+		}
+		ctx.value_map[name_] = 0;
+	}
+
+	virtual bool execute(CONTEXT& ctx)
+	{
+		// 8å€èª­ã¿è¾¼ã‚€
+		ctx.value_map[name_] = CommandReadBit::read_value(ctx, 8 * ctx.value_map[ref_name_]);
+		return true;
+	}
+};
+
+// ã‚³ãƒãƒ³ãƒ‰ - å˜ç™ºå››å‰‡æ¼”ç®—
+class CommandCalc : public Command
+{
+private:
+	int    operand_;
+	string command_;
+	string ref_name_;
+
+public:
+	CommandCalc(){}
+	CommandCalc(CONTEXT& ctx, string command, istringstream& iss_)
+	{
+		command_ = command;
+		iss_ >> ref_name_ >> operand_;
+		if (command == "val")
+		{
+			if (ctx.value_map.find(ref_name_) != ctx.value_map.end())
+			{
+				cerr << "# ERROR value already exist [" << ref_name_ << "]" << endl;
+			}
+			ctx.value_map[command] = 0;
+		}
+		else if (ctx.value_map.find(ref_name_) == ctx.value_map.end())
+		{
+			cerr << "# ref name not found [" << ref_name_ << "]" << endl;
+		}
+	}
+
+	virtual bool execute(CONTEXT& ctx)
+	{
+		if (command_ == "val")
+			ctx.value_map[ref_name_] = operand_;
+		if (command_ == "mov")
+			ctx.value_map[ref_name_] = operand_;
+		else if (command_ == "sum")
+			ctx.value_map[ref_name_] += operand_;
+		else if (command_ == "sub")
+			ctx.value_map[ref_name_] -= operand_;
+		else if (command_ == "mul")
+			ctx.value_map[ref_name_] *= operand_;
+		else if (command_ == "dev")
+			ctx.value_map[ref_name_] /= operand_;
+		else if (command_ == "mod")
+			ctx.value_map[ref_name_] %= operand_;
+		else if (command_ == "xor")
+			ctx.value_map[ref_name_] ^= operand_;
+		else if (command_ == "r_shift")
+			ctx.value_map[ref_name_] >>= operand_;
+		else if (command_ == "l_shift")
+			ctx.value_map[ref_name_] <<= operand_;
+
+		return true;
+	}
+};
+
+// å€¤ã‚’è¡¨ç¤ºã™ã‚‹
+class CommandPrint : public Command
+{
+private:
+	string ref_name_;
+
+public:
+	CommandPrint(){}
+	CommandPrint(CONTEXT& ctx, istringstream& iss_)
+	{
+		iss_ >> ref_name_;
+		if (ctx.value_map.find("ref_name_") == ctx.value_map.end())
+		{
+			cout << "# ref name not found [" << ref_name_ << "]" << endl;
+		}
+	}
+
+	virtual bool execute(CONTEXT& ctx)
+	{
+		cout << ref_name_ << " " << ctx.value_map[ref_name_] << endl;
+		return true;
+	}
+};
+
+// æ–‡å­—åˆ—ã‚’è¡¨ç¤ºã™ã‚‹
+class CommandStr : public Command
+{
+private:
+	string str_;
+
+public:
+	CommandStr(){}
+	CommandStr(CONTEXT& ctx, string str) :str_(str){}
+
+	virtual bool execute(CONTEXT& ctx)
+	{
+		cout << str_ << endl;
+		return true;
+	}
+};
+
+// å€¤ãŒãã‚Œã«ãªã£ã¦ã„ã‚Œã°ã‚¸ãƒ£ãƒ³ãƒ—ã™ã‚‹
+class CommandJumpIfEqual : public Command
+{
+private:
+	string   label_;
+	string   ref_name_;
+	unsigned int value_;
+
+public:
+	CommandJumpIfEqual(){}
+	CommandJumpIfEqual(CONTEXT& ctx, istringstream& iss_)
+	{
+		iss_ >> label_ >> ref_name_ >> value_;
+	}
+
+	virtual bool execute(CONTEXT& ctx)
+	{
+		if (ctx.value_map[ref_name_] == value_)
+		{
+			cout << "jump to " << label_ << endl;
+			ctx.commands_ix = ctx.command_jump_label[label_] - 1;
+		}
+		return true;
+	}
+};
+
+
+
+
+// å®šç¾©ãƒ•ã‚¡ã‚¤ãƒ«ã®ã‚¿ã‚°ã‹ã‚‰ã‚³ãƒãƒ³ãƒ‰ã‚’ç”Ÿæˆã™ã‚‹
 bool load_streamdef_file(CONTEXT& ctx, string& file_name)
 {
 	ifstream def_fs;
 	def_fs.open(file_name);
 	string line;
-	string tag;
+	string command;
 	istringstream iss;
 	while (def_fs && getline(def_fs, line))
 	{
 		iss.str(line);
 		iss.clear();
-		iss >> tag;
+		iss >> command;
 
-		if ((tag[0] == '/')
+		if ((command[0] == '/')
 		|| (iss.eof() == true))
 		{
 			continue;
 		}
-		else if (tag == "load")
+		else if (command == "label")
 		{
-			ctx.script.push_back(std::make_shared<CommandOpenFile>(iss));
+			string label;
+			iss >> label;
+			ctx.command_jump_label[label] = ctx.commands.size();
 		}
-		else if (tag == "b")
+		else if (command == "j")
 		{
-			ctx.script.push_back(std::make_shared<CommandReadBit>(iss));
+			// ã‚¸ãƒ£ãƒ³ãƒ—
 		}
-		else if (tag == "B")
+		else if (command == "je")
 		{
-			ctx.script.push_back(std::make_shared<CommandReadByte>(iss));
+			ctx.commands.push_back(std::make_shared<CommandJumpIfEqual>(ctx, iss));
+		}
+		else if (command == "load")
+		{
+			ctx.commands.push_back(std::make_shared<CommandOpenFile>(iss));
+		}
+		else if (command == "b")
+		{
+			ctx.commands.push_back(std::make_shared<CommandReadBit>(ctx, iss));
+		}
+		else if (command == "B")
+		{
+			ctx.commands.push_back(std::make_shared<CommandReadByte>(ctx, iss));
+		}
+		else if (command == "rb")
+		{
+			ctx.commands.push_back(std::make_shared<CommandReadBitRef>(ctx, iss));
+		}
+		else if (command == "rB")
+		{
+			ctx.commands.push_back(std::make_shared<CommandReadByteRef>(ctx, iss));
+		}
+		else if ((command == "val")
+		||       (command == "mov")
+		||       (command == "sum")
+		||       (command == "sub")
+		||       (command == "mul")
+		||       (command == "dev")
+		||       (command == "mod")
+		||       (command == "xor")
+		||       (command == "r_shift")
+		||       (command == "l_shift"))
+		{
+			ctx.commands.push_back(std::make_shared<CommandCalc>(ctx, command, iss));
+		}
+		else if (command == "print")
+		{
+			ctx.commands.push_back(std::make_shared<CommandPrint>(ctx, iss));
+		}
+		else if (command == "str")
+		{
+			ctx.commands.push_back(std::make_shared<CommandStr>(
+				ctx, line.substr(line.find_first_not_of(" ", 4), string::npos)));
 		}
 
-		if (iss.fail() == true || iss.eof() == false)	// •¶š—ñ‚ÌÅŒã‚Ü‚Åˆ—‚µ‚½‚©ƒ`ƒFƒbƒN‚ğs‚¤B
+		if (iss.fail() == true || iss.eof() == false)	// æ–‡å­—åˆ—ã®æœ€å¾Œã¾ã§å‡¦ç†ã—ãŸã‹ãƒã‚§ãƒƒã‚¯ã‚’è¡Œã†ã€‚
 		{
-			cerr << "# ERROR script read [" << line << "]" << endl;
+			cerr << "# ERROR fail commands read [" << line << "]" << endl;
 		}
 	}
 
@@ -337,7 +610,7 @@ int main(int argc, char** argv)
 	CONTEXT ctx;
 	string streamdef_file_name = "deffile/streamdef.txt";
 
-	// ˆø””»’è
+	// å¼•æ•°åˆ¤å®š
 	if (argc >= 2)
 	{
 		int flag = 0;
@@ -360,7 +633,7 @@ int main(int argc, char** argv)
 				switch (flag)
 				{
 				case 1:
-					ctx.script.push_back(std::make_shared<CommandOpenFile>(istringstream(string(argv[i]))));
+					ctx.commands.push_back(std::make_shared<CommandOpenFile>(istringstream(string(argv[i]))));
 				case 2:
 					streamdef_file_name = argv[i];
 				default:
@@ -376,22 +649,27 @@ int main(int argc, char** argv)
 		}
 	}
 
-	// Å‰‚Ì’è‹`ƒtƒ@ƒCƒ‹‚ğ“Ç‚Ş
+	// æœ€åˆã®å®šç¾©ãƒ•ã‚¡ã‚¤ãƒ«ã‚’èª­ã‚€
 	if (!load_streamdef_file(ctx, streamdef_file_name))
 	{
 		cerr << "load_streamdef_file() error" << endl;
 		return 0;
 	}
 
-	// ŠeíƒRƒ}ƒ“ƒh”­‰Î
-	for (ctx.script_ix = 0; ctx.script_ix < ctx.script.size(); ctx.script_ix++)
+	// å„ç¨®ã‚³ãƒãƒ³ãƒ‰ç™ºç«
+	for (ctx.commands_ix = 0; ctx.commands_ix < ctx.commands.size(); ctx.commands_ix++)
 	{
-		//cerr << "Command " << ctx.script[ctx.script_ix]->err_str() << endl;
+		//cerr << "Command " << ctx.commands[ctx.commands_ix]->err_str() << endl;
 
-		if (!ctx.script[ctx.script_ix]->fire(ctx))
+		if (!ctx.commands[ctx.commands_ix]->execute(ctx))
 		{
-			cerr << "# Command error" << ctx.script[ctx.script_ix]->err_str() << endl;
+			cerr << "# Command error" << ctx.commands[ctx.commands_ix]->err_str() << endl;
 		}
+	}
+
+	if (ctx.stream.size() != ctx.stream.cur_offset())
+	{
+		cout << "data remained. stream_size:" << ctx.stream.size() << ", read_ofs:" << ctx.stream.cur_offset() << endl;
 	}
 
 	return 0;

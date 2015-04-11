@@ -3,21 +3,20 @@
 // とりあえずこれを読む
 load test.wav
 
-B 'RIFF'                       4
-B file_size                    4
-B 'WAVE'                       4
-B 'fmt_'                       4
-B size_fmt                     4
-B format_id                    2
-B num_channels                 2
-B sampleing_frequency          4
-B byte_per_sec                 4
-B block_size(smaple_x_channel) 2
-B bit_depth                    2
-B size_ext                     2
-B 'data'                       4
-B size_data                    4
-
-// フィールド参照してサイズ可変にしたい
-B payload                      20000
-
+B        'RIFF'                       4
+B        file_size+muns8              4 le
+B        'WAVE'                       4
+B        'fmt_'                       4
+B        size_fmt                     4 le
+B        format_id                    2 le
+B        num_channels                 2 le
+B        sampleing_frequency          4 le
+B        byte_per_sec                 4 le
+B        block_size(smaple_x_channel) 2 le
+B        bit_depth                    2 le
+B        'data'                       4
+B        size_audio_data              4 le
+rB       audio_data                   size_audio_data
+B        tag                          4
+B        size_data                    4 le
+rB       data                         size_data

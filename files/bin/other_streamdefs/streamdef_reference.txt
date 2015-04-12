@@ -1,17 +1,19 @@
-﻿// wav to pcm
+﻿//--------------
+// フローコントロールとか
+//--------------
+// 値を定義
+mov      i 5
+// ラベルを設置
+label label1
+// 値を操作
+sub      i 1
+// ジャンプ命令
+jne   label1 aaa 0
 
-ropen test.wav
-wopen out.pcm
-print "=============================================================="
-print " load test.wav"
-print ""
-print " dump head part.."
-dump 0 256
-print ""
-print "=============================================================="
-print "start analyse"
-
-cB       'RIFF'                       4 0x52494646
+//--------------
+// wavを読む例
+//--------------
+B        'RIFF'                       4
 Bl       file_size+muns8              4
 B        'WAVE'                       4
 B        'fmt_'                       4
@@ -24,9 +26,10 @@ Bl       block_size(smaple_x_channel) 2
 Bl       bit_depth                    2
 B        'data'                       4
 Bl       size_audio_data              4
+// 可変長読み込み可
 B        audio_data                   size_audio_data
-print    audio_data
-write    audio_data
+print    audio_data"
 B        tag                          4
 Bl       size_data                    4
-B        data                         size_data
+B        data                         size_data"
+

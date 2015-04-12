@@ -1,6 +1,6 @@
-// wav riff
+﻿// wav riff
 
-// �Ƃ肠���������ǂ�
+// とりあえずこれを読む
 load test.wav
 
 B  'RIFF'                       4

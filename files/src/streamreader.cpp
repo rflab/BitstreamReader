@@ -212,9 +212,10 @@ struct CONTEXT
 	vector<shared_ptr<ICommand> > commands;
 	unsigned int                  commands_ix;
 	map<string, unsigned int>     label_map;
-	util::Bitstream               stream;
-	ifstream                      stream_ifs;
 	map<string, RECORD>           record_map;
+	util::Bitstream               stream;
+	ifstream                      ifs;
+	ofstream                      ofs;
 
 	// とりあえずこれで値を拾う
 	unsigned get_value(string str)
@@ -232,6 +233,17 @@ struct CONTEXT
 			}
 			return record_map[str].value;
 		}
+	}
+
+	// とりあえずこれで値を拾う
+	RECORD& get_record(string str)
+	{
+		if (record_map.find(str) == record_map.end())
+		{
+			cerr << "# ERROR ref name not found [" << str << "]" << endl;
+			throw false;
+		}
+		return record_map[str];
 	}
 };
 
@@ -254,19 +266,19 @@ public:
 };
 
 // ファイル全部ctxのバッファに展開する
-class CommandOpenFile : public Command
+class CommandOpenReadFile : public Command
 {
 private:
 	string file_name_;
 	shared_ptr<unsigned char> buf;
 
 public:
-	CommandOpenFile(){}
-	CommandOpenFile(string file_name)
+	CommandOpenReadFile(){}
+	CommandOpenReadFile(string file_name)
 	{
 		file_name_ = file_name;
 	}
-	CommandOpenFile(istringstream& iss)
+	CommandOpenReadFile(istringstream& iss)
 	{
 		iss >> file_name_;
 		name_ = string("load ") + file_name_;
@@ -274,24 +286,78 @@ public:
 
 	virtual bool execute(CONTEXT& ctx)
 	{
-		ctx.stream_ifs.open(file_name_, ifstream::binary);
-		if (!ctx.stream_ifs){
-			cout << "# ERROR open file [" << file_name_ << "]" << endl;
+		ctx.ifs.open(file_name_, ifstream::binary);
+		if (!ctx.ifs){
+			cout << "# ERROR open read file [" << file_name_ << "]" << endl;
 			return false;
 		}
 
 		// ファイルサイズ
-		ctx.stream_ifs.seekg(0, ifstream::end);
-		int stream_file_size = static_cast<int>(ctx.stream_ifs.tellg());
-		ctx.stream_ifs.seekg(0, ifstream::beg);
+		ctx.ifs.seekg(0, ifstream::end);
+		int stream_file_size = static_cast<int>(ctx.ifs.tellg());
+		ctx.ifs.seekg(0, ifstream::beg);
 
 		// 全部読み込み
 		buf.reset(new unsigned char[stream_file_size]);
-		ctx.stream_ifs.read((char*)buf.get(), stream_file_size);
-		ctx.stream_ifs.close();
+		ctx.ifs.read((char*)buf.get(), stream_file_size);
+		ctx.ifs.close();
 
 		// ビットストリームリセット
 		ctx.stream.reset(buf, stream_file_size);
+
+		return true;
+	}
+};
+
+
+// 書き出し用ファイルを開く
+class CommandOpenWriteFile : public Command
+{
+private:
+	string file_name_;
+
+public:
+	CommandOpenWriteFile(){}
+	CommandOpenWriteFile(istringstream& iss)
+	{
+		iss >> file_name_;
+	}
+
+	virtual bool execute(CONTEXT& ctx)
+	{
+		ctx.ofs.open(file_name_, ifstream::binary);
+		if (!ctx.ofs){
+			cout << "# ERROR open write file [" << file_name_ << "]" << endl;
+			return false;
+		}
+		return true;
+	}
+};
+
+// 書き出す
+class CommandWriteByte : public Command
+{
+private:
+	string value_str_;
+
+public:
+	CommandWriteByte(){}
+	CommandWriteByte(istringstream& iss)
+	{
+		iss >> value_str_;
+	}
+
+	virtual bool execute(CONTEXT& ctx)
+	{
+		if (!ctx.ofs){
+			cout << "# ERROR no write file for " << value_str_ << endl;
+			return false;
+		}
+
+		// ????
+		CONTEXT::RECORD& record = ctx.get_record(value_str_);
+		unsigned char* buf = const_cast<unsigned char*>(ctx.stream.buf());
+		ctx.ofs.write((char*)(&buf[record.offset]), record.bit_length / 8);
 
 		return true;
 	}
@@ -319,10 +385,10 @@ public:
 		printf(" pos=0x%08x(+%d)| siz=0x%08x(+%d)| %-40s | ",
 			ctx.stream.cur_offset(), ctx.stream.cur_bit(), bit_length / 8, bit_length % 8, name_.c_str());
 
-		ctx.record_map[name_].offset     = ctx.stream.cur_offset();
-		ctx.record_map[name_].bit        = ctx.stream.cur_bit();
+		ctx.record_map[name_].offset = ctx.stream.cur_offset();
+		ctx.record_map[name_].bit = ctx.stream.cur_bit();
 		ctx.record_map[name_].bit_length = bit_length;
-		ctx.record_map[name_].value      = 0;
+		ctx.record_map[name_].value = 0;
 
 		if (bit_length <= 32)
 		{
@@ -330,7 +396,7 @@ public:
 
 			if (!ctx.stream.bit_read(bit_length, &value))
 			{
-				cerr << "#ERROR bit_read [" << name_ << "]"<< endl;
+				cerr << "#ERROR bit_read [" << name_ << "]" << endl;
 			}
 
 			if (rendian_)
@@ -508,20 +574,20 @@ public:
 	{
 		if (command_ == "val")
 			ctx.record_map[ref_name_];
-		if (command_ == "mov")				    
-			ctx.record_map[ref_name_].value =   ctx.get_value(operand_);
-		else if (command_ == "sum")			   
-			ctx.record_map[ref_name_].value +=  ctx.get_value(operand_);
-		else if (command_ == "sub")			   
-			ctx.record_map[ref_name_].value -=  ctx.get_value(operand_);
-		else if (command_ == "mul")			   
-			ctx.record_map[ref_name_].value *=  ctx.get_value(operand_);
-		else if (command_ == "dev")			   
-			ctx.record_map[ref_name_].value /=  ctx.get_value(operand_);
-		else if (command_ == "mod")			   
-			ctx.record_map[ref_name_].value %=  ctx.get_value(operand_);
-		else if (command_ == "xor")			   
-			ctx.record_map[ref_name_].value ^=  ctx.get_value(operand_);
+		if (command_ == "mov")
+			ctx.record_map[ref_name_].value = ctx.get_value(operand_);
+		else if (command_ == "add")
+			ctx.record_map[ref_name_].value += ctx.get_value(operand_);
+		else if (command_ == "sub")
+			ctx.record_map[ref_name_].value -= ctx.get_value(operand_);
+		else if (command_ == "mul")
+			ctx.record_map[ref_name_].value *= ctx.get_value(operand_);
+		else if (command_ == "dev")
+			ctx.record_map[ref_name_].value /= ctx.get_value(operand_);
+		else if (command_ == "mod")
+			ctx.record_map[ref_name_].value %= ctx.get_value(operand_);
+		else if (command_ == "xor")
+			ctx.record_map[ref_name_].value ^= ctx.get_value(operand_);
 		else if (command_ == "r_shift")
 			ctx.record_map[ref_name_].value >>= ctx.get_value(operand_);
 		else if (command_ == "l_shift")
@@ -561,8 +627,8 @@ public:
 		if (str_[0] == '\"')
 		{
 			int first = line_.find_first_of('\"');
-			int last  = line_.find_last_of('\"');
-			cout << line_.substr(first + 1, last-first-1) << endl;
+			int last = line_.find_last_of('\"');
+			cout << line_.substr(first + 1, last - first - 1) << endl;
 			return true;
 		}
 		else
@@ -639,7 +705,7 @@ private:
 	unsigned int value_;
 
 public:
-	CommandJumpIfNotEqual (){}
+	CommandJumpIfNotEqual(){}
 	CommandJumpIfNotEqual(CONTEXT& ctx, istringstream& iss)
 	{
 		iss >> label_ >> ref_name_ >> value_;
@@ -663,7 +729,7 @@ bool load_streamdef_file(CONTEXT& ctx, string& file_name)
 	string line;
 	string command;
 	istringstream iss;
-	int i=0;
+	int i = 0;
 
 	try
 	{
@@ -680,6 +746,19 @@ bool load_streamdef_file(CONTEXT& ctx, string& file_name)
 				|| (iss.eof() == true))
 			{
 				continue;
+			}
+			else if ((command == "val")
+			||       (command == "mov")
+			||       (command == "add")
+			||       (command == "sub")
+			||       (command == "mul")
+			||       (command == "dev")
+			||       (command == "mod")
+			||       (command == "xor")
+			||       (command == "r_shift")
+			||       (command == "l_shift"))
+			{
+				ctx.commands.push_back(std::make_shared<CommandCalc>(ctx, command, iss));
 			}
 			else if (command == "label")
 			{
@@ -698,10 +777,6 @@ bool load_streamdef_file(CONTEXT& ctx, string& file_name)
 			else if (command == "jne")
 			{
 				ctx.commands.push_back(std::make_shared<CommandJumpIfNotEqual>(ctx, iss));
-			}
-			else if (command == "load")
-			{
-				ctx.commands.push_back(std::make_shared<CommandOpenFile>(iss));
 			}
 			else if (command == "b")
 			{
@@ -739,20 +814,6 @@ bool load_streamdef_file(CONTEXT& ctx, string& file_name)
 			{
 				ctx.commands.push_back(std::make_shared<CommandSearchByte>(ctx, iss));
 			}
-
-			else if ((command == "val")
-				|| (command == "mov")
-				|| (command == "sum")
-				|| (command == "sub")
-				|| (command == "mul")
-				|| (command == "dev")
-				|| (command == "mod")
-				|| (command == "xor")
-				|| (command == "r_shift")
-				|| (command == "l_shift"))
-			{
-				ctx.commands.push_back(std::make_shared<CommandCalc>(ctx, command, iss));
-			}
 			else if (command == "print")
 			{
 				ctx.commands.push_back(std::make_shared<CommandPrint>(ctx, iss, line));
@@ -762,6 +823,22 @@ bool load_streamdef_file(CONTEXT& ctx, string& file_name)
 			{
 				ctx.commands.push_back(std::make_shared<CommandDump>(iss));
 			}
+			else if (command == "ropen")
+			{
+				ctx.commands.push_back(std::make_shared<CommandOpenReadFile>(iss));
+			}
+			else if (command == "wopen")
+			{
+				ctx.commands.push_back(std::make_shared<CommandOpenWriteFile>(iss));
+			}
+			else if (command == "write")
+			{
+				ctx.commands.push_back(std::make_shared<CommandWriteByte>(iss));
+			}
+			//else if (command == "include")
+			//{
+			//	ctx.commands.push_back(std::make_shared<CommandIncludeFile>(iss));
+			//}
 			else
 			{
 				cerr << "# ERROR command not found [" << line << "]" << endl;
@@ -786,12 +863,12 @@ int main(int argc, char** argv)
 {
 	CONTEXT ctx;
 	string streamdef_file_name = "streamdef.txt";
-	
+
 	// 引数判定
 	if (argc >= 2)
 	{
 		cout << argv[1] << endl;
-		CommandOpenFile file_open_command(argv[1]);
+		CommandOpenReadFile file_open_command(argv[1]);
 		file_open_command.execute(ctx);
 	}
 	if (argc >= 3)
@@ -803,31 +880,16 @@ int main(int argc, char** argv)
 			{
 				flag = 1;
 			}
-			if (string("--deffile") == argv[i])
+			else switch (flag)
 			{
-				flag = 2;
-			}
-			else if (string("--offset") == argv[i])
-			{
-				flag = 3;
-			}
-			else
-			{
-				switch (flag)
-				{
 				case 1:
-					ctx.commands.push_back(std::make_shared<CommandOpenFile>(istringstream(string(argv[i]))));
-				case 2:
 					streamdef_file_name = argv[i];
 				default:
-					cout << "a.out {targetfile} [--deffile|--offset]\n"
+					cout <<
+						"a.out {targetfile} [--deffile]\n"
 						"\n"
-						"  --deffile : set stream definition file\n"
-						"  --offset  : set start offset\n" << endl;
+						"  --deffile : set stream definition file\n" << endl;
 					return 0;
-				}
-
-				flag = 0;
 			}
 		}
 	}

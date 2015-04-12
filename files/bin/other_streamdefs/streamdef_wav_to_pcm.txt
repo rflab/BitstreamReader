@@ -1,5 +1,6 @@
-﻿// wav to pcm
+﻿// wav riff
 
+// とりあえずこれを読む
 ropen test.wav
 wopen out.pcm
 print "=============================================================="
@@ -26,7 +27,7 @@ B        'data'                       4
 Bl       size_audio_data              4
 B        audio_data                   size_audio_data
 print    audio_data
-write    audio_data
 B        tag                          4
 Bl       size_data                    4
 B        data                         size_data
+write    audio_data

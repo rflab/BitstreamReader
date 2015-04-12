@@ -1,6 +1,5 @@
-// 定義ファイルに従ってストリームを読む
+﻿// 定義ファイルに従ってストリームを読む
 // いまのところ個々の読み込みは512MBまで
-
 
 #include <iostream>
 #include <vector>
@@ -9,6 +8,7 @@
 #include <sstream>
 #include <fstream>
 #include <algorithm>
+#include <cctype>
 
 using std::vector;
 using std::map;
@@ -20,157 +20,180 @@ using std::endl;
 using std::istringstream;
 using std::ifstream;
 using std::ofstream;
+
 using std::string;
-using std::getline;
-using std::min;
 
-// 一行バイトダンプ
-bool dump_line(const unsigned char* buf, unsigned int offset, unsigned int byte_size)
+namespace util
 {
-	for (unsigned int i = 0; i < byte_size; ++i)
+	// とにかく一行ダンプ
+	bool dump_line(const unsigned char* buf, unsigned int offset, unsigned int byte_size)
 	{
-		printf("%02x ", buf[offset + i]);
-	}
+		for (unsigned int i = 0; i < byte_size; ++i)
+		{
+			printf("%02x ", buf[offset + i]);
+		}
 
-	return true;
-}
-
-// バイトダンプ
-bool dump(const unsigned char* buf, unsigned int offset, unsigned int byte_size)
-{
-	printf(" offset    | +0 +1 +2 +3 +4 +5 +6 +7 +8 +9 +A +B +C +D +E +F\n");
-
-	unsigned int i = 0;
-	for (i = 0; i + 16 <= byte_size; i += 16)
-	{
-		printf(" 0x%08x| ", offset + i);
-		dump_line(buf, offset + i, 16);
-		putchar('\n');
-	}
-	if (byte_size > i)
-	{
-		printf(" 0x%08x| ", offset + i);
-		dump_line(buf, offset + i, byte_size % 16);
-		putchar('\n');
-	}
-
-	return true;
-}
-
-// エンディアン変換 - 16bit
-inline unsigned int reverse_endian_16(unsigned int value)
-{
-	return ((value >> 8) & 0xff) | ((value << 8) & 0xff00);
-}
-
-// エンディアン変換 - 32bit
-inline unsigned int reverse_endian_32(unsigned int value)
-{
-	return ((value >> 24) & 0xff) | ((value >> 8) & 0xff00)
-		| ((value << 8) & 0xff0000) | ((value << 24) & 0xff000000);
-}
-
-
-// 設定したバッファからビット単位でデータを読み出す
-// ビッグエンディアン
-class Bitstream
-{
-private:
-	shared_ptr<unsigned char> sbuf_;
-	unsigned char* buf_;
-	unsigned int   size_;
-	unsigned int   cur_offset_;
-	unsigned int   cur_bit_;
-
-public:
-
-	Bitstream():buf_(nullptr), size_(0), cur_bit_(0), cur_offset_(0){}
-
-	const unsigned char* buf()       { return buf_; }
-	const unsigned int&  size()      { return size_; }
-	unsigned int&        cur_offset(){ return cur_offset_; }
-	unsigned int&        cur_bit()   { return cur_bit_; }
-
-	bool reset(shared_ptr<unsigned char> sbuf_, unsigned int size)
-	{
-		sbuf_       = sbuf_;
-		buf_        = sbuf_.get();
-		size_       = size;
-		cur_offset_ = 0;
-		cur_bit_    = 0;
 		return true;
 	}
 
-	bool check_length(unsigned int read_length) const
+	// 16バイト単位で綺麗にダンプ表示
+	bool dump(const unsigned char* buf, unsigned int offset, unsigned int byte_size)
 	{
-		if (size_ <= (cur_offset_ + (cur_bit_ + read_length) / 8))
+		printf("     offset    | +0 +1 +2 +3 +4 +5 +6 +7 +8 +9 +A +B +C +D +E +F\n");
+
+		unsigned int i = 0;
+		for (i = 0; i + 16 <= byte_size; i += 16)
 		{
-			cout << "# ERROR over read" << endl;
-			return false;
+			printf("     0x%08x| ", offset + i);
+			dump_line(buf, offset + i, 16);
+			putchar('\n');
 		}
+		if (byte_size > i)
+		{
+			printf("     0x%08x| ", offset + i);
+			dump_line(buf, offset + i, byte_size % 16);
+			putchar('\n');
+		}
+
 		return true;
 	}
 
-	bool bit_advance(unsigned int length)
+	// エンディアン変換 - 16bit
+	inline unsigned int reverse_endian_16(unsigned int value)
 	{
-		if (!check_length(length))
-			return false;
-
-		cur_offset_ += (length / 8);
-		cur_bit_    =  (cur_bit_ + length) % 8;
-		return true;
+		return ((value >> 8) & 0xff) | ((value << 8) & 0xff00);
 	}
 
-	bool bit_read(unsigned int read_length, unsigned int* ret_value)
+	// エンディアン変換 - 32bit
+	inline unsigned int reverse_endian_32(unsigned int value)
 	{
-		if (!check_length(read_length))
+		return ((value >> 24) & 0xff) | ((value >> 8) & 0xff00)
+			| ((value << 8) & 0xff0000) | ((value << 24) & 0xff000000);
+	}
+
+	// 設定したバッファからビット単位でデータを読み出す
+	// ビッグエンディアン固定
+	class Bitstream
+	{
+	private:
+		shared_ptr<unsigned char> sbuf_;
+		unsigned char* buf_;
+		unsigned int   size_;
+		unsigned int   cur_offset_;
+		unsigned int   cur_bit_;
+
+	public:
+
+		Bitstream() :buf_(nullptr), size_(0), cur_bit_(0), cur_offset_(0){}
+
+		const unsigned char* buf()       { return buf_; }
+		const unsigned int&  size()      { return size_; }
+		unsigned int&        cur_offset(){ return cur_offset_; }
+		unsigned int&        cur_bit()   { return cur_bit_; }
+
+		bool reset(shared_ptr<unsigned char> sbuf_, unsigned int size)
 		{
-			return false;
-		}
-		if (read_length > 32)
-		{
-			cerr << "# ERROR read bit length > 32" << endl;
-			return false;
-		}
-		
-		// 先頭の中途半端なビットを読んでから、残りをバイトストリームとして読む
-		unsigned int already_read = 0;
-		*ret_value = 0;
-		if (cur_bit_ != 0)
-		{
-			*ret_value = (buf_[cur_offset_] >> (8 - cur_bit_ - read_length)) &((1 << read_length) - 1);
-			bit_advance(read_length);
-			already_read += read_length;
+			sbuf_ = sbuf_;
+			buf_ = sbuf_.get();
+			size_ = size;
+			cur_offset_ = 0;
+			cur_bit_ = 0;
+			return true;
 		}
 
-		while (read_length > already_read)
+		bool dump_line(unsigned int offset, unsigned int size)
 		{
-			if (read_length - already_read < 8)
+			return util::dump_line(buf_, offset, size);
+		}
+
+		bool dump(unsigned int offset, unsigned int size)
+		{
+			return util::dump(buf_, offset, size);
+		}
+
+		bool check_length(unsigned int read_length) const
+		{
+			unsigned int next_offset = cur_offset_ + (cur_bit_ + read_length) / 8;
+			if (size_ < next_offset)
 			{
-				*ret_value <<= (read_length - already_read);
-				*ret_value |= buf_[cur_offset_] >> (8 - (read_length - already_read));
-				break;
+				cout << "# ERROR over read " << std::hex << size_ << " <= " << next_offset << endl;
+				return false;
 			}
-			else
+			return true;
+		}
+
+		bool cut_bit()
+		{
+			if (cur_bit_ != 0)
 			{
-				*ret_value <<= 8;
-				*ret_value |= buf_[cur_offset_];
-				if (!bit_advance(8))
+				++cur_offset_;
+				cur_bit_ = 0;
+			}
+			return true;
+		}
+
+		bool bit_advance(unsigned int length)
+		{
+			if (!check_length(length))
+				return false;
+
+			cur_offset_ += (length / 8);
+			cur_bit_ = (cur_bit_ + length) % 8;
+
+			if (cur_offset_ == size_)
+			{
+				cout << "[EOS]" << endl;
+			}
+
+			return true;
+		}
+
+		bool bit_read(unsigned int read_length, unsigned int* ret_value)
+		{
+			if (!check_length(read_length))
+				return false;
+
+			if (read_length > 32)
+			{
+				cerr << "# ERROR read bit length > 32" << endl;
+				return false;
+			}
+
+			// 先頭の中途半端なビットを読んでから、残りをバイトストリームとして読む
+			unsigned int already_read = 0;
+			*ret_value = 0;
+			if (cur_bit_ != 0)
+			{
+				*ret_value = (buf_[cur_offset_] >> (8 - cur_bit_ - read_length)) &((1 << read_length) - 1);
+				bit_advance(read_length);
+				already_read += read_length;
+			}
+
+			while (read_length > already_read)
+			{
+				if (read_length - already_read < 8)
 				{
-					cerr << "#ERROR bit_advance" << endl;
+					*ret_value <<= (read_length - already_read);
+					*ret_value |= buf_[cur_offset_] >> (8 - (read_length - already_read));
 					break;
 				}
-				already_read += 8;
+				else
+				{
+					*ret_value <<= 8;
+					*ret_value |= buf_[cur_offset_];
+					if (!bit_advance(8))
+					{
+						cerr << "#ERROR bit_advance" << endl;
+						break;
+					}
+					already_read += 8;
+				}
 			}
-		}
-		if (cur_offset_ == size_)
-		{
-			cout << "EOS" << endl;
-		}
 
-		return true;
-	}
-};
+			return true;
+		}
+	};
+}
 
 struct CONTEXT;
 class ICommand;
@@ -178,23 +201,50 @@ class ICommand;
 // 解析状況
 struct CONTEXT
 {
+	struct RECORD
+	{
+		unsigned int offset;
+		unsigned int bit;
+		unsigned int bit_length;
+		unsigned int value;
+	};
+
 	vector<shared_ptr<ICommand> > commands;
-	map<string, unsigned int>     command_jump_label;
 	unsigned int                  commands_ix;
-	map<string, unsigned int>     value_map;
-	Bitstream                     stream;
+	map<string, unsigned int>     label_map;
+	util::Bitstream               stream;
 	ifstream                      stream_ifs;
+	map<string, RECORD>           record_map;
+
+	// とりあえずこれで値を拾う
+	unsigned get_value(string str)
+	{
+		if (std::isdigit(str[0]))
+		{
+			return std::stoi(str, nullptr, 0);
+		}
+		else
+		{
+			if (record_map.find(str) == record_map.end())
+			{
+				cerr << "# ERROR ref name not found [" << str << "]" << endl;
+				throw false;
+			}
+			return record_map[str].value;
+		}
+	}
 };
 
-// コマンドインターフェース
+
+// 各種コマンドのインターフェース
 class ICommand
 {
 public:
 	virtual const string& err_str() = 0;
-	virtual bool execute(CONTEXT& ctx) = 0;
+	virtual bool  execute(CONTEXT& ctx) = 0;
 };
 
-// コマンド基底クラス
+// 各種コマンドの基底クラス
 class Command : public ICommand
 {
 protected:
@@ -203,7 +253,7 @@ public:
 	virtual const string& err_str(){ return name_; }
 };
 
-// コマンド - ファイルオープン
+// ファイル全部ctxのバッファに展開する
 class CommandOpenFile : public Command
 {
 private:
@@ -212,238 +262,270 @@ private:
 
 public:
 	CommandOpenFile(){}
-	CommandOpenFile(istringstream& iss_)
+	CommandOpenFile(string file_name)
 	{
-		iss_ >> file_name_;
+		file_name_ = file_name;
+	}
+	CommandOpenFile(istringstream& iss)
+	{
+		iss >> file_name_;
 		name_ = string("load ") + file_name_;
 	}
 
 	virtual bool execute(CONTEXT& ctx)
 	{
-		// とりあえずファイル全部バッファに展開する
-		ctx.stream_ifs.open(file_name_);
+		ctx.stream_ifs.open(file_name_, ifstream::binary);
 		if (!ctx.stream_ifs){
 			cout << "# ERROR open file [" << file_name_ << "]" << endl;
 			return false;
 		}
 
+		// ファイルサイズ
 		ctx.stream_ifs.seekg(0, ifstream::end);
 		int stream_file_size = static_cast<int>(ctx.stream_ifs.tellg());
 		ctx.stream_ifs.seekg(0, ifstream::beg);
+
+		// 全部読み込み
 		buf.reset(new unsigned char[stream_file_size]);
 		ctx.stream_ifs.read((char*)buf.get(), stream_file_size);
 		ctx.stream_ifs.close();
 
-		dump(buf.get(), 0, min(stream_file_size, 1024));
-
 		// ビットストリームリセット
 		ctx.stream.reset(buf, stream_file_size);
-
-		printf("\n<load file>\n");
-		printf("   %s\n", file_name_.c_str());
-		printf("\n<hex>\n");
-		dump(buf.get(), 0, min(stream_file_size, 1024));
-		dump(buf.get(), 0x59c00, min(stream_file_size, 256));
-		printf("\n<report>\n");
-		printf(" offset(bit)   | len           | name                                     | value      (dec)\n");
 
 		return true;
 	}
 };
 
-// コマンド - ビットストリームとして読む
+// ビット単位でストリームを読む
 class CommandReadBit : public Command
 {
 protected:
-	string option_;
-
-private:
-	unsigned int length_;
+	string length_str_;
+	bool   rendian_;
 
 public:
 	CommandReadBit(){}
-	CommandReadBit(CONTEXT& ctx, istringstream& iss_)
+	CommandReadBit(CONTEXT& ctx, istringstream& iss, bool rendian = false)
+		:
+		rendian_(rendian)
 	{
-		iss_ >> name_ >> length_ >> option_;
-		ctx.value_map[name_] = 0;
+		iss >> name_ >> length_str_;
+		ctx.record_map[name_];
 	}
 
-	unsigned int read_value(CONTEXT& ctx, unsigned int bit_length)
+	bool read_value(CONTEXT& ctx, unsigned int bit_length)
 	{
-		unsigned int value;
-
-		printf(" 0x%08x(+%d)| 0x%08x(+%d)| %-40s | ",
+		printf(" pos=0x%08x(+%d)| siz=0x%08x(+%d)| %-40s | ",
 			ctx.stream.cur_offset(), ctx.stream.cur_bit(), bit_length / 8, bit_length % 8, name_.c_str());
+
+		ctx.record_map[name_].offset     = ctx.stream.cur_offset();
+		ctx.record_map[name_].bit        = ctx.stream.cur_bit();
+		ctx.record_map[name_].bit_length = bit_length;
+		ctx.record_map[name_].value      = 0;
 
 		if (bit_length <= 32)
 		{
+			unsigned int value;
+
 			if (!ctx.stream.bit_read(bit_length, &value))
 			{
 				cerr << "#ERROR bit_read [" << name_ << "]"<< endl;
 			}
 
-			if (option_ == "le")
+			if (rendian_)
 			{
 				if (bit_length == 16)
 				{
-					value = reverse_endian_16(value);
+					value = util::reverse_endian_16(value);
 				}
 				else if (bit_length == 32)
 				{
-					value = reverse_endian_32(value);
+					value = util::reverse_endian_32(value);
 				}
 				else
 				{
 					cerr << "# ERROR need 16 or 32 bit to reverse endian" << endl;
+					return false;
 				}
 			}
 
-			printf("0x%-8x (%d)\n", value, value);
-			return value;
+			printf("val=0x%-8x (%d)\n", value, value);
+			ctx.record_map[name_].value = value;
 		}
 		else
 		{
-			dump_line(ctx.stream.buf(), ctx.stream.cur_offset(), min(16, (int)(bit_length / 8)));
-			printf(" ...\n");
+			printf("dat=");
+			ctx.stream.dump_line(ctx.stream.cur_offset(), std::min(16, (int)(bit_length / 8)));
+			if (bit_length / 8 <= 16)
+				printf(" \n");
+			else
+				printf(" ...\n");
 
 			if (!ctx.stream.bit_advance(bit_length))
 			{
 				cerr << "# ERROR bit_read " << name_ << "cur:" << ctx.stream.cur_offset() << ", read_length:" << bit_length << "bit" << endl;
+				return false;
 			}
-			return 0;
 		}
-		return 0;
+
+		return true;
 	}
 	virtual bool execute(CONTEXT& ctx)
 	{
-		ctx.value_map[name_] = read_value(ctx, length_);
-		return true;
+		return read_value(ctx, ctx.get_value(length_str_));
 	}
 };
 
-// コマンド - バイトストリームとして読む
+// バイト単位でストリームを読む
 class CommandReadByte : public CommandReadBit
 {
-private:
-	unsigned int length_;
-
 public:
 	CommandReadByte(){}
-	CommandReadByte(CONTEXT& ctx, istringstream& iss_)
-	{
-		iss_ >> name_ >> length_ >> option_;
-		ctx.value_map[name_] = 0;
-	}
+	CommandReadByte(CONTEXT& ctx, istringstream& iss, bool rendian = false)
+		: CommandReadBit(ctx, iss, rendian){}
 
 	virtual bool execute(CONTEXT& ctx)
 	{
 		// 8倍読み込む
-		ctx.value_map[name_] = CommandReadBit::read_value(ctx, 8 * length_);
-		return true;
+		return read_value(ctx, 8 * ctx.get_value(length_str_));
 	}
 };
 
-// コマンド - バイトストリームとして読む
-class CommandReadBitRef : public CommandReadBit
+// bit単位で値を比較する
+class CommandCompairBit : public CommandReadBit
 {
-private:
-	string ref_name_;
+protected:
+	string compare_str_;
 
 public:
-	CommandReadBitRef(){}
-	CommandReadBitRef(CONTEXT& ctx, istringstream& iss_)
+	CommandCompairBit(){}
+	CommandCompairBit(CONTEXT& ctx, istringstream& iss, bool rendian = false)
 	{
-		iss_ >> name_ >> ref_name_ >> option_;
-		if (ctx.value_map.find(ref_name_) == ctx.value_map.end())
-		{
-			cerr << "# ERROR ref name not found [" << ref_name_ << "]" << endl;
-		}
-		ctx.value_map[name_] = 0;
+		iss >> name_ >> length_str_ >> compare_str_;
+		rendian_ = rendian;
 	}
 
 	virtual bool execute(CONTEXT& ctx)
 	{
-		ctx.value_map[name_] = CommandReadBit::read_value(ctx, ctx.value_map[ref_name_]);
+		ctx.stream.cut_bit();
+		read_value(ctx, ctx.get_value(length_str_));
+		if (ctx.get_value(name_) != ctx.get_value(compare_str_))
+		{
+			printf("compair value is false. value:0x%x(%d), expected:0x%x(%d)\n",
+				ctx.get_value(name_), ctx.get_value(name_), ctx.get_value(compare_str_), ctx.get_value(compare_str_));
+		}
+
 		return true;
 	}
 };
-
-// コマンド - バイトストリームとして読む
-class CommandReadByteRef : public CommandReadBit
+// バイト単位で値を比較する
+class CommandCompairByte : public CommandCompairBit
 {
-private:
-	string ref_name_;
-
 public:
-	CommandReadByteRef(){}
-	CommandReadByteRef(CONTEXT& ctx, istringstream& iss_)
-	{
-		iss_ >> name_ >> ref_name_ >> option_;
-		if (ctx.value_map.find(ref_name_) == ctx.value_map.end())
-		{
-			cerr << "# ERROR ref name not found [" << ref_name_ << "]" << endl;
-		}
-		ctx.value_map[name_] = 0;
-	}
+	CommandCompairByte(){}
+	CommandCompairByte(CONTEXT& ctx, istringstream& iss, bool rendian = false)
+		: CommandCompairBit(ctx, iss, rendian){}
 
 	virtual bool execute(CONTEXT& ctx)
 	{
-		// 8倍読み込む
-		ctx.value_map[name_] = CommandReadBit::read_value(ctx, 8 * ctx.value_map[ref_name_]);
+		ctx.stream.cut_bit();
+		read_value(ctx, 8 * ctx.get_value(length_str_));
+		if (ctx.get_value(name_) != ctx.get_value(compare_str_))
+		{
+			printf("compair value is false. value:0x%x(%d), expected:0x%x(%d)\n",
+				ctx.get_value(name_), ctx.get_value(name_), ctx.get_value(compare_str_), ctx.get_value(compare_str_));
+		}
+
 		return true;
 	}
 };
 
-// コマンド - 単発四則演算
+// 特定の1バイトが見つかるまで読み飛ばす
+class CommandSearchByte : public CommandReadBit
+{
+	unsigned char byte_;
+public:
+	CommandSearchByte(){}
+	CommandSearchByte(CONTEXT& ctx, istringstream& iss)
+	{
+		iss >> std::hex >> byte_;
+	}
+	virtual bool execute(CONTEXT& ctx)
+	{
+		// バイトシークのためbit削除
+		ctx.stream.cut_bit();
+
+		unsigned int val;
+		for (int i = 0; true; ++i)
+		{
+			if (!ctx.stream.bit_read(8, &val))
+			{
+				cout << "can not find byte:0x" << std::hex << byte_ << endl;
+				return false;
+			}
+
+			if (val == byte_)
+			{
+				return true;
+			}
+		}
+
+		cout << "can not find byte:0x" << std::hex << byte_ << endl;
+		return false;
+	}
+};
+
+// 単発四則演算
 class CommandCalc : public Command
 {
 private:
-	int    operand_;
+	string operand_;
 	string command_;
 	string ref_name_;
 
 public:
 	CommandCalc(){}
-	CommandCalc(CONTEXT& ctx, string command, istringstream& iss_)
+	CommandCalc(CONTEXT& ctx, string command, istringstream& iss)
 	{
 		command_ = command;
-		iss_ >> ref_name_ >> operand_;
+		iss >> ref_name_ >> operand_;
 		if (command == "val")
 		{
-			if (ctx.value_map.find(ref_name_) != ctx.value_map.end())
+			if (ctx.record_map.find(ref_name_) != ctx.record_map.end())
 			{
 				cerr << "# ERROR value already exist [" << ref_name_ << "]" << endl;
 			}
-			ctx.value_map[command] = 0;
+			ctx.record_map[command];
 		}
-		else if (ctx.value_map.find(ref_name_) == ctx.value_map.end())
+		else if (ctx.record_map.find(ref_name_) == ctx.record_map.end())
 		{
-			cerr << "# ref name not found [" << ref_name_ << "]" << endl;
+			cerr << "# ERROR ref name not found [" << ref_name_ << "]" << endl;
 		}
 	}
 
 	virtual bool execute(CONTEXT& ctx)
 	{
 		if (command_ == "val")
-			ctx.value_map[ref_name_] = operand_;
-		if (command_ == "mov")
-			ctx.value_map[ref_name_] = operand_;
-		else if (command_ == "sum")
-			ctx.value_map[ref_name_] += operand_;
-		else if (command_ == "sub")
-			ctx.value_map[ref_name_] -= operand_;
-		else if (command_ == "mul")
-			ctx.value_map[ref_name_] *= operand_;
-		else if (command_ == "dev")
-			ctx.value_map[ref_name_] /= operand_;
-		else if (command_ == "mod")
-			ctx.value_map[ref_name_] %= operand_;
-		else if (command_ == "xor")
-			ctx.value_map[ref_name_] ^= operand_;
+			ctx.record_map[ref_name_];
+		if (command_ == "mov")				    
+			ctx.record_map[ref_name_].value =   ctx.get_value(operand_);
+		else if (command_ == "sum")			   
+			ctx.record_map[ref_name_].value +=  ctx.get_value(operand_);
+		else if (command_ == "sub")			   
+			ctx.record_map[ref_name_].value -=  ctx.get_value(operand_);
+		else if (command_ == "mul")			   
+			ctx.record_map[ref_name_].value *=  ctx.get_value(operand_);
+		else if (command_ == "dev")			   
+			ctx.record_map[ref_name_].value /=  ctx.get_value(operand_);
+		else if (command_ == "mod")			   
+			ctx.record_map[ref_name_].value %=  ctx.get_value(operand_);
+		else if (command_ == "xor")			   
+			ctx.record_map[ref_name_].value ^=  ctx.get_value(operand_);
 		else if (command_ == "r_shift")
-			ctx.value_map[ref_name_] >>= operand_;
+			ctx.record_map[ref_name_].value >>= ctx.get_value(operand_);
 		else if (command_ == "l_shift")
-			ctx.value_map[ref_name_] <<= operand_;
+			ctx.record_map[ref_name_].value <<= ctx.get_value(operand_);
 
 		return true;
 	}
@@ -453,44 +535,77 @@ public:
 class CommandPrint : public Command
 {
 private:
-	string ref_name_;
+	string str_;
+	string line_;
 
 public:
 	CommandPrint(){}
-	CommandPrint(CONTEXT& ctx, istringstream& iss_)
+	CommandPrint(CONTEXT& ctx, istringstream& iss, string line)
 	{
-		iss_ >> ref_name_;
-		if (ctx.value_map.find("ref_name_") == ctx.value_map.end())
+		iss >> str_;
+		if (str_[0] != '\"')
 		{
-			cout << "# ref name not found [" << ref_name_ << "]" << endl;
+			if (ctx.record_map.find(str_) == ctx.record_map.end())
+			{
+				cout << "# ERROR ref name not found [" << str_ << "]" << endl;
+			}
+		}
+		else
+		{
+			line_ = line;
 		}
 	}
 
 	virtual bool execute(CONTEXT& ctx)
 	{
-		cout << ref_name_ << " " << ctx.value_map[ref_name_] << endl;
-		return true;
+		if (str_[0] == '\"')
+		{
+			int first = line_.find_first_of('\"');
+			int last  = line_.find_last_of('\"');
+			cout << line_.substr(first + 1, last-first-1) << endl;
+			return true;
+		}
+		else
+		{
+			if (ctx.record_map[str_].bit_length > 32)
+			{
+				cout << "     [dump " << str_ << "]" << endl;
+				ctx.stream.dump(ctx.record_map[str_].offset,
+					std::min(ctx.record_map[str_].bit_length / 8, (unsigned int)256));
+			}
+			else
+			{
+				printf("     %s: 0x%x (%d)\n", str_.c_str(), ctx.get_value(str_), ctx.get_value(str_));
+			}
+			return true;
+		}
 	}
 };
 
-// 文字列を表示する
-class CommandStr : public Command
+// データダンプ
+class CommandDump : public Command
 {
 private:
-	string str_;
+	unsigned int offset_;
+	unsigned int size_;
 
 public:
-	CommandStr(){}
-	CommandStr(CONTEXT& ctx, string str) :str_(str){}
+	CommandDump(){}
+	CommandDump(istringstream& iss)
+	{
+		iss >> offset_ >> size_;
+	}
 
 	virtual bool execute(CONTEXT& ctx)
 	{
-		cout << str_ << endl;
+		cout << "     [dump address:0x" << std::hex << offset_ << ", size:0x" << size_ << "]" << endl;
+		ctx.stream.dump(offset_, std::min(size_, (unsigned int)256));
 		return true;
 	}
 };
 
-// 値がそれになっていればジャンプする
+
+// Equal判定でジャンプする
 class CommandJumpIfEqual : public Command
 {
 private:
@@ -500,24 +615,45 @@ private:
 
 public:
 	CommandJumpIfEqual(){}
-	CommandJumpIfEqual(CONTEXT& ctx, istringstream& iss_)
+	CommandJumpIfEqual(CONTEXT& ctx, istringstream& iss)
 	{
-		iss_ >> label_ >> ref_name_ >> value_;
+		iss >> label_ >> ref_name_ >> value_;
 	}
 
 	virtual bool execute(CONTEXT& ctx)
 	{
-		if (ctx.value_map[ref_name_] == value_)
+		if (ctx.get_value(ref_name_) == value_)
 		{
-			cout << "jump to " << label_ << endl;
-			ctx.commands_ix = ctx.command_jump_label[label_] - 1;
+			ctx.commands_ix = ctx.label_map[label_] - 1;
 		}
 		return true;
 	}
 };
 
+// Not Equal判定でジャンプする
+class CommandJumpIfNotEqual : public Command
+{
+private:
+	string   label_;
+	string   ref_name_;
+	unsigned int value_;
 
+public:
+	CommandJumpIfNotEqual (){}
+	CommandJumpIfNotEqual(CONTEXT& ctx, istringstream& iss)
+	{
+		iss >> label_ >> ref_name_ >> value_;
+	}
 
+	virtual bool execute(CONTEXT& ctx)
+	{
+		if (ctx.get_value(ref_name_) != value_)
+		{
+			ctx.commands_ix = ctx.label_map[label_] - 1;
+		}
+		return true;
+	}
+};
 
 // 定義ファイルのタグからコマンドを生成する
 bool load_streamdef_file(CONTEXT& ctx, string& file_name)
@@ -527,78 +663,119 @@ bool load_streamdef_file(CONTEXT& ctx, string& file_name)
 	string line;
 	string command;
 	istringstream iss;
-	while (def_fs && getline(def_fs, line))
+	int i=0;
+
+	try
 	{
-		iss.str(line);
-		iss.clear();
-		iss >> command;
+		for (int i = 0; i < 100000; ++i)
+		{
+			if (!def_fs || !std::getline(def_fs, line))
+				break;
 
-		if ((command[0] == '/')
-		|| (iss.eof() == true))
-		{
-			continue;
-		}
-		else if (command == "label")
-		{
-			string label;
-			iss >> label;
-			ctx.command_jump_label[label] = ctx.commands.size();
-		}
-		else if (command == "j")
-		{
-			// ジャンプ
-		}
-		else if (command == "je")
-		{
-			ctx.commands.push_back(std::make_shared<CommandJumpIfEqual>(ctx, iss));
-		}
-		else if (command == "load")
-		{
-			ctx.commands.push_back(std::make_shared<CommandOpenFile>(iss));
-		}
-		else if (command == "b")
-		{
-			ctx.commands.push_back(std::make_shared<CommandReadBit>(ctx, iss));
-		}
-		else if (command == "B")
-		{
-			ctx.commands.push_back(std::make_shared<CommandReadByte>(ctx, iss));
-		}
-		else if (command == "rb")
-		{
-			ctx.commands.push_back(std::make_shared<CommandReadBitRef>(ctx, iss));
-		}
-		else if (command == "rB")
-		{
-			ctx.commands.push_back(std::make_shared<CommandReadByteRef>(ctx, iss));
-		}
-		else if ((command == "val")
-		||       (command == "mov")
-		||       (command == "sum")
-		||       (command == "sub")
-		||       (command == "mul")
-		||       (command == "dev")
-		||       (command == "mod")
-		||       (command == "xor")
-		||       (command == "r_shift")
-		||       (command == "l_shift"))
-		{
-			ctx.commands.push_back(std::make_shared<CommandCalc>(ctx, command, iss));
-		}
-		else if (command == "print")
-		{
-			ctx.commands.push_back(std::make_shared<CommandPrint>(ctx, iss));
-		}
-		else if (command == "str")
-		{
-			ctx.commands.push_back(std::make_shared<CommandStr>(
-				ctx, line.substr(line.find_first_not_of(" ", 4), string::npos)));
-		}
+			iss.str(line);
+			iss.clear();
+			iss >> command;
 
-		if (iss.fail() == true || iss.eof() == false)	// 文字列の最後まで処理したかチェックを行う。
-		{
-			cerr << "# ERROR fail commands read [" << line << "]" << endl;
+			if ((command[0] == '/')
+				|| (iss.eof() == true))
+			{
+				continue;
+			}
+			else if (command == "label")
+			{
+				string label;
+				iss >> label;
+				ctx.label_map[label] = ctx.commands.size();
+			}
+			else if (command == "j")
+			{
+				// ジャンプ
+			}
+			else if (command == "je")
+			{
+				ctx.commands.push_back(std::make_shared<CommandJumpIfEqual>(ctx, iss));
+			}
+			else if (command == "jne")
+			{
+				ctx.commands.push_back(std::make_shared<CommandJumpIfNotEqual>(ctx, iss));
+			}
+			else if (command == "load")
+			{
+				ctx.commands.push_back(std::make_shared<CommandOpenFile>(iss));
+			}
+			else if (command == "b")
+			{
+				ctx.commands.push_back(std::make_shared<CommandReadBit>(ctx, iss, false));
+			}
+			else if (command == "B")
+			{
+				ctx.commands.push_back(std::make_shared<CommandReadByte>(ctx, iss, false));
+			}
+			else if (command == "cb")
+			{
+				ctx.commands.push_back(std::make_shared<CommandCompairBit>(ctx, iss, false));
+			}
+			else if (command == "cB")
+			{
+				ctx.commands.push_back(std::make_shared<CommandCompairByte>(ctx, iss, false));
+			}
+			else if (command == "bl")
+			{
+				ctx.commands.push_back(std::make_shared<CommandReadBit>(ctx, iss, true));
+			}
+			else if (command == "Bl")
+			{
+				ctx.commands.push_back(std::make_shared<CommandReadByte>(ctx, iss, true));
+			}
+			else if (command == "cbl")
+			{
+				ctx.commands.push_back(std::make_shared<CommandCompairBit>(ctx, iss, true));
+			}
+			else if (command == "cBl")
+			{
+				ctx.commands.push_back(std::make_shared<CommandCompairByte>(ctx, iss, true));
+			}
+			else if (command == "search")
+			{
+				ctx.commands.push_back(std::make_shared<CommandSearchByte>(ctx, iss));
+			}
+
+			else if ((command == "val")
+				|| (command == "mov")
+				|| (command == "sum")
+				|| (command == "sub")
+				|| (command == "mul")
+				|| (command == "dev")
+				|| (command == "mod")
+				|| (command == "xor")
+				|| (command == "r_shift")
+				|| (command == "l_shift"))
+			{
+				ctx.commands.push_back(std::make_shared<CommandCalc>(ctx, command, iss));
+			}
+			else if (command == "print")
+			{
+				ctx.commands.push_back(std::make_shared<CommandPrint>(ctx, iss, line));
+				continue;
+			}
+			else if (command == "dump")
+			{
+				ctx.commands.push_back(std::make_shared<CommandDump>(iss));
+			}
+			else
+			{
+				cerr << "# ERROR command not found [" << line << "]" << endl;
+			}
+
+			if (iss.fail() == true || iss.eof() == false)	// 文字列の最後まで処理したかチェックを行う。
+			{
+				cerr << "# ERROR fail commands read [" << line << "]" << endl;
+			}
 		}
+	}
+	catch (...)
+	{
+		cout << line << endl;
 	}
 
 	return true;
@@ -608,13 +785,19 @@ bool load_streamdef_file(CONTEXT& ctx, string& file_name)
 int main(int argc, char** argv)
 {
 	CONTEXT ctx;
-	string streamdef_file_name = "deffile/streamdef.txt";
-
+	string streamdef_file_name = "streamdef.txt";
+	
 	// 引数判定
 	if (argc >= 2)
 	{
+		cout << argv[1] << endl;
+		CommandOpenFile file_open_command(argv[1]);
+		file_open_command.execute(ctx);
+	}
+	if (argc >= 3)
+	{
 		int flag = 0;
-		for (int i = 3; i < 100; ++i)
+		for (int i = 2; i < 100; ++i)
 		{
 			if (string("--deffile") == argv[i])
 			{
@@ -657,20 +840,30 @@ int main(int argc, char** argv)
 	}
 
 	// 各種コマンド発火
-	for (ctx.commands_ix = 0; ctx.commands_ix < ctx.commands.size(); ctx.commands_ix++)
+	try
 	{
-		//cerr << "Command " << ctx.commands[ctx.commands_ix]->err_str() << endl;
-
-		if (!ctx.commands[ctx.commands_ix]->execute(ctx))
+		for (ctx.commands_ix = 0; ctx.commands_ix < ctx.commands.size(); ctx.commands_ix++)
 		{
-			cerr << "# Command error" << ctx.commands[ctx.commands_ix]->err_str() << endl;
+			if (!ctx.commands[ctx.commands_ix]->execute(ctx))
+			{
+				cerr << "# ERROR comand exec " << ctx.commands[ctx.commands_ix]->err_str() << endl;
+			}
 		}
+
+	}
+	catch (...)
+	{
+		cout << "exception catch at ix:" << ctx.commands_ix << " " << endl;
 	}
 
 	if (ctx.stream.size() != ctx.stream.cur_offset())
 	{
 		cout << "data remained. stream_size:" << ctx.stream.size() << ", read_ofs:" << ctx.stream.cur_offset() << endl;
 	}
+
+	string dummy;
+	cout << "wait input..";
+	std::cin >> dummy;
 
 	return 0;
 }

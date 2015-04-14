@@ -111,12 +111,22 @@ namespace util
 			return util::dump(buf_, offset, size);
 		}
 
+		bool check_eos()
+		{
+			if (cur_offset_ == size_)
+			{
+				cout << "[EOS]" << endl;
+				return true;
+			}
+			return false;
+		}
+
 		bool check_length(unsigned int read_length) const
 		{
 			unsigned int next_offset = cur_offset_ + (cur_bit_ + read_length) / 8;
 			if (size_ < next_offset)
 			{
-				cout << "# ERROR over read " << std::hex << size_ << " <= " << next_offset << endl;
+				cerr << "# ERROR over read " << std::hex << size_ << " <= " << next_offset << endl;
 				return false;
 			}
 			return true;
@@ -137,13 +147,8 @@ namespace util
 			if (!check_length(length))
 				return false;
 
-			cur_offset_ += (length / 8);
-			cur_bit_ = (cur_bit_ + length) % 8;
-
-			if (cur_offset_ == size_)
-			{
-				cout << "[EOS]" << endl;
-			}
+			cur_offset_ += (cur_bit_ + length) / 8;
+			cur_bit_     = (cur_bit_ + length) % 8;
 
 			return true;
 		}
@@ -159,14 +164,25 @@ namespace util
 				return false;
 			}
 
-			// 先頭の中途半端なビットを読んでから、残りをバイトストリームとして読む
-			unsigned int already_read = 0;
 			*ret_value = 0;
-			if (cur_bit_ != 0)
+			unsigned int already_read = 0;
+
+			// 先頭の中途半端なビットを読んでから、残りをバイトストリームとして読む
+			// read_lengthが現在のバイトに収まるならビット読み出しまでで終了
+			if (cur_bit_ + read_length < 8)
 			{
-				*ret_value = (buf_[cur_offset_] >> (8 - cur_bit_ - read_length)) &((1 << read_length) - 1);
+				*ret_value = buf_[cur_offset_];
+				*ret_value >>= 8 - (cur_bit_ + read_length); // 下位ビットを合わせる
+				*ret_value &= ((1 << read_length) - 1); // 上位ビットを捨てる
 				bit_advance(read_length);
-				already_read += read_length;
+				return true;
+			}
+			else
+			{
+				unsigned int remained_bit = 8 - cur_bit_;
+				*ret_value = buf_[cur_offset_] & ((1 << remained_bit) - 1);
+				bit_advance(remained_bit);
+				already_read += remained_bit;
 			}
 
 			while (read_length > already_read)
@@ -175,17 +191,14 @@ namespace util
 				{
 					*ret_value <<= (read_length - already_read);
 					*ret_value |= buf_[cur_offset_] >> (8 - (read_length - already_read));
+					bit_advance(read_length - already_read);
 					break;
 				}
 				else
 				{
 					*ret_value <<= 8;
 					*ret_value |= buf_[cur_offset_];
-					if (!bit_advance(8))
-					{
-						cerr << "#ERROR bit_advance" << endl;
-						break;
-					}
+					bit_advance(8);
 					already_read += 8;
 				}
 			}
@@ -288,7 +301,7 @@ public:
 	{
 		ctx.ifs.open(file_name_, ifstream::binary);
 		if (!ctx.ifs){
-			cout << "# ERROR open read file [" << file_name_ << "]" << endl;
+			cerr << "# ERROR open read file [" << file_name_ << "]" << endl;
 			return false;
 		}
 
@@ -327,7 +340,7 @@ public:
 	{
 		ctx.ofs.open(file_name_, ifstream::binary);
 		if (!ctx.ofs){
-			cout << "# ERROR open write file [" << file_name_ << "]" << endl;
+			cerr << "# ERROR open write file [" << file_name_ << "]" << endl;
 			return false;
 		}
 		return true;
@@ -350,7 +363,7 @@ public:
 	virtual bool execute(CONTEXT& ctx)
 	{
 		if (!ctx.ofs){
-			cout << "# ERROR no write file for " << value_str_ << endl;
+			cerr << "# ERROR no write file for " << value_str_ << endl;
 			return false;
 		}
 
@@ -435,6 +448,7 @@ public:
 			}
 		}
 
+		ctx.stream.check_eos();
 		return true;
 	}
 	virtual bool execute(CONTEXT& ctx)
@@ -459,14 +473,14 @@ public:
 };
 
 // bit単位で値を比較する
-class CommandCompairBit : public CommandReadBit
+class CommandCompareBit : public CommandReadBit
 {
 protected:
 	string compare_str_;
 
 public:
-	CommandCompairBit(){}
-	CommandCompairBit(CONTEXT& ctx, istringstream& iss, bool rendian = false)
+	CommandCompareBit(){}
+	CommandCompareBit(CONTEXT& ctx, istringstream& iss, bool rendian = false)
 	{
 		iss >> name_ >> length_str_ >> compare_str_;
 		rendian_ = rendian;
@@ -478,7 +492,7 @@ public:
 		read_value(ctx, ctx.get_value(length_str_));
 		if (ctx.get_value(name_) != ctx.get_value(compare_str_))
 		{
-			printf("compair value is false. value:0x%x(%d), expected:0x%x(%d)\n",
+			printf("compare value is false. value:0x%x(%d), expected:0x%x(%d)\n",
 				ctx.get_value(name_), ctx.get_value(name_), ctx.get_value(compare_str_), ctx.get_value(compare_str_));
 		}
 
@@ -486,12 +500,12 @@ public:
 	}
 };
 // バイト単位で値を比較する
-class CommandCompairByte : public CommandCompairBit
+class CommandCompareByte : public CommandCompareBit
 {
 public:
-	CommandCompairByte(){}
-	CommandCompairByte(CONTEXT& ctx, istringstream& iss, bool rendian = false)
-		: CommandCompairBit(ctx, iss, rendian){}
+	CommandCompareByte(){}
+	CommandCompareByte(CONTEXT& ctx, istringstream& iss, bool rendian = false)
+		: CommandCompareBit(ctx, iss, rendian){}
 
 	virtual bool execute(CONTEXT& ctx)
 	{
@@ -499,7 +513,7 @@ public:
 		read_value(ctx, 8 * ctx.get_value(length_str_));
 		if (ctx.get_value(name_) != ctx.get_value(compare_str_))
 		{
-			printf("compair value is false. value:0x%x(%d), expected:0x%x(%d)\n",
+			printf("compare value is false. value:0x%x(%d), expected:0x%x(%d)\n",
 				ctx.get_value(name_), ctx.get_value(name_), ctx.get_value(compare_str_), ctx.get_value(compare_str_));
 		}
 
@@ -588,9 +602,17 @@ public:
 			ctx.record_map[ref_name_].value %= ctx.get_value(operand_);
 		else if (command_ == "xor")
 			ctx.record_map[ref_name_].value ^= ctx.get_value(operand_);
-		else if (command_ == "r_shift")
+		else if (command_ == "and")
+			ctx.record_map[ref_name_].value &= ctx.get_value(operand_);
+		else if (command_ == "or")
+			ctx.record_map[ref_name_].value |= ctx.get_value(operand_);
+		else if (command_ == "shr")
+			(*(unsigned int*)&ctx.record_map[ref_name_].value) >>= ctx.get_value(operand_);
+		else if (command_ == "shl")
+			(*(unsigned int*)&ctx.record_map[ref_name_].value) <<= ctx.get_value(operand_);
+		else if (command_ == "sar")
 			ctx.record_map[ref_name_].value >>= ctx.get_value(operand_);
-		else if (command_ == "l_shift")
+		else if (command_ == "sal")
 			ctx.record_map[ref_name_].value <<= ctx.get_value(operand_);
 
 		return true;
@@ -613,7 +635,7 @@ public:
 		{
 			if (ctx.record_map.find(str_) == ctx.record_map.end())
 			{
-				cout << "# ERROR ref name not found [" << str_ << "]" << endl;
+				cerr << "# ERROR ref name not found [" << str_ << "]" << endl;
 			}
 		}
 		else
@@ -748,15 +770,19 @@ bool load_streamdef_file(CONTEXT& ctx, string& file_name)
 				continue;
 			}
 			else if ((command == "val")
-			||       (command == "mov")
-			||       (command == "add")
-			||       (command == "sub")
-			||       (command == "mul")
-			||       (command == "dev")
-			||       (command == "mod")
-			||       (command == "xor")
-			||       (command == "r_shift")
-			||       (command == "l_shift"))
+			|| (command == "mov")
+			|| (command == "add")
+			|| (command == "sub")
+			|| (command == "mul")
+			|| (command == "dev")
+			|| (command == "mod")
+			|| (command == "xor")
+			|| (command == "and")
+			|| (command == "or")
+			|| (command == "sh|")
+			|| (command == "shr")
+			|| (command == "sa|")
+			|| (command == "sar"))
 			{
 				ctx.commands.push_back(std::make_shared<CommandCalc>(ctx, command, iss));
 			}
@@ -788,11 +814,11 @@ bool load_streamdef_file(CONTEXT& ctx, string& file_name)
 			}
 			else if (command == "cb")
 			{
-				ctx.commands.push_back(std::make_shared<CommandCompairBit>(ctx, iss, false));
+				ctx.commands.push_back(std::make_shared<CommandCompareBit>(ctx, iss, false));
 			}
 			else if (command == "cB")
 			{
-				ctx.commands.push_back(std::make_shared<CommandCompairByte>(ctx, iss, false));
+				ctx.commands.push_back(std::make_shared<CommandCompareByte>(ctx, iss, false));
 			}
 			else if (command == "bl")
 			{
@@ -804,11 +830,11 @@ bool load_streamdef_file(CONTEXT& ctx, string& file_name)
 			}
 			else if (command == "cbl")
 			{
-				ctx.commands.push_back(std::make_shared<CommandCompairBit>(ctx, iss, true));
+				ctx.commands.push_back(std::make_shared<CommandCompareBit>(ctx, iss, true));
 			}
 			else if (command == "cBl")
 			{
-				ctx.commands.push_back(std::make_shared<CommandCompairByte>(ctx, iss, true));
+				ctx.commands.push_back(std::make_shared<CommandCompareByte>(ctx, iss, true));
 			}
 			else if (command == "search")
 			{

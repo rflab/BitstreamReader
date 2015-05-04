@@ -4,11 +4,14 @@
 
 ストリームの構造はluaスクリプト
 
+    -- example
     readbyte("hoge", 4, true) -- "hoge"のデータを４倍と読み込み、コンソール上に表示許可
     local length = readbyte("length", 4, false) -- "length"のデータを４バイト読み込み変数に記憶
-    readbyte("payload", length-1, false)
-    readbit("foo[0-2]", 3, false) -- ビット単位で読み込みこの行をコンソール上に表示
-    readbit("foo[3-7]", 5, false) -- ビット単位で続けて読み込み
+    if length ~= 0 then
+        readbyte("payload", length-1, false)
+        readbit("foo[0-2]", 3, false) -- ビット単位で読み込みこの行をコンソール上に表示
+        readbit("foo[3-7]", 5, false) -- ビット単位で続けて読み込み
+    end
 
 LUAにバインドした関数は以下
 

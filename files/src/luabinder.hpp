@@ -6,6 +6,8 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <array>
+#include <memory>
 #include <sstream>
 #include <type_traits>
 
@@ -13,22 +15,31 @@
 
 namespace rf
 {
-	class LuaManager
+	class LuaBinder
 	{
 	private:
 		lua_State* L_;
-		std::string msg_;
 
 	public:
-		LuaManager()
+		bool open()
 		{
 			L_ = luaL_newstate(); // コンテキスト作成 
 			luaL_openlibs(L_); // Lua標準ライブラリ読み込み
+			return true;
 		}
 
-		~LuaManager()
+		bool close()
 		{
 			lua_close(L_);
+			return true;
+		}
+		
+		LuaBinder(){
+			open();
+		}
+
+		~LuaBinder(){
+			close();
 		}
 
 		void dump_stack()
@@ -89,8 +100,7 @@ namespace rf
 			if (ret != LUA_OK)
 			{
 				ss << lua_tostring(L_, -1);
-				msg_ = ss.str();
-				std::cout << msg_ << std::endl;
+				std::cout << ss.str() << std::endl;
 				return false;
 			}
 
@@ -126,6 +136,8 @@ namespace rf
 		}
 
 		// 型推論でLua->C++
+		// booleanがうまくいってない予感
+
 		template<typename T>
 		struct is_boolean
 		{
@@ -220,7 +232,7 @@ namespace rf
 
 		// 引数型情報とLuaから呼び出す関数をもつスタブのようなオブジェクト
 		// 関数、void関数、メンバ関数、voidメンバ関数を特殊化する
-		template<typename Func, typename Seq, typename IsMember=void>
+		template<typename Func, typename Seq, typename IsMember = void>
 		struct invoker;
 
 		template<typename Ret, typename... Args, std::size_t ... Ixs>
@@ -230,7 +242,7 @@ namespace rf
 			{
 				auto f = reinterpret_cast<Ret(*)(Args...)>(lua_tocfunction(L, lua_upvalueindex(1)));
 				Ret r = f(get_stack<Args>(L, Ixs)...);
-				LuaManager::push_stack(L, r);
+				LuaBinder::push_stack(L, r);
 				return 1;
 			}
 		};
@@ -246,55 +258,79 @@ namespace rf
 			}
 		};
 
-		//template<typename Args, typename ... A1, typename C, typename R, std::size_t ... I>
-		//struct invoker　< R C::*, intetger_sequence<size_t, Ixs...>, typename std::enable_if<std::is_function<R>::value>::type>
-		//{
-		//	static int apply(lua_State* L)
-		//	{
-		//		auto p = static_cast<std::array<M Class::*, 1>*>(lua_touserdata(L, lua_upvalueindex(1)));
-		//		M Class::*memfn = (*p)[0];
-		//		auto self = static_cast<Class*>(lua_touserdata(L, 1));
-		//		R1 r = (self->*memfn)(get_stack<A1>(L, I)...);
-		//		push_stack(L, r);
-		//		return 1;
-		//	}
-		//};
-		
-		//template<typename ... A1, typename Class, typename M, std::size_t ... I>
-		//struct invoker<void(A1...), M Class::*, mpl::vector_c<std::size_t, I...>, typename std::enable_if<std::is_function<M>::value>::type>
-		//{
-		//	static int apply(lua_State* L)
-		//	{
-		//		auto p = static_cast<std::array<M Class::*, 1>*>(lua_touserdata(L, lua_upvalueindex(1)));
-		//		M Class::*memfn = (*p)[0];
-		//		auto self = static_cast<Class*>(lua_touserdata(L, 1));
-		//		(self->*memfn)(get_stack<A1>(L, I)...);
-		//
-		//		return 0;
-		//	}
-		//};
+		template<class T, typename Ret, typename ... Args, std::size_t ... Ixs>
+		struct invoker< Ret(T::*)(Args...), intetger_sequence<size_t, Ixs...>,
+			typename std::enable_if<std::is_member_function_pointer<Ret(T::*)(Args...)>::value>::type>
+		{
+			static int apply(lua_State* L)
+			{
+				auto self = static_cast<T*>(lua_touserdata(L, 1));
+				if (self == nullptr){
+					cout << "no self specified" << endl;
+				}
+
+				// これで通ったけどなんでかなー
+				typedef typename std::remove_reference<Ret(T::*)(Args...)>::type mf_type;
+				void* buf = lua_touserdata(L, lua_upvalueindex(1));
+				auto a = static_cast<std::array<mf_type, 1>*> (buf);
+				mf_type fp = (*a)[0];
+
+				Ret r = (self->*fp)(get_stack<Args>(L, Ixs)...);
+				push_stack(L, r);
+				return 1;
+			}
+		};
+
+
+		template<class T, typename ... Args, std::size_t ... Ixs>
+		struct invoker< void(T::*)(Args...), intetger_sequence<size_t, Ixs...>,
+			typename std::enable_if<std::is_member_function_pointer<void(T::*)(Args...)>::value>::type>
+		{
+			static int apply(lua_State* L)
+			{
+				auto self = static_cast<T*>(lua_touserdata(L, 1));
+				if (self == nullptr){
+					cout << "no self specified" << endl;
+				}
+
+				// これで通ったけどなんでかなー
+				typedef typename std::remove_reference<void(T::*)(Args...)>::type mf_type;
+				void* buf = lua_touserdata(L, lua_upvalueindex(1));
+				auto a = static_cast<std::array<mf_type, 1>*> (buf);
+				mf_type fp = (*a)[0];
+
+				r = (self->*fp)(get_stack<Args>(L, Ixs)...);
+				push_stack(L, r);
+				return 0;
+			}
+		};
+
+		//----------------------------------------
+		// 関数
 
 		// 関数を登録
 		template<typename R, typename ... Args>
 		void def(std::string const& func_name, R(*f)(Args...))
 		{
 			typedef make_integral_sequence<std::size_t, 1, sizeof...(Args)+1>::type seq;
-			lua_CFunction closur = invoker<decltype(f), seq>::apply;
+			lua_CFunction upvalue = invoker<decltype(f), seq>::apply;
 
 			// 登録する関数はinvokerから呼び出すので関数型にキャストしてクロージャに入れる
 			lua_pushcfunction(L_, reinterpret_cast<lua_CFunction>(f));
-			lua_pushcclosure(L_, closur, 1);
+			lua_pushcclosure(L_, upvalue, 1);
 			lua_setglobal(L_, func_name.c_str());
 		}
 
-		// テスト中
+		//----------------------------------------
+		// クラス
+
+		// 引数なしコンストラクタ	
 		template<class T>
 		static int new_instance(lua_State* L)
 		{
 			void *p = lua_newuserdata(L, sizeof(T));
 			int userdata = lua_gettop(L);
-
-			void *instance = new(p) T;
+			void *instance = new(p)T;
 
 			lua_pushvalue(L, lua_upvalueindex(1)); // クラスを取り出す
 			lua_setmetatable(L, userdata); // メタテーブルに追加する
@@ -311,78 +347,95 @@ namespace rf
 			return 0;
 		}
 
-		template<class C>
-		void def_class(std::string const& name)
+		template<class T>
+		class class_chain
 		{
-			// local table = {}
-			lua_newtable(L_);
-			int table = lua_gettop(L_);
+		private:
+			std::string name_;
+			lua_State* L_;
 
-			// レジストリ上にメタテーブルを登録し(重複の場合は無視)
-			// スタックにそのテーブルを乗せる
-			luaL_newmetatable(L_, name.c_str());
-			int metatable = lua_gettop(L_);
+		public:
+			class_chain(lua_State* L, std::string const& name)
+				:name_(name), L_(L)
+			{
+				// local table = {}
+				lua_newtable(L_);
+				int table = lua_gettop(L_);
 
-			// metatable[__metatable] = table
-			lua_pushliteral(L_, "__metatable");
-			lua_pushvalue(L_, table);
-			lua_settable(L_, metatable);
+				// レジストリ上にメタテーブルを登録し(重複の場合は無視)
+				// スタックにそのテーブルを乗せる
+				luaL_newmetatable(L_, name.c_str());
+				int metatable = lua_gettop(L_);
 
-			// metatable[__index] = table
-			lua_pushliteral(L_, "__index");
-			lua_pushvalue(L_, table);
-			lua_settable(L_, metatable);
+				//getmetatableの動作を変更したい場合
+				// // metatable[__metatable] = metatable
+				// lua_pushliteral(L_, "__metatable");
+				// lua_pushvalue(L_, metatable);
+				// lua_settable(L_, metatable);
 
-			// metatable[__gc] = delete
-			lua_pushliteral(L_, "__gc");
-			lua_pushcfunction(L_, &delete_instance<C>);
-			lua_settable(L_, metatable);
-			
-			// table.new = new(metatable)
-			lua_pushliteral(L_, "new");
-			lua_pushvalue(L_, metatable);
-			lua_pushcclosure(L_, new_instance<C>, 1);
-			lua_settable(L_, table);
-			
-			// _G[name] = table
-			lua_pushvalue(L_, table);
-			lua_setglobal(L_, name.c_str());
+				// metatable[__index] = table
+				lua_pushliteral(L_, "__index");
+				lua_pushvalue(L_, table);
+				lua_settable(L_, metatable);
 
-			// スタッククリア
-			lua_pop(L_, 2);
+				// metatable[__gc] = delete
+				lua_pushliteral(L_, "__gc");
+				lua_pushcfunction(L_, &delete_instance<T>);
+				lua_settable(L_, metatable);
+
+				// table.new = new(metatable)
+				lua_pushliteral(L_, "new");
+				lua_pushvalue(L_, metatable);
+				lua_pushcclosure(L_, new_instance<T>, 1);
+				lua_settable(L_, table);
+
+				// _G[name] = table
+				lua_pushvalue(L_, table);
+				lua_setglobal(L_, name.c_str());
+
+				// スタッククリア
+				lua_pop(L_, 2);
+			}
+
+			template<typename Ret, typename... Args,
+				typename std::enable_if<std::is_member_function_pointer<Ret(T::*)(Args...)>::value>::type* = 0>
+				const class_chain<T>& def(std::string const& method_name, Ret(T::*f)(Args...)) const
+			{
+				typedef make_integral_sequence<std::size_t, 2, sizeof...(Args)+2>::type seq;
+				lua_CFunction upvalue = invoker<Ret(T::*)(Args...), seq>::apply;
+
+				luaL_getmetatable(L_, name_.c_str());
+				int metatable = lua_gettop(L_);
+
+				lua_getfield(L_, metatable, "__index");
+				int methodtable = lua_gettop(L_);
+
+				lua_pushstring(L_, method_name.c_str());
+
+				// メンバ関数は実態としてしかコピー出来ない
+				// （多分メンバ関数ポインタのサイズはsizeof(int)ではないから)
+				// つまり↓は通らない
+				// auto fpp = reinterpret_cast<void*>(f); 
+				// なので配列として渡す
+				typedef typename std::remove_reference<Ret(T::*)(Args...)>::type mf_type;
+				void* buf = lua_newuserdata(L_, sizeof(std::array<mf_type, 1>));
+				auto a = static_cast<std::array<mf_type, 1>*>(buf);
+				(*a)[0] = f;
+
+				lua_pushcclosure(L_, upvalue, 1);
+				lua_settable(L_, methodtable);
+
+				lua_pop(L_, 2);
+
+				return *this;
+			}
+		};
+
+		template<class T>
+		std::shared_ptr<class_chain<T> > def_class(std::string const& name)
+		{
+			return make_shared<class_chain<T> >(L_, name);
 		}
-
-
-//		// クラス（メソッドテーブル)を作成
-//		// ・各種関数を登録
-//		// ・インスタンスから参照させるため、メタテーブルの__indexに自分を登録
-//		// ・newからメソッドテーブルを参照できるようクロージャに入れる
-//		template <class C>
-//		void def(const std::string& name)
-//		{
-//			lua_newtable(L_);
-//
-//			// 自分を参照させる
-//			lua_pushvalue(L_, -1);
-//			lua_setfield(L_, -2, "__index");
-//
-//			// newで参照できるようにクロージャに入れておく
-//			lua_pushvalue(L_, -1);
-//			lua_pushcclosure(L_, new_instance<C>, 1);
-//			lua_setfield(L_, -2, "new");
-//
-//			// デストラクタ
-//			lua_pushcfunction(L_, delete_instance);
-//			lua_setfield(L_, -2, "__gc");
-//			// lua_setfield(L_, -2, "delete");
-//
-//			// 関数
-//			lua_pushcfunction(L_, test);
-//			lua_setfield(L_, -2, "test");
-//
-//			// グローバルにクラスを登録
-//			lua_setglobal(L_, name.c_str());
-//		}
 	};
 }
 

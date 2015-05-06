@@ -37,6 +37,37 @@ using std::isdigit;
 using std::stoi;
 using std::min;
 
+// バッファダンプ
+bool dump_line(const unsigned char* buf, unsigned int offset, unsigned int byte_size)
+{
+	for (unsigned int i = 0; i < byte_size; ++i)
+	{
+		printf("%02x ", buf[offset + i]);
+	}
+
+	return true;
+}
+
+bool dump(const unsigned char* buf, unsigned int offset, unsigned int byte_size)
+{
+	printf("     offset    | +0 +1 +2 +3 +4 +5 +6 +7 +8 +9 +A +B +C +D +E +F\n");
+
+	unsigned int i = 0;
+	for (i = 0; i + 16 <= byte_size; i += 16)
+	{
+		printf("     0x%08x| ", offset + i);
+		dump_line(buf, offset + i, 16);
+		putchar('\n');
+	}
+	if (byte_size > i)
+	{
+		printf("     0x%08x| ", offset + i);
+		dump_line(buf, offset + i, byte_size % 16);
+		putchar('\n');
+	}
+
+	return true;
+}
 
 // 設定したバッファからビット単位でデータを読み出す
 // ビッグエンディアン固定
@@ -218,165 +249,118 @@ public:
 	}
 };
 
-bool dump_line(const unsigned char* buf, unsigned int offset, unsigned int byte_size)
+class LuaGlue_Bitstream
 {
-	for (unsigned int i = 0; i < byte_size; ++i)
+private:
+	FileBitstream bitstream;
+
+public:
+	LuaGlue_Bitstream(){}
+	~LuaGlue_Bitstream(){}
+
+	bool open(const char* filename)
 	{
-		printf("%02x ", buf[offset + i]);
+		return bitstream.open(filename);
 	}
 
-	return true;
-}
-
-bool dump(const unsigned char* buf, unsigned int offset, unsigned int byte_size)
-{
-	printf("     offset    | +0 +1 +2 +3 +4 +5 +6 +7 +8 +9 +A +B +C +D +E +F\n");
-
-	unsigned int i = 0;
-	for (i = 0; i + 16 <= byte_size; i += 16)
+	bool glue_dump_line(unsigned int byte_offset, unsigned int byte_size)
 	{
-		printf("     0x%08x| ", offset + i);
-		dump_line(buf, offset + i, 16);
-		putchar('\n');
-	}
-	if (byte_size > i)
-	{
-		printf("     0x%08x| ", offset + i);
-		dump_line(buf, offset + i, byte_size % 16);
-		putchar('\n');
+		return dump_line(bitstream.buf().get(), byte_offset, byte_size);
 	}
 
-	return true;
-}
-
-// for lua binder
-static FileBitstream bitstream;
-
-bool glue_stream_open(const char* filename)
-{
-	return bitstream.open(filename);
-}
-
-bool glue_dump_line(unsigned int byte_offset, unsigned int byte_size)
-{
-	return dump_line(bitstream.buf().get(), byte_offset, byte_size);
-}
-
-bool glue_dump(unsigned int byte_offset, unsigned int byte_size)
-{
-	return dump(bitstream.buf().get(), byte_offset, byte_size);
-}
-
-unsigned int glue_read_bit(const char* name, unsigned int bit_length, bool disp)
-{
-	if (bit_length >= 32)
+	bool glue_dump(unsigned int byte_offset, unsigned int byte_size)
 	{
-		unsigned int prev_byte = bitstream.cur_byte();
-		bitstream.bit_advance(bit_length);
+		return dump(bitstream.buf().get(), byte_offset, byte_size);
+	}
 
-		if (disp)
+	unsigned int read_bit(const char* name, unsigned int bit_length, bool disp)
+	{
+		if (bit_length > 32)
 		{
-			unsigned int dump_len = std::min<unsigned int>(16, bit_length / 8);
+			unsigned int prev_byte = bitstream.cur_byte();
+			bitstream.bit_advance(bit_length);
 
-			printf(" pos=0x%08x(+%d)| siz=0x%08x(+%d)| %-40s | ",
-				bitstream.cur_byte(), bitstream.cur_bit(),
-				bit_length / 8, bit_length % 8, name);
-			dump_line(bitstream.buf().get(), prev_byte, dump_len);
+			if (disp)
+			{
+				unsigned int dump_len = std::min<unsigned int>(16, bit_length / 8);
 
-			if (16 > dump_len)
-				putchar('\n');
-			else
-				printf(" ...\n");
-		}
+				printf(" pos=0x%08x(+%d)| siz=0x%08x(+%d)| %-40s | ",
+					bitstream.cur_byte(), bitstream.cur_bit(),
+					bit_length / 8, bit_length % 8, name);
+				dump_line(bitstream.buf().get(), prev_byte, dump_len);
 
-		return 0;
-	}
-	else
-	{
-		unsigned int v;
-		if (!bitstream.bit_read(bit_length, &v))
-		{
+				if (16 > dump_len)
+					putchar('\n');
+				else
+					printf(" ...\n");
+			}
+
 			return 0;
 		}
-
-		if (disp)
+		else
 		{
-			printf(" pos=0x%08x(+%d)| siz=0x%08x(+%d)| %-40s | val=0x%-8x (%d)\n",
-				bitstream.cur_byte(), bitstream.cur_bit(),
-				bit_length / 8, bit_length % 8, name,
-				v, v);
+			unsigned int v;
+			if (!bitstream.bit_read(bit_length, &v))
+			{
+				return 0;
+			}
+
+			if (disp)
+			{
+				printf(" pos=0x%08x(+%d)| siz=0x%08x(+%d)| %-40s | val=0x%-8x (%d)\n",
+					bitstream.cur_byte(), bitstream.cur_bit(),
+					bit_length / 8, bit_length % 8, name,
+					v, v);
+			}
+
+			return v;
 		}
-
-		return v;
 	}
-}
 
-unsigned int glue_read_byte(const char* name, unsigned int byte_length, bool disp)
-{
-	return glue_read_bit(name, 8*byte_length, disp);
-}
-
-bool glue_serch_byte(unsigned char byte)
-{
-	bitstream.cut_bit();
-
-	unsigned int val;
-	for (int i = 0; true; ++i)
+	unsigned int read_byte(const char* name, unsigned int byte_length, bool disp)
 	{
-		if (!bitstream.bit_read(8, &val))
-		{
-			break;
-		}
-
-		if (val == byte)
-		{
-			return true;
-		}
+		return read_bit(name, 8 * byte_length, disp);
 	}
 
-	ERR << "can not find byte:0x" << hex << byte << endl;
-	return false;
-}
+	bool serch_byte(unsigned char byte)
+	{
+		bitstream.cut_bit();
 
-unsigned int glue_cur_byte()
-{
-	return bitstream.cur_byte();
-}
-unsigned int glue_cur_bit()
-{
-	return bitstream.cur_byte();
-}
+		unsigned int val;
+		for (int i = 0; true; ++i)
+		{
+			if (!bitstream.bit_read(8, &val))
+			{
+				break;
+			}
 
-class Test
-{
-public:
-	Test(){ cout << "constructor" << endl; }
-	~Test(){ cout << "destructor" << endl; }
-	int func(){ cout << "test member func" << endl; }
+			if (val == byte)
+			{
+				return true;
+			}
+		}
+
+		ERR << "can not find byte:0x" << hex << byte << endl;
+		return false;
+	}
+
+	unsigned int cur_byte()
+	{
+		return bitstream.cur_byte();
+	}
+	unsigned int cur_bit()
+	{
+		return bitstream.cur_byte();
+	}
 };
+
+
 
 int main(int argc, char** argv)
 {
 	//interleter::Context ctx;
 	string streamdef_file_name = "streamdef.txt";
 	
-	// 引数判定
-	if (argc == 1)
-	{
-		cerr <<
-			"----------------------------------------------------"
-			"--deffile :set define file (default:streamdef.txt)"
-			"--arg     :set argument of define file"
-			"----------------------------------------------------" << endl;
-	}
-	else if (argc > 2)
-	{
-		stringstream ss;
-		ss << "ropen " << argv[1] << endl;
-		//	CommandString command(0, ss.str());
-		//	command.execute(ctx);
-	}
-
 	if (argc >= 3)
 	{
 		int flag = 0;
@@ -391,6 +375,10 @@ int main(int argc, char** argv)
 			{
 				flag = 2;
 			}
+			else if (string("--help") == argv[i])
+			{
+				flag = 3;
+			}
 			else switch (flag)
 			{
 			case 1:
@@ -404,36 +392,51 @@ int main(int argc, char** argv)
 				ss << "$" << arg_id;
 				// ctx.set_string(ss.str(), argv[i]);
 			}
+			case 3:
 			default:
 			{
+				// 変更予定
 				cout <<
-					"a.out {tagfile} [--deffile]\n"
+					"a.out [--deffile] [--arg] [--help]\n"
 					"\n"
-					"  --deffile : set stream definition file\n" << endl;
+					"--deffile :set define file (default:streamdef.txt)\n"
+					"--arg     :set argument of define file\n"
+					"----------------------------------------------------" << endl;
 				return 0;
 			}
 			}
 		}
 	}
 
-	rf::LuaManager lua;
-	lua.def("open",     glue_stream_open);
-	lua.def("dump",     glue_dump);
-	lua.def("readbit",  glue_read_bit);
-	lua.def("readbyte", glue_read_byte);
-	lua.def("search",   glue_serch_byte);
-	lua.def("cur_byte", glue_cur_byte);
-	lua.def("cur_bit",  glue_cur_byte);
+	auto lua = make_shared<rf::LuaBinder>();
 
-	// このままだとメンバ関数登録できないので↑見たいのが必要
-	lua.def_class<Test>("testclass");
+	//lua->def("open", glue_stream_open);
+	//lua->def("dump", glue_dump);
+	//lua->def("readbit", glue_read_bit);
+	//lua->def("readbyte", glue_read_byte);
+	//lua->def("search", glue_serch_byte);
+	//lua->def("cur_byte", glue_cur_byte);
+	//lua->def("cur_bit", glue_cur_byte);
+
+	//// このままだとメンバ関数登録できないので↑見たいのが必要
+	lua->def_class<LuaGlue_Bitstream>("BitStream")->
+		def("open", (bool(LuaGlue_Bitstream::*)(const char*)) &LuaGlue_Bitstream::open).
+		def("dump", &LuaGlue_Bitstream::glue_dump).
+		def("bit", &LuaGlue_Bitstream::read_bit).
+		def("byte", &LuaGlue_Bitstream::read_byte).
+		def("cur_bit", &LuaGlue_Bitstream::cur_bit).
+		def("cur_byte", &LuaGlue_Bitstream::cur_byte).
+		def("b", &LuaGlue_Bitstream::read_bit).
+		def("B", &LuaGlue_Bitstream::read_byte).
+		def("cb", &LuaGlue_Bitstream::cur_bit).
+		def("cB", &LuaGlue_Bitstream::cur_byte);
 
 	for (;;)
 	{
-		if (!lua.dofile("test.lua"))
+		if (!lua->dofile("test.lua"))
 		{
 			// エラーったらリロード
-			ERR << "lua.dofile err r:reload, q:quit"  << endl;
+			ERR << "lua.dofile err r:reload, q:quit" << endl;
 		}
 
 		cout << "r:reload, q:quit" << endl;
@@ -449,3 +452,4 @@ int main(int argc, char** argv)
 
 	return 0;
 }
+

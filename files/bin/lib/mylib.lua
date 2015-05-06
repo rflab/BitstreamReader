@@ -2,27 +2,32 @@ function printf(format, ...)
 	print(string.format(format, ...))
 end
 
-function print_table(table)
+function dump_table(table)
 	if table ~= nil then
 		for i, v in ipairs(table) do
-			print(i, v)
+			print("", i, v)
 		end
 		for k, v in pairs(table) do
-			print(k, v)
+			print("", k, v)
 		end
 	else
 		print("--talbe = nil --")
 	end
 end
 
-function print_table_all(table)
-	print("--table--")
-	print_table(table)
+function dump_table_all(table)
+	local t = type(table)
+	print("--"..t.."--")
+	if t == "table" then
+		dump_table(table)
+	end
+	
 	meta = getmetatable(table)
 	if meta ~= nil then
-		print_table(meta)
+		print("--metatable--")
+		dump_table(meta)
 	else
-		print("--no meta--")
+		print("--no metatable--")
 	end
 end
 

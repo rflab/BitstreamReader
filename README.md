@@ -12,7 +12,7 @@
 (もっと色々バインド予定。。。)
 
 	lua->def_class<LuaGlue_Bitstream>("BitStream")->
-		def("open",     (bool(LuaGlue_Bitstream::*)(const char*)) &LuaGlue_Bitstream::open). //オーバーロードがある場合
+		def("open",     (bool(LuaGlue_Bitstream::*)(const char*)) &LuaGlue_Bitstream::open). // 引数明示
 		def("dump",     &LuaGlue_Bitstream::glue_dump).
 		def("bit",      &LuaGlue_Bitstream::read_bit ).
 		def("byte",     &LuaGlue_Bitstream::read_byte).

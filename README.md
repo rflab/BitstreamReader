@@ -31,6 +31,7 @@
     -- example
     s = BitStream.new()                       -- クラス作成
     s:open("test.dat")
+    s:dump(0, 255)                            -- 先頭から255バイト表示
     s:byte("hoge", 4, true)                   -- "hoge"のデータを４倍と読み込み、コンソール上に表示許可
     local length = s:byte("length", 4, false) -- "length"のデータを４バイト読み込み変数に記憶
     if length ~= 0 then

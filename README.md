@@ -4,7 +4,7 @@
 
 ## TODO
 
-とりあえずLua5.3.0＆VC++12でビルド確認、mingw/g++は多分無理です。
+とりあえずLua5.3.0＆VC++12でビルド確認してます。mingw/g++は多分無理です。
 
 最初に実行するスクリプトはtest.luaです。コンソールで指定とかは後日。
 
@@ -41,8 +41,8 @@
 
     s:byte("hoge", 4, true)                   -- "hoge"としてデータを４倍と読み込み、コンソール上に表示許可
     local length = s:byte("length", 4, false) -- ４バイト読み込み変数に記憶
-    if length ~= 0 then
-      s:byte("payload", 3, true)
+    if length >= 4 then
+      s:byte("payload", length-1, true)
       s:bit("foo[0-2]", 3, true)              -- ビット単位で読み込みこの行をコンソール上に表示
       s:bit("foo[3-7]", 5, true)              -- ビット単位で続けて読み込み
     end

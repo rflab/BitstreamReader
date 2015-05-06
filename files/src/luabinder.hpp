@@ -324,7 +324,7 @@ namespace rf
 		//----------------------------------------
 		// クラス
 
-		// 引数なしコンストラクタ	
+		// 引数なしコンストラクタ
 		template<class T>
 		static int new_instance(lua_State* L)
 		{

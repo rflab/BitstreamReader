@@ -418,18 +418,19 @@ int main(int argc, char** argv)
 	//lua->def("cur_byte", glue_cur_byte);
 	//lua->def("cur_bit", glue_cur_byte);
 
-	//// このままだとメンバ関数登録できないので↑見たいのが必要
+	// クラスバインド
+	//オーバーロードがある場合とかは明示する
 	lua->def_class<LuaGlue_Bitstream>("BitStream")->
-		def("open", (bool(LuaGlue_Bitstream::*)(const char*)) &LuaGlue_Bitstream::open).
-		def("dump", &LuaGlue_Bitstream::glue_dump).
-		def("bit", &LuaGlue_Bitstream::read_bit).
-		def("byte", &LuaGlue_Bitstream::read_byte).
-		def("cur_bit", &LuaGlue_Bitstream::cur_bit).
-		def("cur_byte", &LuaGlue_Bitstream::cur_byte).
-		def("b", &LuaGlue_Bitstream::read_bit).
-		def("B", &LuaGlue_Bitstream::read_byte).
-		def("cb", &LuaGlue_Bitstream::cur_bit).
-		def("cB", &LuaGlue_Bitstream::cur_byte);
+		def("open",     (bool(LuaGlue_Bitstream::*)(const char*)) &LuaGlue_Bitstream::open).
+		def("dump",     &LuaGlue_Bitstream::glue_dump).
+		def("bit",      &LuaGlue_Bitstream::read_bit ).
+		def("byte",     &LuaGlue_Bitstream::read_byte).
+		def("cur_bit",  &LuaGlue_Bitstream::cur_bit  ).
+		def("cur_byte", &LuaGlue_Bitstream::cur_byte ).
+		def("b",        &LuaGlue_Bitstream::read_bit ).
+		def("B",        &LuaGlue_Bitstream::read_byte).
+		def("cb",       &LuaGlue_Bitstream::cur_bit  ).
+		def("cB",       &LuaGlue_Bitstream::cur_byte );
 
 	for (;;)
 	{

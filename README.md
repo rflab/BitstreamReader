@@ -33,9 +33,12 @@
 ストリームの構造はluaスクリプトで記述
 
     -- example
-    s = BitStream.new()                       -- クラス作成
+    
+    -- ファイルオープン
+    s = BitStream.new()
     s:open("test.dat")
-    s:dump(0, 255)                            -- 先頭から255バイト表示
+    s:dump(0, 255)                            -- 先頭から255バイト表示してみる
+
     s:byte("hoge", 4, true)                   -- "hoge"としてデータを４倍と読み込み、コンソール上に表示許可
     local length = s:byte("length", 4, false) -- ４バイト読み込み変数に記憶
     if length ~= 0 then

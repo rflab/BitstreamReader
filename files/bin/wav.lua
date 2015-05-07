@@ -1,17 +1,14 @@
 --[[
-   --<—á>
-   s = BitStream.new() -- ƒNƒ‰ƒXì¬
-   s:cB("RIFF", 4, 0x52494646, true)      -- "hoge"‚Ìƒf[ƒ^‚ð‚S”{‚Æ“Ç‚Ýž‚ÝAƒRƒ“ƒ\[ƒ‹ã‚É•\Ž¦‹–‰Â
-   local len = s:byte("length", 4, false) -- "length"‚Ìƒf[ƒ^‚ð‚SƒoƒCƒg“Ç‚Ýž‚Ý•Ï”‚É‹L‰¯
-   if len ~= 0 then
-     s:byte("payload", 3, true)
-     s:bit("foo[0-2]", 3, true)           -- ƒrƒbƒg’PˆÊ‚Å“Ç‚Ýž‚Ý‚±‚Ìs‚ðƒRƒ“ƒ\[ƒ‹ã‚É•\Ž¦
-     s:bit("foo[3-7]", 5, true)           -- ƒrƒbƒg’PˆÊ‚Å‘±‚¯‚Ä“Ç‚Ýž‚Ý
-   end
+ ãƒ†ã‚¹ãƒˆç”¨ã®wavãƒã‚§ãƒƒã‚¯ã‚³ãƒ¼ãƒ‰
+
+ >filename=test.wav
+ >dofile("wav.lua")
 --]]
 
 print("==============================================================")
-filename = "test.wav"
+if filename == "" then
+	filename = "test.wav"
+end
 s = BitStream.new()
 s:open(filename)
 local filesize = s:file_size()

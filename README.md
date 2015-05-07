@@ -38,7 +38,7 @@
 単発で起動した場合はLuaのインタプリタがそのまま起動します。
 
     // 使用例
-    >filename=test.wav
+    >filename="test.wav"
     >dofile("wav.lua")
 
 コンソール上で起動すれば直接ファイルを読み込むモードにすることもできます。

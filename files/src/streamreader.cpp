@@ -407,7 +407,7 @@ public:
 		return compare_bit(name, 8 * byte_length, compvalue, disp);
 	}
 
-	bool serch_byte(unsigned char byte)
+	bool search_byte(unsigned char byte)
 	{
 		bitstream.cut_bit();
 
@@ -480,7 +480,7 @@ shared_ptr<rf::LuaBinder> init_lua()
 		def("cur_byte", &LuaGlue_Bitstream::cur_byte).
 		def("file_size", &LuaGlue_Bitstream::file_size).
 		def("seek", &LuaGlue_Bitstream::seek).
-		def("serch", &LuaGlue_Bitstream::serch_byte).
+		def("search", &LuaGlue_Bitstream::search_byte).
 		def("bit", &LuaGlue_Bitstream::read_bit).
 		def("byte", &LuaGlue_Bitstream::read_byte).
 		def("comp_bit", &LuaGlue_Bitstream::compare_bit).

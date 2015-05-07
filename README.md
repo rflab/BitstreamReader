@@ -47,7 +47,8 @@
     ./a.out --stream test.wav --lua wav.lua
 	
 ## 定義ファイルの書き方
-ストリームの構造はLuaスクリプトで記述
+ストリームの構造はLuaスクリプトで記述。
+bin/wav.lua等参照..
 
     -- example
     

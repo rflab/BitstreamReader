@@ -1,7 +1,7 @@
 --[[
  テスト用のwavチェックコード
 
- >filename=test.wav
+ >filename="test.wav"
  >dofile("wav.lua")
 --]]
 

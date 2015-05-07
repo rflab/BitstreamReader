@@ -15,19 +15,32 @@
 以下のクラスがバインドされています。
 (もっと色々バインド予定。。。)
 
-	lua->def_class<LuaGlue_Bitstream>("BitStream")->
-		def("open",     (bool(LuaGlue_Bitstream::*)(const char*)) &LuaGlue_Bitstream::open). // 引数明示
-		def("dump",     &LuaGlue_Bitstream::glue_dump).
-		def("bit",      &LuaGlue_Bitstream::read_bit ).
-		def("byte",     &LuaGlue_Bitstream::read_byte).
-		def("cur_bit",  &LuaGlue_Bitstream::cur_bit  ).
-		def("cur_byte", &LuaGlue_Bitstream::cur_byte ).
-		def("b",        &LuaGlue_Bitstream::read_bit ).
-		def("B",        &LuaGlue_Bitstream::read_byte).
-		def("cb",       &LuaGlue_Bitstream::cur_bit  ).
-		def("cB",       &LuaGlue_Bitstream::cur_byte );
+	lua->def("reverse16", LuaGlue_Bitstream::reverse_endian_16);
+	lua->def("reverse32", LuaGlue_Bitstream::reverse_endian_32);
 
-	
+	// クラスバインド
+	//オーバーロードがある場合とかは明示する
+	lua->def_class<LuaGlue_Bitstream>("BitStream")->
+		def("open", (bool(LuaGlue_Bitstream::*)(const char*)) &LuaGlue_Bitstream::open).
+		def("dump", &LuaGlue_Bitstream::glue_dump).
+		def("cur_bit", &LuaGlue_Bitstream::cur_bit).
+		def("cur_byte", &LuaGlue_Bitstream::cur_byte).
+		def("file_size", &LuaGlue_Bitstream::file_size).
+		def("seek", &LuaGlue_Bitstream::seek).
+		def("serch", &LuaGlue_Bitstream::serch_byte).
+		def("bit", &LuaGlue_Bitstream::read_bit).
+		def("byte", &LuaGlue_Bitstream::read_byte).
+		def("comp_bit", &LuaGlue_Bitstream::compare_bit).
+		def("comp_byte", &LuaGlue_Bitstream::compare_byte).
+		def("b", &LuaGlue_Bitstream::read_bit). // 以降シンタックスシュガー
+		def("B", &LuaGlue_Bitstream::read_byte).
+		def("cb", &LuaGlue_Bitstream::compare_bit).
+		def("cB", &LuaGlue_Bitstream::compare_byte);
+
+コンソール上で起動すれば直接ファイルを読み込むモードにすることもできます。
+
+<例>
+    ./a.out --stream test.wav --lua wav.lua
 	
 ## 定義ファイルの書き方
 ストリームの構造はLuaスクリプトで記述

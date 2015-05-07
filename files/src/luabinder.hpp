@@ -76,37 +76,57 @@ namespace rf
 			printf("------------------------------------------\n");
 		}
 
-		bool dofile(const std::string& filename)
+		bool luaresult(int lua_ret)
 		{
 			std::stringstream ss;
 			ss.str("");
 			ss.clear();
 
-			// int top = lua_gettop(L_);
-			int top = 0;
-
-			int ret = luaL_dofile(L_, filename.c_str());
-			switch (ret)
+			switch (lua_ret)
 			{
-			case LUA_OK: break;
-			case LUA_ERRRUN:    ss << "ERROR LUA RUNTIME \n"; break;
-			case LUA_ERRSYNTAX: ss << "ERROR LUA SYNTAX \n";  break;
-			case LUA_ERRMEM:    ss << "ERROR LUA MEM \n";     break;
-			case LUA_ERRFILE:   ss << "ERROR LUA FILE \n";    break;
-			default: ss << "ERROR LUA\n"; break;
+				case LUA_OK: break;
+				case LUA_ERRRUN:    ss << "ERROR LUA RUNTIME \n"; break;
+				case LUA_ERRSYNTAX: ss << "ERROR LUA SYNTAX \n";  break;
+				case LUA_ERRMEM:    ss << "ERROR LUA MEM \n";     break;
+				case LUA_ERRFILE:   ss << "ERROR LUA FILE \n";    break;
+				default: ss << "ERROR LUA\n"; break;
 			}
 
 			// エラーメッセージ表示
-			if (ret != LUA_OK)
+			if (lua_ret != LUA_OK)
 			{
 				ss << lua_tostring(L_, -1);
 				std::cout << ss.str() << std::endl;
 				return false;
 			}
 
-			// 呼び出し前のスタックに戻す
-			lua_settop(L_, top);
 			return true;
+		}
+
+		bool dofile(const std::string& filename)
+		{
+			int top = lua_gettop(L_);
+
+			int lua_ret = luaL_dofile(L_, filename.c_str());
+
+			bool result = luaresult(lua_ret);
+
+			lua_settop(L_, top);
+
+			return result;
+		}
+
+		bool dostring(const std::string& str)
+		{
+			int top = lua_gettop(L_);
+			
+			int lua_ret = luaL_dostring(L_, str.c_str());
+
+			bool result = luaresult(lua_ret);
+
+			lua_settop(L_, top);
+
+			return result;
 		}
 
 		//

@@ -1,9 +1,13 @@
---[[
- テスト用のwavチェックコード
+--
+-- テスト用のwavチェックコード
+--
+-- >filename="test.wav"
+-- >dofile("wav.lua")
+--
 
- >filename="test.wav"
- >dofile("wav.lua")
---]]
+--
+-- 情報表示
+--
 
 print("==============================================================")
 if filename == nil then
@@ -17,6 +21,10 @@ print("filesize:" .. string.format("0x%08x", filesize))
 print("<dump255>")
 s:dump(0, 256)
 print("==============================================================")
+
+--
+-- 解析
+--
 
 local tmp = 0
 
@@ -44,7 +52,12 @@ tmp = s:B("size_data",              4, true)
 size_data = reverse32(tmp)
 -- print(size_data)
 
-s:B("data",                         size_data, true)
+s:B("data",                         size_data-1, true)
+
+
+--
+-- ファイルサイズチェックとか
+--
 
 if filesize ~= s:cur_byte() then
 	print("# remain data: file_size=" .. filesize .. ", cur=" .. s:cur_byte()) 

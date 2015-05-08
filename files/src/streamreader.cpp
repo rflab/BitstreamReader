@@ -344,9 +344,11 @@ public:
 
 	unsigned int read_bit(const char* name, unsigned int bit_length, bool disp)
 	{
+		unsigned int prev_byte = bitstream.cur_byte();
+		unsigned int prev_bit = bitstream.cur_bit();
+
 		if (bit_length > 32)
 		{
-			unsigned int prev_byte = bitstream.cur_byte();
 			bitstream.bit_advance(bit_length);
 
 			if (disp)
@@ -354,8 +356,7 @@ public:
 				unsigned int dump_len = std::min<unsigned int>(16, bit_length / 8);
 
 				printf(" pos=0x%08x(+%d)| siz=0x%08x(+%d)| %-40s | ",
-					bitstream.cur_byte(), bitstream.cur_bit(),
-					bit_length / 8, bit_length % 8, name);
+					prev_byte, prev_bit, bit_length / 8, bit_length % 8, name);
 				dump_line(bitstream.buf().get(), prev_byte, dump_len);
 
 				if (16 > dump_len)
@@ -377,9 +378,7 @@ public:
 			if (disp)
 			{
 				printf(" pos=0x%08x(+%d)| siz=0x%08x(+%d)| %-40s | val=0x%-8x (%d)\n",
-					bitstream.cur_byte(), bitstream.cur_bit(),
-					bit_length / 8, bit_length % 8, name,
-					v, v);
+					prev_byte, prev_bit, bit_length / 8, bit_length % 8, name, v, v);
 			}
 
 			return v;
@@ -407,12 +406,13 @@ public:
 		return compare_bit(name, 8 * byte_length, compvalue, disp);
 	}
 
-	bool search_byte(unsigned char byte)
+	bool search_byte(unsigned char byte, bool disp)
 	{
+		unsigned int prev_byte = bitstream.cur_byte();
 		bitstream.cut_bit();
 
 		unsigned int val;
-		for (int i = 0; true; ++i)
+		for (unsigned int i = 0; true; ++i)
 		{
 			if (!bitstream.bit_read(8, &val))
 			{
@@ -421,11 +421,16 @@ public:
 
 			if (val == byte)
 			{
+				if (disp)
+				{
+					printf(" pos=0x%08x    | search '0x%02x' found. offset:0x%x\n", 
+						prev_byte, byte, i);
+				}
 				return true;
 			}
 		}
 
-		ERR << "can not find byte:0x" << hex << byte << endl;
+		ERR << "# can not find byte:0x" << hex << byte << endl;
 		return false;
 	}
 
@@ -499,8 +504,16 @@ int main(int argc, char** argv)
 	auto lua = init_lua();
 
 	// 引数適用
-	string lua_file_name = ""; // "test.lua";
+	string lua_file_name = "default.lua";
+	//string lua_file_name = ""; 
 	string stream_name = "";
+
+	if (argc == 2)
+	{
+		lua_file_name = "default.lua";
+		stream_name = argv[1];
+	}
+
 	if (argc >= 3)
 	{
 		int flag = 0;

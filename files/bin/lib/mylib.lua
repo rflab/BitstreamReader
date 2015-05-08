@@ -32,7 +32,4 @@ function dump_table_all(table)
 end
 
 
-function check(name, length, disp_enable)
-	value = readbyte(name, length, disp_enable)
-	return {value = value}
-end
+

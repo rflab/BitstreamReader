@@ -9,6 +9,17 @@
 ## 機能
 実行時引数に応じてLuaインタプリタを起動するか、起動直後からdofile()を実行するモードになります。
 
+単発で起動した場合はLuaのインタプリタがそのまま起動します。
+
+    // 使用例
+    >filename="test.wav"
+    >dofile("wav.lua")
+
+コンソール上で起動すれば直接ファイルを読み込むモードにすることもできます。
+
+    // 使用例
+    ./a.out --stream test.wav --lua wav.lua
+
 以下のクラスがバインドされています。
 (もっと色々バインド予定。。。)
 
@@ -35,17 +46,6 @@
 		def("cb", &LuaGlue_Bitstream::compare_bit).
 		def("cB", &LuaGlue_Bitstream::compare_byte);
 
-単発で起動した場合はLuaのインタプリタがそのまま起動します。
-
-    // 使用例
-    >filename="test.wav"
-    >dofile("wav.lua")
-
-コンソール上で起動すれば直接ファイルを読み込むモードにすることもできます。
-
-    // 使用例
-    ./a.out --stream test.wav --lua wav.lua
-	
 ## 定義ファイルの書き方
 ストリームの構造はLuaスクリプトで記述。
 files/bin/wav.lua等参照..

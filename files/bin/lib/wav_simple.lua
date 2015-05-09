@@ -11,7 +11,6 @@ stream = init_stream(file_name)
 print_status()
 
 -- ストリーム解析
-local data = {}
 B("'RIFF'",                       4)
 B("file_size+muns8",              4)
 B("'wave'",                       4)

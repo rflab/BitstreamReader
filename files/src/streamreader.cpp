@@ -322,10 +322,16 @@ class LuaGlue_Bitstream
 {
 private:
 	FileBitstream bitstream;
+	bool prints_;
 
 public:
-	LuaGlue_Bitstream(){}
+	LuaGlue_Bitstream():prints_(true){}
 	~LuaGlue_Bitstream(){}
+
+	void enable_print(bool enable)
+	{
+		prints_ = enable;
+	}
 
 	bool open(const char* filename)
 	{
@@ -342,7 +348,7 @@ public:
 		return dump(bitstream.buf().get(), byte_offset, byte_size);
 	}
 
-	unsigned int read_bit(const char* name, unsigned int bit_length, bool disp)
+	unsigned int read_bit(const char* name, unsigned int bit_length)
 	{
 		unsigned int prev_byte = bitstream.cur_byte();
 		unsigned int prev_bit = bitstream.cur_bit();
@@ -351,7 +357,7 @@ public:
 		{
 			bitstream.bit_advance(bit_length);
 
-			if (disp)
+			if (prints_)
 			{
 				unsigned int dump_len = std::min<unsigned int>(16, bit_length / 8);
 
@@ -375,7 +381,7 @@ public:
 				return 0;
 			}
 
-			if (disp)
+			if (prints_)
 			{
 				printf(" pos=0x%08x(+%d)| siz=0x%08x(+%d)| %-40s | val=0x%-8x (%d)\n",
 					prev_byte, prev_bit, bit_length / 8, bit_length % 8, name, v, v);
@@ -385,14 +391,14 @@ public:
 		}
 	}
 
-	unsigned int read_byte(const char* name, unsigned int byte_length, bool disp)
+	unsigned int read_byte(const char* name, unsigned int byte_length)
 	{
-		return read_bit(name, 8 * byte_length, disp);
+		return read_bit(name, 8 * byte_length);
 	}
 
-	unsigned int compare_bit(const char* name, unsigned int bit_length, unsigned int compvalue, bool disp)
+	unsigned int compare_bit(const char* name, unsigned int bit_length, unsigned int compvalue)
 	{
-		unsigned int value = read_bit(name, bit_length, disp);
+		unsigned int value = read_bit(name, bit_length);
 		if (value != compvalue)
 		{
 			printf("# `--compare value is false:  0x%08x(%d) != 0x%08x(%d)\n",
@@ -401,12 +407,12 @@ public:
 		return value;
 	}
 
-	unsigned int compare_byte(const char* name, unsigned int byte_length, unsigned int compvalue, bool disp)
+	unsigned int compare_byte(const char* name, unsigned int byte_length, unsigned int compvalue)
 	{
-		return compare_bit(name, 8 * byte_length, compvalue, disp);
+		return compare_bit(name, 8 * byte_length, compvalue);
 	}
 
-	bool search_byte(unsigned char byte, bool disp)
+	bool search_byte(unsigned char byte)
 	{
 		unsigned int prev_byte = bitstream.cur_byte();
 		bitstream.cut_bit();
@@ -421,7 +427,7 @@ public:
 
 			if (val == byte)
 			{
-				if (disp)
+				if (prints_)
 				{
 					printf(" pos=0x%08x    | search '0x%02x' found. offset:0x%x\n", 
 						prev_byte, byte, i);
@@ -473,25 +479,26 @@ shared_ptr<rf::LuaBinder> init_lua()
 {
 	auto lua = make_shared<rf::LuaBinder>();
 
-	lua->def("reverse16", LuaGlue_Bitstream::reverse_endian_16);
-	lua->def("reverse32", LuaGlue_Bitstream::reverse_endian_32);
+	lua->def("reverse_16", LuaGlue_Bitstream::reverse_endian_16);
+	lua->def("reverse_32", LuaGlue_Bitstream::reverse_endian_32);
 
 	// クラスバインド
 	//オーバーロードがある場合とかは明示する
 	lua->def_class<LuaGlue_Bitstream>("BitStream")->
-		def("open", (bool(LuaGlue_Bitstream::*)(const char*)) &LuaGlue_Bitstream::open).
+		def("open", &LuaGlue_Bitstream::open).
+		def("enable_print", &LuaGlue_Bitstream::enable_print).
+		def("get_file_size", &LuaGlue_Bitstream::file_size).
 		def("dump", &LuaGlue_Bitstream::glue_dump).
-		def("cur_bit", &LuaGlue_Bitstream::cur_bit).
-		def("cur_byte", &LuaGlue_Bitstream::cur_byte).
-		def("file_size", &LuaGlue_Bitstream::file_size).
 		def("seek", &LuaGlue_Bitstream::seek).
 		def("search", &LuaGlue_Bitstream::search_byte).
-		def("bit", &LuaGlue_Bitstream::read_bit).
-		def("byte", &LuaGlue_Bitstream::read_byte).
+		def("cur_bit", &LuaGlue_Bitstream::cur_bit).
+		def("cur_byte", &LuaGlue_Bitstream::cur_byte).
+		def("read_bit", &LuaGlue_Bitstream::read_bit).
+		def("read_byte", &LuaGlue_Bitstream::read_byte).
 		def("comp_bit", &LuaGlue_Bitstream::compare_bit).
 		def("comp_byte", &LuaGlue_Bitstream::compare_byte).
-		def("b", &LuaGlue_Bitstream::read_bit).
-		def("B", &LuaGlue_Bitstream::read_byte).
+		def("rb", &LuaGlue_Bitstream::read_bit).
+		def("rB", &LuaGlue_Bitstream::read_byte).
 		def("cb", &LuaGlue_Bitstream::compare_bit).
 		def("cB", &LuaGlue_Bitstream::compare_byte);
 
@@ -504,8 +511,7 @@ int main(int argc, char** argv)
 	auto lua = init_lua();
 
 	// 引数適用
-	string lua_file_name = "default.lua";
-	//string lua_file_name = ""; 
+	string lua_file_name = ""; 
 	string stream_name = "";
 
 	if (argc == 2)

@@ -15,6 +15,54 @@
 
 namespace rf
 {
+	using std::size_t;
+	using std::cout;
+	using std::endl;
+	using std::stringstream;
+	using std::string;
+	using std::enable_if;
+
+	// 引数インデックス用シーケンス
+	// integer_sequence<int, 1, 2, 3, 4>
+	template<typename Tp, Tp ... N>
+	struct intetger_sequence
+	{};
+
+	template<typename Vec, typename Tp>
+	struct push_back;
+
+	template<template<typename T, T ... V> class VecC,
+		template<typename T, T V> class IntC,
+		typename T, T ... V1, T V2>
+	struct push_back < VecC<T, V1...>, IntC<T, V2> >
+	{
+		typedef VecC<T, V1..., V2> type;
+	};
+
+	template<typename T, T First, T Last>
+	struct make_integral_sequence;
+
+	template<typename T, T First, T Last>
+	struct make_integral_sequence
+	{
+		typedef typename
+			push_back < typename make_integral_sequence<T, First, Last - 1>::type,
+			std::integral_constant<T, Last - 1 > > ::type type;
+	};
+
+	template<typename T, T A>
+	struct make_integral_sequence < T, A, A >
+	{
+		typedef intetger_sequence<T> type;
+	};
+
+	//template<typename T, T First, T Last>
+	//struct indexed_integral_sequence
+	//{
+	//	static_assert(First <= Last, "");
+	//	typedef typename make_integral_sequence<T, First, Last>::type type;
+	//};
+
 	class LuaBinder
 	{
 	private:
@@ -78,7 +126,7 @@ namespace rf
 
 		bool luaresult(int lua_ret)
 		{
-			std::stringstream ss;
+			stringstream ss;
 			ss.str("");
 			ss.clear();
 
@@ -96,14 +144,14 @@ namespace rf
 			if (lua_ret != LUA_OK)
 			{
 				ss << lua_tostring(L_, -1);
-				std::cout << ss.str() << std::endl;
+				cout << ss.str() << endl;
 				return false;
 			}
 
 			return true;
 		}
 
-		bool dofile(const std::string& filename)
+		bool dofile(const string& filename)
 		{
 			int top = lua_gettop(L_);
 
@@ -116,7 +164,7 @@ namespace rf
 			return result;
 		}
 
-		bool dostring(const std::string& str)
+		bool dostring(const string& str)
 		{
 			int top = lua_gettop(L_);
 			
@@ -150,7 +198,7 @@ namespace rf
 			lua_pushstring(L, a);
 		}
 
-		static void push_stack(lua_State* L, const std::string& a)
+		static void push_stack(lua_State* L, const string& a)
 		{
 			lua_pushstring(L, a.c_str());
 		}
@@ -178,7 +226,7 @@ namespace rf
 		struct is_string
 		{
 			static const bool value =
-				std::is_same<T, std::string>::value ||
+				std::is_same<T, string>::value ||
 				std::is_same<T, char const*>::value;
 		};
 
@@ -191,71 +239,30 @@ namespace rf
 				is_string<T>::value;
 		};
 
-		template<typename T, typename std::enable_if<is_number<T>::value>::type* = 0>
-		static T get_stack(lua_State* L, int index)
+		template<typename T>
+		static T get_stack(lua_State* L, int index, typename enable_if<is_number<T>::value>::type* = 0)
 		{
 			return static_cast<T>(lua_tonumber(L, index));
 		}
 
-		template<typename T, typename std::enable_if<is_boolean<T>::value>::type* = 0>
-		static bool get_stack(lua_State* L, int index)
+		template<typename T>
+		static bool get_stack(lua_State* L, int index, typename enable_if<is_boolean<T>::value>::type* = 0)
 		{
-			return lua_isboolean(L, index) == 0 ? false : true;
+			return lua_toboolean(L, index) == 0 ? false : true;
 		}
 
-		template<typename T, typename std::enable_if<is_string<T>::value>::type* = 0>
-		static const char* get_stack(lua_State* L, int index)
+		template<typename T>
+		static const char* get_stack(lua_State* L, int index, typename enable_if<is_string<T>::value>::type* = 0)
 		{
 			return lua_tostring(L, index);
 		}
-
-		// 引数インデックス用シーケンス
-		// integer_sequence<int, 1, 2, 3, 4>
-		template<typename Tp, Tp ... N>
-		struct intetger_sequence
-		{};
-
-		template<typename Vec, typename Tp>
-		struct push_back;
-
-		template<template<typename T, T ... V> class VecC,
-			template<typename T, T V> class IntC,
-			typename T, T ... V1, T V2>
-		struct push_back < VecC<T, V1...>, IntC<T, V2> >
-		{
-			typedef VecC<T, V1..., V2> type;
-		};
-
-		template<typename T, T First, T Last>
-		struct make_integral_sequence;
-
-		template<typename T, T First, T Last>
-		struct make_integral_sequence
-		{
-			typedef typename
-				push_back < typename make_integral_sequence<T, First, Last - 1>::type,
-				std::integral_constant<T, Last - 1 > > ::type type;
-		};
-
-		template<typename T, T A>
-		struct make_integral_sequence < T, A, A >
-		{
-			typedef intetger_sequence<T> type;
-		};
-
-		template<typename T, T First, T Last>
-		struct indexed_integral_sequence
-		{
-			static_assert(First <= Last, "");
-			typedef typename make_integral_sequence<T, First, Last>::type type;
-		};
 
 		// 引数型情報とLuaから呼び出す関数をもつスタブのようなオブジェクト
 		// 関数、void関数、メンバ関数、voidメンバ関数を特殊化する
 		template<typename Func, typename Seq, typename IsMember = void>
 		struct invoker;
 
-		template<typename Ret, typename... Args, std::size_t ... Ixs>
+		template<typename Ret, typename... Args, size_t ... Ixs>
 		struct invoker < Ret(*)(Args...), intetger_sequence<size_t, Ixs...> >
 		{
 			static int apply(lua_State* L)
@@ -267,7 +274,7 @@ namespace rf
 			}
 		};
 
-		template<typename... Args, std::size_t ... Ixs>
+		template<typename... Args, size_t ... Ixs>
 		struct invoker < void(*)(Args...), intetger_sequence<size_t, Ixs...> >
 		{
 			static int apply(lua_State* L)
@@ -278,9 +285,9 @@ namespace rf
 			}
 		};
 
-		template<class T, typename Ret, typename ... Args, std::size_t ... Ixs>
+		template<class T, typename Ret, typename ... Args, size_t ... Ixs>
 		struct invoker< Ret(T::*)(Args...), intetger_sequence<size_t, Ixs...>,
-			typename std::enable_if<std::is_member_function_pointer<Ret(T::*)(Args...)>::value>::type>
+			typename enable_if<std::is_member_function_pointer<Ret(T::*)(Args...)>::value && !std::is_void<Ret>::value>::type>
 		{
 			static int apply(lua_State* L)
 			{
@@ -300,11 +307,10 @@ namespace rf
 				return 1;
 			}
 		};
-
-
-		template<class T, typename ... Args, std::size_t ... Ixs>
-		struct invoker< void(T::*)(Args...), intetger_sequence<size_t, Ixs...>,
-			typename std::enable_if<std::is_member_function_pointer<void(T::*)(Args...)>::value>::type>
+		
+		template<class T, typename Ret, typename ... Args, size_t ... Ixs>
+		struct invoker< Ret(T::*)(Args...), intetger_sequence<size_t, Ixs...>,
+			typename enable_if<std::is_member_function_pointer<Ret(T::*)(Args...)>::value && std::is_void<Ret>::value>::type>
 		{
 			static int apply(lua_State* L)
 			{
@@ -312,15 +318,14 @@ namespace rf
 				if (self == nullptr){
 					cout << "no self specified" << endl;
 				}
-
+		
 				// これで通ったけどなんでかなー
 				typedef typename std::remove_reference<void(T::*)(Args...)>::type mf_type;
 				void* buf = lua_touserdata(L, lua_upvalueindex(1));
 				auto a = static_cast<std::array<mf_type, 1>*> (buf);
 				mf_type fp = (*a)[0];
-
-				r = (self->*fp)(get_stack<Args>(L, Ixs)...);
-				push_stack(L, r);
+		
+				(self->*fp)(get_stack<Args>(L, Ixs)...);
 				return 0;
 			}
 		};
@@ -330,9 +335,9 @@ namespace rf
 
 		// 関数を登録
 		template<typename R, typename ... Args>
-		void def(std::string const& func_name, R(*f)(Args...))
+		void def(string const& func_name, R(*f)(Args...))
 		{
-			typedef make_integral_sequence<std::size_t, 1, sizeof...(Args)+1>::type seq;
+			typedef make_integral_sequence<size_t, 1, sizeof...(Args)+1>::type seq;
 			lua_CFunction upvalue = invoker<decltype(f), seq>::apply;
 
 			// 登録する関数はinvokerから呼び出すので関数型にキャストしてクロージャに入れる
@@ -371,11 +376,11 @@ namespace rf
 		class class_chain
 		{
 		private:
-			std::string name_;
+			string name_;
 			lua_State* L_;
 
 		public:
-			class_chain(lua_State* L, std::string const& name)
+			class_chain(lua_State* L, string const& name)
 				:name_(name), L_(L)
 			{
 				// local table = {}
@@ -417,11 +422,11 @@ namespace rf
 				lua_pop(L_, 2);
 			}
 
-			template<typename Ret, typename... Args,
-				typename std::enable_if<std::is_member_function_pointer<Ret(T::*)(Args...)>::value>::type* = 0>
-				const class_chain<T>& def(std::string const& method_name, Ret(T::*f)(Args...)) const
+			template<typename Ret, typename... Args>
+				const class_chain<T>& def(string const& method_name, Ret(T::*f)(Args...),
+					typename enable_if<std::is_member_function_pointer<Ret(T::*)(Args...)>::value>::type* = 0) const
 			{
-				typedef make_integral_sequence<std::size_t, 2, sizeof...(Args)+2>::type seq;
+				typedef make_integral_sequence<size_t, 2, sizeof...(Args)+2>::type seq;
 				lua_CFunction upvalue = invoker<Ret(T::*)(Args...), seq>::apply;
 
 				luaL_getmetatable(L_, name_.c_str());
@@ -452,7 +457,7 @@ namespace rf
 		};
 
 		template<class T>
-		std::shared_ptr<class_chain<T> > def_class(std::string const& name)
+		std::shared_ptr<class_chain<T> > def_class(string const& name)
 		{
 			return make_shared<class_chain<T> >(L_, name);
 		}

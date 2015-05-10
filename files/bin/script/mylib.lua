@@ -59,9 +59,10 @@ function print_status()
 	print("file_name:", gs_stream.status.file_name)
 	print("file_size:", string.format("0x%08x", gs_stream.stream:get_file_size()))
 	print("cursor   :", string.format("0x%08x(%d)", gs_stream.stream:cur_byte(), gs_stream.stream:cur_bit()))
+	print("remain   :", string.format("0x%08x", gs_stream.stream:get_file_size()-gs_stream.stream:cur_byte()))
 end
 
-function B(name, size, table)
+function byte(name, size, table)
 	local val = gs_stream.stream:read_byte(name, size)
 
 	if type(table) == "table" then
@@ -69,8 +70,40 @@ function B(name, size, table)
 	end	
 end
 
-function b(name, size, table)
+function bit(name, size, table)
 	local val = gs_stream.stream:read_bit(name, size)
+
+	if type(table) == "table" then
+		table[name] = val
+	end	
+end
+
+function str(name, size, table)
+	local val = gs_stream.stream:read_string(name, size)
+
+	if type(table) == "table" then
+		table[name] = val
+	end	
+end
+
+function cbyte(name, size, comp, table)
+	local val = gs_stream.stream:comp_byte(name, size, comp)
+
+	if type(table) == "table" then
+		table[name] = val
+	end	
+end
+
+function cbit(name, size, comp, table)
+	local val = gs_stream.stream:comp_bit(name, size, comp)
+
+	if type(table) == "table" then
+		table[name] = val
+	end	
+end
+
+function cstr(name, size, comp, table)
+	local val = gs_stream.stream:comp_str(name, size, comp)
 
 	if type(table) == "table" then
 		table[name] = val
@@ -79,4 +112,8 @@ end
 
 function dump(size)
 	gs_stream.stream:dump(gs_stream.stream:cur_byte(), size)
+end
+
+function write(filename, size)
+	gs_stream.stream:write(filename, gs_stream.stream:cur_byte(), size)
 end

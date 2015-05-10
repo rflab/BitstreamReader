@@ -1,0 +1,35 @@
+//--------------
+// フローコントロールとか
+//--------------
+// 値を定義
+mov      i 5
+// ラベルを設置
+label label1
+// 値を操作
+sub      i 1
+// ジャンプ命令
+jne   label1 aaa 0
+
+//--------------
+// wavを読む例
+//--------------
+B        'RIFF'                       4
+Bl       file_size+muns8              4
+B        'WAVE'                       4
+B        'fmt_'                       4
+Bl       size_fmt                     4
+Bl       format_id                    2
+Bl       num_channels                 2
+Bl       sampleing_frequency          4
+Bl       byte_per_sec                 4
+Bl       block_size(smaple_x_channel) 2
+Bl       bit_depth                    2
+B        'data'                       4
+Bl       size_audio_data              4
+// 可変長読み込み可
+B        audio_data                   size_audio_data
+print    audio_data"
+B        tag                          4
+Bl       size_data                    4
+B        data                         size_data"
+

@@ -1,0 +1,32 @@
+// wav to pcm
+
+ropen test.wav
+wopen out.pcm
+print "=============================================================="
+print " load test.wav"
+print ""
+print " dump head part.."
+dump 0 256
+print ""
+print "=============================================================="
+print "start analyse"
+
+cB       'RIFF'                       4 0x52494646
+Bl       file_size+muns8              4
+B        'WAVE'                       4
+B        'fmt_'                       4
+Bl       size_fmt                     4
+Bl       format_id                    2
+Bl       num_channels                 2
+Bl       sampleing_frequency          4
+Bl       byte_per_sec                 4
+Bl       block_size(smaple_x_channel) 2
+Bl       bit_depth                    2
+B        'data'                       4
+Bl       size_audio_data              4
+B        audio_data                   size_audio_data
+print    audio_data
+write    audio_data
+B        tag                          4
+Bl       size_data                    4
+B        data                         size_data

@@ -1,14 +1,17 @@
 --[[
- ãƒ†ã‚¹ãƒˆç”¨ã®wavãƒã‚§ãƒƒã‚¯ã‚³ãƒ¼ãƒ‰
-
- >filename="test.wav"
- >dofile("wav.lua")
+   --<—á>
+   s = BitStream.new() -- ƒNƒ‰ƒXì¬
+   s:cB("RIFF", 4, 0x52494646, true)      -- "hoge"‚Ìƒf[ƒ^‚ğ‚S”{‚Æ“Ç‚İ‚İAƒRƒ“ƒ\[ƒ‹ã‚É•\¦‹–‰Â
+   local len = s:byte("length", 4, false) -- "length"‚Ìƒf[ƒ^‚ğ‚SƒoƒCƒg“Ç‚İ‚İ•Ï”‚É‹L‰¯
+   if len ~= 0 then
+     s:byte("payload", 3, true)
+     s:bit("foo[0-2]", 3, true)           -- ƒrƒbƒg’PˆÊ‚Å“Ç‚İ‚İ‚±‚Ìs‚ğƒRƒ“ƒ\[ƒ‹ã‚É•\¦
+     s:bit("foo[3-7]", 5, true)           -- ƒrƒbƒg’PˆÊ‚Å‘±‚¯‚Ä“Ç‚İ‚İ
+   end
 --]]
 
 print("==============================================================")
-if filename == nil then
-	filename = "test.wav"
-end
+filename = "test.wav"
 s = BitStream.new()
 s:open(filename)
 local filesize = s:file_size()
@@ -44,7 +47,7 @@ tmp = s:B("size_data",              4, true)
 size_data = reverse32(tmp)
 -- print(size_data)
 
-s:B("data",                         size_data, true)
+s:B("data",                         size_data-1, true)
 
 if filesize ~= s:cur_byte() then
 	print("# remain data: file_size=" .. filesize .. ", cur=" .. s:cur_byte()) 

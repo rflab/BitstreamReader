@@ -1,4 +1,4 @@
-// wav to pcm
+﻿// wav to pcm
 
 ropen test.wav
 wopen out.pcm

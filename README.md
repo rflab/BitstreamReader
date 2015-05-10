@@ -49,7 +49,7 @@
 ## 定義ファイルの書き方
 
 ストリームの構造はLuaスクリプトで記述します。
-（Lua文法はhttp://milkpot.sakura.ne.jp/lua/lua52_manual_ja.htmlあたり参照のこと）
+（Lua文法はhttp://milkpot.sakura.ne.jp/lua/lua52_manual_ja.html あたり参照のこと）
 
 実際はfiles/bin/script/mylib.luaに幾つか便利関数を用意しているのでそれを使うといいと思います。
 （files/bin/script/default.luaあたり参照のこと。）

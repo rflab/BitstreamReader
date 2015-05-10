@@ -11,7 +11,7 @@
 ## 機能
 引数なしで起動した場合はLuaのインタプリタがそのまま起動されます。
 
-引数を一つだけ指定した場合はLuaの変数arg1に代入してscript/default.luaを起動します。
+引数を一つだけ指定した場合は、arg1に文字列として代入された状態でscript/default.luaが起動されます。
 
     // 使用例
     ./a.out test.wav
@@ -52,7 +52,7 @@
 （Lua文法はhttp://milkpot.sakura.ne.jp/lua/lua52_manual_ja.htmlあたり参照のこと）
 
 実際はfiles/bin/script/mylib.luaに幾つか便利関数を用意しているのでそれを使うといいと思います。
-files/bin/script/default.luaあたり参照のこと。
+（files/bin/script/default.luaあたり参照のこと。）
 
     -- <<example>>
 

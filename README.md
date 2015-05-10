@@ -56,19 +56,19 @@
 
     -- <<example>>
 
-    dofile("script/mylib.lua")          -- Luaに関数登録ロード
-    stream = init_stream("test.wav")    -- ファイルオープン＆初期化
-    print_status()                      -- 情報表示する
-    dump(256)                           -- 現在行から256バイト表示する 
+    dofile("script/mylib.lua")                -- Luaに関数登録ロード
+    stream = init_stream("test.wav")          -- ファイルオープン＆初期化
+    print_status()                            -- 情報表示する
+    dump(256)                                 -- 現在行から256バイト表示する 
     
-    
-    cstr("'RIFF'",           4, "RIFF") -- 4バイトを文字列として読み込み比較する
-    byte("file_size+muns8",  4)         -- 4バイトをバイナリデータとして読み込む
-    str("'wave'",            4, "wave") -- 4バイトを文字列として読み込む
+    -- 解析開始
+    cstr("'RIFF'",           4, "RIFF")       -- 4バイトを文字列として読み込み比較する
+    byte("file_size+muns8",  4)               -- 4バイトをバイナリデータとして読み込む
+    str("'wave'",            4, "wave")       -- 4バイトを文字列として読み込む
     
     -- 中略
     
-    local data = {}                     -- ここに読み込んだデータを保存する
-    byte("size_audio_data",  4, data)
-    write("out.pcm",                     reverse_32(data["size_audio_data"]))
+    local data = {}                           -- 情報取得用テーブル
+    byte("size_audio_data",  4, data)         -- サイズ情報を取得
+    write("out.pcm", data["size_audio_data"]) -- ファイル書き出し
 

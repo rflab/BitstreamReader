@@ -4,23 +4,23 @@
 
 ## TODO
 
-とりあえずLua5.3.0＆VC++12でビルド確認してます。mingw/g++は多分無理。
+とりあえずLua5.3.0＆VC++12でビルド確認してます。mingw/g++は多分無理です。
 
 ## 機能
-引数なしで起動した場合はLuaのインタプリタがそのまま起動される。
+引数なしで起動した場合はLuaのインタプリタがそのまま起動されます。
 
 引数を一つだけ指定した場合はLuaの変数arg1に代入してscript/default.luaを起動します。
 
     // 使用例
     ./a.out test.wav
 
-コンソール上で起動する場合はちまちま引数を指定する
+一応ちまちま引数指定も可能です。
 
     // 使用例
     ./a.out --stream test.wav --lua wav.lua
 
-以下のクラスがバインドされています。
-(もっと色々バインド予定。。。)
+以下のような関数・クラスがバインドされています。
+関数仕様はfiles/src/streamreader.cpp参照のこと。
 
         // 関数バインド
 	lua->def("reverse16", LuaGlue_Bitstream::reverse_endian_16);
@@ -45,19 +45,28 @@
 		def("write", &LuaGlue_Bitstream::write);
 
 ## 定義ファイルの書き方
-ストリームの構造はLuaスクリプトで記述。
 
-    -- example
+ストリームの構造はLuaスクリプトで記述します。
+（Lua文法はhttp://milkpot.sakura.ne.jp/lua/lua52_manual_ja.htmlあたり参照のこと）
+
+実際はfiles/bin/script/mylib.luaに幾つか便利関数を用意しているのでそれを使うといいと思います。
+files/bin/script/default.luaあたり参照のこと。
+
+    -- <<example>>
+
+    dofile("script/mylib.lua")          -- Luaに関数登録ロード
+    stream = init_stream("test.wav")    -- ファイルオープン＆初期化
+    print_status()                      -- 情報表示する
+    dump(256)                           -- 現在行から256バイト表示する 
     
-    -- ファイルオープン
-    s = BitStream.new()
-    s:open("test.dat")
-    s:dump(0, 255)                          -- 先頭から255バイト表示してみる
+    
+    cstr("'RIFF'",           4, "RIFF") -- 4バイトを文字列として読み込み比較する
+    byte("file_size+muns8",  4)         -- 4バイトをバイナリデータとして読み込む
+    str("'wave'",            4, "wave") -- 4バイトを文字列として読み込む
+    
+    -- 中略
+    
+    local data = {}                     -- ここに読み込んだデータを保存する
+    byte("size_audio_data",  4, data)
+    write("out.pcm",                     reverse_32(data["size_audio_data"]))
 
-    s:read_byte("hoge", 4)                  -- "hoge"としてデータを４バイト読み込む
-    local length = s:read_byte("length", 4) -- ４バイト読み込み変数に記憶
-    if length >= 4 then
-      s:read_byte("payload", length-1)
-      s:read_bit("foo[0-2]", 3)             -- ビット単位で読み込みこの行をコンソール上に表示
-      s:read_bit("foo[3-7]", 5)             -- ビット単位で続けて読み込み
-    end

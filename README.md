@@ -13,12 +13,10 @@
 
 引数を一つだけ指定した場合は、arg1に文字列として代入された状態でscript/default.luaが起動されます。
 
-    // 使用例
     ./a.out test.wav
 
 一応ちまちま引数指定も可能です。
 
-    // 使用例
     ./a.out --stream test.wav --lua wav.lua
 
 以下のような関数・クラスがバインドされています。

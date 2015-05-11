@@ -4,9 +4,9 @@
 
 ## TODO
 
-とりあえずLua5.3.0＆VC++12でビルド確認してます。mingw/g++はビルド未確認。
+とりあえずLua5.3.0＆VC++12でビルド確認してます。mingw/gccはビルド未確認。
 
-（VC++の場合はsrcを全部突っ込んで、src/luaをインクルードディレクトリに追加してF5、mingw/g++はfiles/srcでmake build）
+（VC++の場合はsrcを全部突っ込んで、src/luaをインクルードディレクトリに追加してF5、mingw/gccはfiles/srcでmake build）
 
 ## 機能
 引数なしで起動した場合はLuaのインタプリタがそのまま起動されます。

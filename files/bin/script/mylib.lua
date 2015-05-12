@@ -31,7 +31,7 @@ function dump_table_all(table)
 	end
 end
 
---簡易チェック用関数
+--ストリーム簡易チェック用関数
 local gs_stream = {}
 
 function init_stream(file_name)
@@ -39,7 +39,7 @@ function init_stream(file_name)
 	gs_stream.status.file_name = file_name
 	gs_stream.stream = BitStream.new()
 	gs_stream.stream:open(file_name)
-	gs_stream.status.file_size = gs_stream.stream:get_file_size()
+	gs_stream.status.file_size = gs_stream.stream:file_size()
 	return gs_stream
 end
 
@@ -56,13 +56,13 @@ end
 function print_status()
 	table.stream = gs_stream 
 	
-	print("file_name:", gs_stream.status.file_name)
-	print("file_size:", string.format("0x%08x", gs_stream.stream:get_file_size()))
-	print("cursor   :", string.format("0x%08x(%d)", gs_stream.stream:cur_byte(), gs_stream.stream:cur_bit()))
-	print("remain   :", string.format("0x%08x", gs_stream.stream:get_file_size()-gs_stream.stream:cur_byte()))
+	printf("file_name:%s", gs_stream.status.file_name)
+	printf("file_size:0x%08x", gs_stream.stream:file_size())
+	printf("cursor   :0x%08x(%d)", gs_stream.stream:cur_byte(), gs_stream.stream:cur_bit())
+	printf("remain   :0x%08x", gs_stream.stream:file_size()-gs_stream.stream:cur_byte())
 end
 
-function byte(name, size, table)
+function rbyte(name, size, table)
 	local val = gs_stream.stream:read_byte(name, size)
 
 	if type(table) == "table" then
@@ -70,7 +70,7 @@ function byte(name, size, table)
 	end	
 end
 
-function bit(name, size, table)
+function rbit(name, size, table)
 	local val = gs_stream.stream:read_bit(name, size)
 
 	if type(table) == "table" then
@@ -78,7 +78,7 @@ function bit(name, size, table)
 	end	
 end
 
-function str(name, size, table)
+function rstr(name, size, table)
 	local val = gs_stream.stream:read_string(name, size)
 
 	if type(table) == "table" then
@@ -111,9 +111,9 @@ function cstr(name, size, comp, table)
 end
 
 function dump(size)
-	gs_stream.stream:dump(gs_stream.stream:cur_byte(), size)
+	gs_stream.stream:dump(size)
 end
 
-function write(filename, size)
-	gs_stream.stream:write(filename, gs_stream.stream:cur_byte(), size)
+function obyte(filename, size)
+	gs_stream.stream:out_byte(filename, size)
 end

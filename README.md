@@ -16,7 +16,7 @@
 
     ./a.out test.wav
 
-一応ちまちま引数指定も可能です。
+一応ちまちまオプション指定も可能です。
 
     ./a.out --lua wav.lua --arg test.wav
 

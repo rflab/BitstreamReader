@@ -11,13 +11,14 @@
 ## 機能
 引数なしで起動した場合はLuaのインタプリタがそのまま起動されます。
 
-引数を一つだけ指定した場合は、arg1に文字列として代入された状態でscript/default.luaが起動されます。
+オプションを指定しない場合はarg1 arg2 ...に文字列として代入された状態でscript/default.luaが起動されます。
+（現状はdefault.luaで拡張子を判定し、対応するスクリプトをコールするようにしています。）
 
     ./a.out test.wav
 
 一応ちまちま引数指定も可能です。
 
-    ./a.out --stream test.wav --lua wav.lua
+    ./a.out --lua wav.lua --arg test.wav
 
 以下のような関数・クラスがバインドされています。
 関数仕様はfiles/src/streamreader.cpp参照のこと。
@@ -31,7 +32,7 @@
     		def("open",          &LuaGlue_Bitstream::open).
     		def("enable_print",  &LuaGlue_Bitstream::enable_print).
     		def("get_file_size", &LuaGlue_Bitstream::file_size).
-    		def("dump",          &LuaGlue_Bitstream::glue_dump).
+    		def("dump",          &LuaGlue_Bitstream::dump).
     		def("seek",          &LuaGlue_Bitstream::seek).
     		def("search",        &LuaGlue_Bitstream::search_byte).
     		def("cur_bit",       &LuaGlue_Bitstream::cur_bit).
@@ -42,14 +43,14 @@
     		def("comp_bit",      &LuaGlue_Bitstream::compare_bit).
     		def("comp_byte",     &LuaGlue_Bitstream::compare_byte).
     		def("comp_str",      &LuaGlue_Bitstream::compare_string).
-    		def("write",         &LuaGlue_Bitstream::write);
+    		def("out_byte",      &LuaGlue_Bitstream::output_byte);
 
 ## 定義ファイルの書き方
 
 ストリームの構造はLuaスクリプトで記述します。
 （Lua文法はhttp://milkpot.sakura.ne.jp/lua/lua52_manual_ja.html あたり参照のこと）
 
-実際はfiles/bin/script/mylib.luaに幾つか便利関数を用意しているのでそれを使うといいと思います。
+以下のサンプルではfiles/bin/script/mylib.luaに書いた関数を利用しています。
 （files/bin/script/default.luaあたり参照のこと。）
 
     -- <<example>>
@@ -60,13 +61,11 @@
     dump(256)                                 -- 現在行から256バイト表示する 
     
     -- 解析開始
-    cstr("'RIFF'",           4, "RIFF")       -- 4バイトを文字列として読み込み比較する
-    byte("file_size+muns8",  4)               -- 4バイトをバイナリデータとして読み込む
-    str("'wave'",            4, "wave")       -- 4バイトを文字列として読み込む
-    
+    cstr("'hoge'",           4, "hoge")       -- 4バイトを文字列として読み込み比較する
+    rbyte("file_size+muns8",  4)               -- 4バイトをバイナリデータとして読み込む
+
     -- 中略
     
     local data = {}                           -- 情報取得用テーブル
-    byte("size_audio_data",  4, data)         -- サイズ情報を取得
-    write("out.pcm", data["size_audio_data"]) -- ファイル書き出し
-
+    rbyte("size_audio_data",  4, data)        -- テーブルにサイズ情報を取得
+    obyte("out.pcm", data["size_audio_data"]) -- ファイル書き出し

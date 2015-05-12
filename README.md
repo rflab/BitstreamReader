@@ -62,10 +62,10 @@
     
     -- 解析開始
     cstr("'hoge'",           4, "hoge")       -- 4バイトを文字列として読み込み比較する
-    rbyte("file_size+muns8",  4)               -- 4バイトをバイナリデータとして読み込む
+    rbyte("file_size+muns8", 4)               -- 4バイトをバイナリデータとして読み込む
 
     -- 中略
     
     local data = {}                           -- 情報取得用テーブル
-    rbyte("size_audio_data",  4, data)        -- テーブルにサイズ情報を取得
+    rbyte("size_audio_data", 4, data)        -- テーブルにサイズ情報を取得
     obyte("out.pcm", data["size_audio_data"]) -- ファイル書き出し

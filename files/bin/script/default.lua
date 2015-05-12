@@ -6,11 +6,7 @@ dofile("script/mylib.lua")
 
 -- 拡張子にあわせてスクリプト実行
 assert(arg1, "no file name in argv[1]") 
-<<<<<<< HEAD
 local ext = string.gsub(arg1, ".*(%..*)", "%1")
-=======
-local ext = string.gsub(filename, ".*(%..*)", "%1")
->>>>>>> origin/master
 if ext == ".wav" then
 	dofile("script/wav.lua")
 else

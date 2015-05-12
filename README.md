@@ -53,19 +53,16 @@
 以下のサンプルではfiles/bin/script/mylib.luaに書いた関数を利用しています。
 （files/bin/script/default.luaあたり参照のこと。）
 
-    -- <<example>>
-
     dofile("script/mylib.lua")                -- Luaに関数登録ロード
     stream = init_stream("test.wav")          -- ファイルオープン＆初期化
     print_status()                            -- 情報表示する
     dump(256)                                 -- 現在行から256バイト表示する 
     
-    -- 解析開始
     cstr("'hoge'",           4, "hoge")       -- 4バイトを文字列として読み込み比較する
     rbyte("file_size+muns8", 4)               -- 4バイトをバイナリデータとして読み込む
 
     -- 中略
-    
+
     local data = {}                           -- 情報取得用テーブル
     rbyte("size_audio_data", 4, data)        -- テーブルにサイズ情報を取得
     obyte("out.pcm", data["size_audio_data"]) -- ファイル書き出し

@@ -24,17 +24,17 @@
 関数仕様はfiles/src/streamreader.cpp参照のこと。
 
     // 関数バインド
-    lua->def("reverse16", LuaGlue::reverse_endian_16);
-    lua->def("reverse32", LuaGlue::reverse_endian_32);
+    lua->def("reverse_16", LuaGlue::reverse_endian_16);
+    lua->def("reverse_32", LuaGlue::reverse_endian_32);
 
     // クラスバインド
     lua->def_class<LuaGlue>("BitStream")->
         def("open",          &LuaGlue::open).
         def("enable_print",  &LuaGlue::enable_print).
-        def("get_file_size", &LuaGlue::file_size).
-        def("dump",          &LuaGlue::dump).
+        def("file_size",     &LuaGlue::file_size).
         def("seek",          &LuaGlue::seek).
         def("search",        &LuaGlue::search_byte).
+        def("dump",          &LuaGlue::dump_byte).
         def("cur_bit",       &LuaGlue::cur_bit).
         def("cur_byte",      &LuaGlue::cur_byte).
         def("read_bit",      &LuaGlue::read_bit).

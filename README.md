@@ -30,7 +30,7 @@
 ## 定義ファイルの書き方
 
 ストリームの構造はLuaスクリプトで記述します。
-（Lua文法はhttp://milkpot.sakura.ne.jp/lua/lua52_manual_ja.html あたり参照のこと）
+（Luaの文法は http://milkpot.sakura.ne.jp/lua/lua52_manual_ja.html あたり参照のこと）
 
 以下のような関数・クラスがバインドされています。
 関数仕様はfiles/src/streamreader.cpp参照のこと。

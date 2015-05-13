@@ -4,7 +4,7 @@ stream = init_stream(file_name)
 dump(256)
 
 local data = {}
-cstr("''RIFF'",                       4, "RIFF")
+cstr ("'RIFF'",                       4, "RIFF")
 rbyte("file_size+muns8",              4)
 rbyte("'wave'",                       4)
 rbyte("'fmt_'",                       4)

@@ -1,4 +1,4 @@
-#Windows visual studio
+#
 Debug/
 Release/
 *.opensdf
@@ -6,7 +6,7 @@ Release/
 *.suo
 *.log
 *.bak
-
+*.wav
 
 # Windows image file caches
 Thumbs.db

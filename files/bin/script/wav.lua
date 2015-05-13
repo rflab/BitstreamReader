@@ -17,7 +17,7 @@ rbyte("block_size(smaple_x_channel)", 2)
 rbyte("bit_depth",                    2)
 rbyte("'data'",                       4)
 rbyte("size_audio_data",              4, data)
-obyte("pcm.pcm",                      reverse_32(data["size_audio_data"])) -- PCMを書き出す
+obyte("pcm.dat",                      reverse_32(data["size_audio_data"])) -- PCMを書き出す
 rbyte("tag",                          4)
 rbyte("size_data",                    4, data)
 rbyte("data",                         reverse_32(data["size_data"]))

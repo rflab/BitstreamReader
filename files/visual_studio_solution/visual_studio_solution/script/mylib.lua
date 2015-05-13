@@ -2,10 +2,6 @@ function printf(format, ...)
 	print(string.format(format, ...))
 end
 
-function get_extension(filename)
-	return string.gsub(filename, ".*(%..*)", "%1")
-end
-
 function dump_table(table)
 	if table ~= nil then
 		for i, v in ipairs(table) do

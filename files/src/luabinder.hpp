@@ -204,7 +204,6 @@ namespace rf
 		}
 
 		// 型推論でLua->C++
-		// booleanがうまくいってない予感
 
 		template<typename T>
 		struct is_boolean

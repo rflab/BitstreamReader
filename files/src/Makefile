@@ -4,7 +4,8 @@ rebuild: build clean ;
 
 build:
 	make a -C lua
-	gcc -lstdc++ -ldl -I./lua streamreader.cpp lua/lua.a
+	g++ -std=c++11 -ldl -I./lua streamreader.cpp lua/liblua.a
+#-lstdc++ -lm 
 
 clean:
 	-rm a.out

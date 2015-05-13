@@ -4,9 +4,9 @@
 
 ## ビルド・インストール
 とりあえずLua5.3.0＆VC++12＆gcc (Ubuntu 4.9.2-10ubuntu13) 4.9.2でビルド確認済み
+* gccの場合はfiles/srcでmake build
 * VisualStudio2013の場合は、visual_studio_solution/visual_studio_solution.slnを開いてF5
-* gccはfiles/srcでmake build
-* Windowsの場合はfiles/bin/streamreader.exeが実行ファイル（ただしVisualStudio2013がインストールされていない環境の場合はVC++2013ランタイムが必要です。） https://www.microsoft.com/ja-jp/download/details.aspx?id=40784
+* Windows用の実行ファイルはfiles/bin/streamreader.exe
 
 
 ## 使い方・機能

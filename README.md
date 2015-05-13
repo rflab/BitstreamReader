@@ -15,7 +15,7 @@
 ## 使い方・機能
 引数なしで起動した場合はLuaのインタプリタとして起動されます。
 
-引数に'-オプション'を使用しない場合はarg1 arg2 ...に文字列として代入された状態でscript/default.luaが起動されます。
+最初の'-オプション'より前に指定された引数はarg1 arg2 ...に文字列として代入された状態でscript/default.luaが起動されます。
 （現状のdefault.luaはarg1をファイル名として拡張子を判定し、対応するスクリプトをコールするようにしています。）
 
     // windowsの場合はfiles/bin/visual_studio_solution.exeにファイルをドロップとおなじ。
@@ -24,6 +24,7 @@
 コンソールで起動した場合はオプション指定も可能です。
 
     S./a.out --lua wav.lua --arg test.wav
+    S./a.out "01 23 45 67 79" -l script/tostr.lua
 
 ## 定義ファイルの書き方
 

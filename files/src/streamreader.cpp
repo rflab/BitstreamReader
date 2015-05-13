@@ -536,11 +536,18 @@ public:
 		ofstream ofs;
 
 		static vector<string> names;
+		std::ios::openmode mode;
 		if (find(names.begin(), names.end(), file_name) == names.end())
-			ofs.open(file_name, std::ios::binary | std::ios::out);
+		{
+			mode = std::ios::binary | std::ios::out;
+			names.push_back(file_name);
+		}
 		else
-			ofs.open(file_name, std::ios::binary | std::ios::app);
+		{
+			mode = std::ios::binary | std::ios::app;
+		}
 
+		ofs.open(file_name, mode);
 		if (!ofs)
 		{
 			ERR << "file open error:" << file_name << endl;

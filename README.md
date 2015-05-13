@@ -28,10 +28,10 @@
 ## 定義ファイルの書き方
 
 ストリームの構造はLuaスクリプトで記述します。
-（Luaの文法は http://milkpot.sakura.ne.jp/lua/lua52_manual_ja.html あたり参照のこと）
+（Luaの文法は http://milkpot.sakura.ne.jp/lua/lua52_manual_ja.html あたり参照のこと。）
 
 以下のような関数・クラスがバインドされています。
-関数仕様はfiles/src/streamreader.cpp参照のこと。
+（関数仕様はfiles/src/streamreader.cpp参照のこと。）
 
     // 関数バインド
     lua->def("reverse_16", LuaGlue::reverse_endian_16);
@@ -55,7 +55,7 @@
         def("comp_str",      &LuaGlue::compare_string).
         def("out_byte",      &LuaGlue::output_byte);
 
-ぶっちゃけ↑のままだと使いにくいので、以下のサンプルではfiles/bin/script/mylib.luaに書いた関数を利用したほうがいいです。
+ぶっちゃけ↑のままだと使いにくいので、files/bin/script/mylib.luaに書いた関数を利用したほうがいいです。
 （files/bin/script/wav.luaあたり参照のこと。）
 
     dofile("script/mylib.lua")                -- Luaに関数登録ロード

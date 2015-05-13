@@ -630,6 +630,17 @@ shared_ptr<rf::LuaBinder> init_lua()
 	return lua;
 }
 
+void show_help()
+{
+	cout << "\n"
+	"a.out [--arg|-a args...] [--lua|-l filename] [--help|-h]\n"
+	"\n"
+	"--lua  :start with file mode\n"
+	"--arg  :set argument of define file\n"
+	"--help :show this help" << endl;
+	return;
+}
+
 int main(int argc, char** argv)
 {
 	string lua_file_name = "script/default.lua";
@@ -642,7 +653,6 @@ int main(int argc, char** argv)
 	int lua_arg_count = 0;
 	for (int i = 1; i < argc; ++i)
 	{
-		cout << "###" << argv[i] << endl;
 		if ((string("--arg") == argv[i])
 		||  (string("-a") == argv[i]))
 		{
@@ -656,7 +666,8 @@ int main(int argc, char** argv)
 		else if ((string("--help") == argv[i])
 		||       (string("-h") == argv[i]))
 		{
-			flag = 3;
+			show_help();
+			return 0;
 		}
 		else switch (flag)
 		{
@@ -680,15 +691,9 @@ int main(int argc, char** argv)
 				lua_file_name = argv[i];
 				break;
 			}
-			case 3:
 			default:
 			{
-				cout <<
-					"a.out [--stream|-s filename] [--lua|-l filename] [--help]\n"
-					"\n"
-					"--lua :start with file mode\n"
-					"--arg :set argument of define file\n"
-					"----------------------------------------------------" << endl;
+				show_help();
 				return 0;
 			}
 		}

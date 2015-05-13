@@ -9,7 +9,7 @@
 * VisualStudio2013がインストールされていない環境の場合はVC++2013ランタイムが必要です。 https://www.microsoft.com/ja-jp/download/details.aspx?id=40784
 
 
-## 機能
+## 使い方・機能
 引数なしで起動した場合はLuaのインタプリタとして起動されます。
 
 引数に'-オプション'を使用しない場合はarg1 arg2 ...に文字列として代入された状態でscript/default.luaが起動されます。
@@ -21,6 +21,11 @@
 コンソールで起動した場合はオプション指定も可能です。
 
     S./a.out --lua wav.lua --arg test.wav
+
+## 定義ファイルの書き方
+
+ストリームの構造はLuaスクリプトで記述します。
+（Lua文法はhttp://milkpot.sakura.ne.jp/lua/lua52_manual_ja.html あたり参照のこと）
 
 以下のような関数・クラスがバインドされています。
 関数仕様はfiles/src/streamreader.cpp参照のこと。
@@ -47,13 +52,8 @@
         def("comp_str",      &LuaGlue::compare_string).
         def("out_byte",      &LuaGlue::output_byte);
 
-## 定義ファイルの書き方
-
-ストリームの構造はLuaスクリプトで記述します。
-（Lua文法はhttp://milkpot.sakura.ne.jp/lua/lua52_manual_ja.html あたり参照のこと）
-
-以下のサンプルではfiles/bin/script/mylib.luaに書いた関数を利用しています。
-（files/bin/script/default.luaあたり参照のこと。）
+ぶっちゃけ↑のままだと使いにくいので、以下のサンプルではfiles/bin/script/mylib.luaに書いた関数を利用したほうがいいです。
+（files/bin/script/wav.luaあたり参照のこと。）
 
     dofile("script/mylib.lua")                -- Luaに関数登録ロード
     stream = init_stream("test.wav")          -- ファイルオープン＆初期化

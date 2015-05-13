@@ -25,7 +25,7 @@
 （現状のdefault.luaはarg1をファイル名として拡張子を判定し、対応するスクリプトをコールするようにしています。）
 
     S./a.out --lua wav.lua --arg test.wav
-    S./a.out "01 23 45 67 79" -l script/tostr.lua
+    S./a.out "01 23 45 67 79" -l script/dat.lua
 
 ## 定義ファイルの書き方
 

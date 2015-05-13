@@ -14,12 +14,12 @@
 
 第２引数にファイル名を入れるとscript/default.luaで対応づけられた拡張子で解析が始まるようにしています
 
-    // windowsの場合はfiles/bin/visual_studio_solution.exeにファイルをドロップとおなじ。
+    // windowsの場合はstreamreader.exeにファイルをドロップとおなじ。
     S./a.out test.wav
-
+    
 コンソールで起動した場合はオプション指定も可能です。
 最初の'-オプション'より前に指定された引数はテーブルargv[]に文字列として代入され、script/default.luaが起動されます。
-（argvには実行ファイル名は含まれません。現状のdefault.luaはarg[1]をファイル名として拡張子を判別し、対応するスクリプトをコールするようにしています。）
+（argvに実行ファイル名は含まれません。現状のdefault.luaはarg[1]をファイル名として拡張子を判別し、対応するスクリプトをコールするようにしています。）
 
     S./a.out --lua wav.lua --arg test.wav
     S./a.out "01 23 45 67 79" -l script/dat.lua
@@ -37,7 +37,7 @@
     lua->def("reverse_32", LuaGlue::reverse_endian_32);
 
     // クラスバインド
-    lua->def_class<LuaGlue>("BitStream")->
+    lua->def_class<LuaGlue>("Bitstream")->
         def("open",          &LuaGlue::open).
         def("enable_print",  &LuaGlue::enable_print).
         def("file_size",     &LuaGlue::file_size).

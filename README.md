@@ -2,11 +2,12 @@
 
 ビット単位、可変長でバイナリデータを構造体解析できるコンソールツール
 
-## TODO
+## ビルド・インストール
+とりあえずLua5.3.0＆VC++12＆gcc (Ubuntu 4.9.2-10ubuntu13) 4.9.2でビルド確認済み
+* VC++の場合はsrcを全部突っ込んで、src/luaをインクルードディレクトリに追加してF5
+* gccはfiles/srcでmake build
+* VisualStudio2013がインストールされていない環境の場合はVC++2013ランタイムが必要です。 https://www.microsoft.com/ja-jp/download/details.aspx?id=40784
 
-とりあえずLua5.3.0＆VC++12でビルド確認してます。mingw/gccはビルド未確認。
-
-（VC++の場合はsrcを全部突っ込んで、src/luaをインクルードディレクトリに追加してF5、mingw/gccはfiles/srcでmake build）
 
 ## 機能
 引数なしで起動した場合はLuaのインタプリタがそのまま起動されます。
@@ -14,11 +15,12 @@
 オプションを指定しない場合はarg1 arg2 ...に文字列として代入された状態でscript/default.luaが起動されます。
 （現状はdefault.luaで拡張子を判定し、対応するスクリプトをコールするようにしています。）
 
-    ./a.out test.wav
+    // windowsの場合はfiles/bin/visual_studio_solution.exeにファイルをドロップとおなじ。
+    S./a.out test.wav
 
-一応ちまちまオプション指定も可能です。
+コンソールで起動した場合はオプション指定も可能です。
 
-    ./a.out --lua wav.lua --arg test.wav
+    S./a.out --lua wav.lua --arg test.wav
 
 以下のような関数・クラスがバインドされています。
 関数仕様はfiles/src/streamreader.cpp参照のこと。

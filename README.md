@@ -59,7 +59,7 @@
 （files/bin/script/wav.luaあたり参照のこと。）
 
     dofile("script/mylib.lua")                -- Luaに関数登録ロード
-    stream = init_stream("test.wav")          -- ファイルオープン＆初期化
+    init_stream("test.wav")          -- ファイルオープン＆初期化
     print_status()                            -- 情報表示する
     dump(256)                                 -- 現在行から256バイト表示する 
     

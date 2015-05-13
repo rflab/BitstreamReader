@@ -396,9 +396,16 @@ public:
 		if (bitstream.cur_byte() + byte_size > bitstream.file_size())
 		{
 			ERR << "file size over" << endl;
-			return false;
+			// return false;
+
+			byte_size = std::min<unsigned int>(byte_size, bitstream.file_size() - bitstream.cur_byte());
 		}
 		return ::dump(bitstream.buf().get(), bitstream.buf_cur_byte(), byte_size);
+	}
+
+	bool dump_byte()
+	{
+		return dump_byte(0xff);
 	}
 
 	unsigned int read_bit(string name, unsigned int bit_length)
@@ -598,13 +605,13 @@ shared_ptr<rf::LuaBinder> init_lua()
 
 	// クラスバインド
 	//オーバーロードがある場合とかは明示する
-	lua->def_class<LuaGlue>("BitStream")->
+	lua->def_class<LuaGlue>("Bitstream")->
 		def("open",          &LuaGlue::open).
 		def("enable_print",  &LuaGlue::enable_print).
 		def("file_size",     &LuaGlue::file_size).
 		def("seek",          &LuaGlue::seek).
 		def("search",        &LuaGlue::search_byte).
-		def("dump",          &LuaGlue::dump_byte).
+		def("dump",          (bool(LuaGlue::*)()) &LuaGlue::dump_byte).
 		def("cur_bit",       &LuaGlue::cur_bit).
 		def("cur_byte",      &LuaGlue::cur_byte).
 		def("read_bit",      &LuaGlue::read_bit).
@@ -614,6 +621,11 @@ shared_ptr<rf::LuaBinder> init_lua()
 		def("comp_byte",     &LuaGlue::compare_byte).
 		def("comp_str",      &LuaGlue::compare_string).
 		def("out_byte",      &LuaGlue::output_byte);
+
+		if (!lua->dostring("_G.argv = {}"))
+		{
+			ERR << "lua.dostring err" << endl;
+		}
 
 	return lua;
 }
@@ -630,6 +642,7 @@ int main(int argc, char** argv)
 	int lua_arg_count = 0;
 	for (int i = 1; i < argc; ++i)
 	{
+		cout << "###" << argv[i] << endl;
 		if ((string("--arg") == argv[i])
 		||  (string("-a") == argv[i]))
 		{
@@ -654,7 +667,8 @@ int main(int argc, char** argv)
 				// \を/に置換
 				string s = std::regex_replace(argv[i], std::regex(R"(\\)"), "/");
 				stringstream ss;
-				ss << "arg" << lua_arg_count << "=\"" << s << '\"';
+				ss << "argv[" << lua_arg_count << "]=\"" << s << "\"" << endl;
+				cout << ss.str() << endl;
 				if (!lua->dostring(ss.str()))
 				{
 					ERR << "lua.dostring err" << endl;
@@ -702,12 +716,15 @@ int main(int argc, char** argv)
 	}
 	else
 	{
-		#if 0
+		#if 1
 			if (!lua->dofile(lua_file_name))
 			{
-				// エラーったらリロード
 				ERR << "lua.dofile err" << endl;
 			}
+
+			// windowsのために入力待ちする
+			cout << "press any key.." << endl;
+			getchar();
 		#else
 			string s;
 			for (;;)

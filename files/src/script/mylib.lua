@@ -37,7 +37,7 @@ local gs_stream = {}
 function init_stream(file_name)
 	gs_stream.status = {}
 	gs_stream.status.file_name = file_name
-	gs_stream.stream = BitStream.new()
+	gs_stream.stream = Bitstream.new()
 	gs_stream.stream:open(file_name)
 	gs_stream.status.file_size = gs_stream.stream:file_size()
 	return gs_stream

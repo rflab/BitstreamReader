@@ -1,5 +1,5 @@
 -- wav解析
-file_name = arg1 or "test.wav"
+file_name = argv[1] or "test.wav"
 stream = init_stream(file_name)
 dump(256)
 

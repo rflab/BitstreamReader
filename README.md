@@ -21,7 +21,7 @@
 最初の'-オプション'より前に指定された引数はテーブルargv[]に文字列として代入され、script/default.luaが起動されます。
 （argvに実行ファイル名は含まれません。現状のdefault.luaはarg[1]をファイル名として拡張子を判別し、対応するスクリプトをコールするようにしています。）
 
-    S./a.out --lua wav.lua --arg test.wav
+    S./a.out --lua script/wav.lua --arg test.wav
     S./a.out "01 23 45 67 79" -l script/dat.lua
 
 ## 定義ファイルの書き方

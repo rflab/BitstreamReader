@@ -8,6 +8,8 @@ Release/
 *.bak
 *.wav
 
+*.dat
+
 # Windows image file caches
 Thumbs.db
 ehthumbs.db

@@ -31,7 +31,8 @@
 （Luaの文法は http://milkpot.sakura.ne.jp/lua/lua52_manual_ja.html あたり参照のこと。）
 
 以下のような関数・クラスがバインドされています。
-（関数仕様はfiles/src/streamreader.cpp参照のこと。）
+（関数仕様はfiles/src/streamreader.cpp参照のこと。
+　引数はfiles/bin/script/mylib.luaを参照するのが早いです。）
 
     // 関数バインド
     lua->def("reverse_16", LuaGlue::reverse_endian_16);

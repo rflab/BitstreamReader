@@ -13,6 +13,9 @@ rbyte("D", 1)
 -- 検索テスト
 sbyte(0x10)
 sstr("hoge")
-sbstr("12 13 14 15 16")
+sbstr("10 11 12 13 14")
 
-
+-- ファイル書き出しテスト
+write("out.dat", "00 00 00 01")
+obyte("out.dat", 7)
+print_status()

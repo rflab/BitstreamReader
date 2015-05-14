@@ -134,3 +134,15 @@ end
 function obyte(filename, size)
 	gs_stream.stream:out_byte(filename, size)
 end
+
+function write(filename, bstr)
+	local str = ""
+	if string.match(bstr, "[0-9][0-9] ") ~= nil then
+		for hex in string.gmatch(bstr, "%w+") do
+			str = str .. string.char(tonumber(hex, 16))
+		end
+	else
+		str = bstr
+	end
+	gs_stream.stream:write(filename, str, #str)
+end

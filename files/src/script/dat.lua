@@ -2,7 +2,7 @@
 
 assert(argv[1])
 stream = init_stream(argv[1])
-dump(get_status().file_size)
+dump()
 
 -- 解析するなら以下のような感じ
 rbyte("A", 1)

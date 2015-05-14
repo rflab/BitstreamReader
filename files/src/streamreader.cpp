@@ -473,7 +473,7 @@ public:
 
 	bool dump_byte()
 	{
-		return dump_byte(0xff);
+		return dump_byte(min<unsigned int >(0xff, bitstream.file_size() - bitstream.cur_byte()));
 	}
 
 	unsigned int read_bit(string name, unsigned int bit_length)

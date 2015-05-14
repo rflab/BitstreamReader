@@ -15,7 +15,7 @@ f:close()
 
 -- ファイルストリームとして読み込み
 stream = init_stream("bin.dat")
-dump(get_status().file_size)
+dump()
 
 -- 解析するなら以下のような感じ
 rbyte("A", 1)

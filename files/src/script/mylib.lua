@@ -127,8 +127,8 @@ function sbstr(bstr)
 	gs_stream.stream:search_byte_string(str, #str)
 end
 
-function dump(size)
-	gs_stream.stream:dump(size)
+function dump()
+	gs_stream.stream:dump()
 end
 
 function obyte(filename, size)

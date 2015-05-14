@@ -39,30 +39,30 @@
     lua->def("reverse_32", LuaGlue::reverse_endian_32);
 
     // クラスバインド
-	lua->def_class<LuaGlue>("Bitstream")->
-		def("open",               &LuaGlue::open).                            // 解析ファイルオープン
-		def("file_size",          &LuaGlue::file_size).                       // 解析ファイルサイズ取得
-		def("enable_print",       &LuaGlue::enable_print).                    // コンソール出力ON/OFF
-		def("seek",               &LuaGlue::seek).                            // ファイルポインタ移動
-		def("dump",               (bool(LuaGlue::*)()) &LuaGlue::dump_byte).  // 現在位置から最大256バイト表示
-		def("cur_bit",            &LuaGlue::cur_bit).                         // 現在のビットオフセットを取得
-		def("cur_byte",           &LuaGlue::cur_byte).                        // 現在のバイトオフセットを取得
-		def("read_bit",           &LuaGlue::read_bit).                        // ビット単位で読み込み
-		def("read_byte",          &LuaGlue::read_byte).                       // バイト単位で読み込み
-		def("read_string",        &LuaGlue::read_string).                     // バイト単位で文字列として読み込み
-		def("comp_bit",           &LuaGlue::compare_bit).                     // ビット単位で比較
-		def("comp_byte",          &LuaGlue::compare_byte).                    // バイト単位で比較
-		def("comp_string",        &LuaGlue::compare_string).                  // バイト単位で文字列として比較
-		def("out_byte",           &LuaGlue::output_byte).                     // バイト単位でファイルに出力
-		def("search_byte",        &LuaGlue::search_byte).                     // １バイトの一致を検索
-		def("search_byte_string", &LuaGlue::search_byte_string).              // 数バイト分の一致を検索
-		def("write",              &LuaGlue::write);                           // 指定したバイト列をファイルに出力
+    lua->def_class<LuaGlue>("Bitstream")->
+        def("open",               &LuaGlue::open).                            // 解析ファイルオープン
+        def("file_size",          &LuaGlue::file_size).                       // 解析ファイルサイズ取得
+        def("enable_print",       &LuaGlue::enable_print).                    // コンソール出力ON/OFF
+        def("seek",               &LuaGlue::seek).                            // ファイルポインタ移動
+        def("dump",               (bool(LuaGlue::*)()) &LuaGlue::dump_byte).  // 現在位置から最大256バイト表示
+        def("cur_bit",            &LuaGlue::cur_bit).                         // 現在のビットオフセットを取得
+        def("cur_byte",           &LuaGlue::cur_byte).                        // 現在のバイトオフセットを取得
+        def("read_bit",           &LuaGlue::read_bit).                        // ビット単位で読み込み
+        def("read_byte",          &LuaGlue::read_byte).                       // バイト単位で読み込み
+        def("read_string",        &LuaGlue::read_string).                     // バイト単位で文字列として読み込み
+        def("comp_bit",           &LuaGlue::compare_bit).                     // ビット単位で比較
+        def("comp_byte",          &LuaGlue::compare_byte).                    // バイト単位で比較
+        def("comp_string",        &LuaGlue::compare_string).                  // バイト単位で文字列として比較
+        def("out_byte",           &LuaGlue::output_byte).                     // バイト単位でファイルに出力
+        def("search_byte",        &LuaGlue::search_byte).                     // １バイトの一致を検索
+        def("search_byte_string", &LuaGlue::search_byte_string).              // 数バイト分の一致を検索
+        def("write",              &LuaGlue::write);                           // 指定したバイト列をファイルに出力
 
 ぶっちゃけ↑のままだと使いにくいので、files/bin/script/mylib.luaに書いた関数を利用したほうがいいです。
 （files/bin/script/wav.luaあたり参照のこと。）
 
     dofile("script/mylib.lua")                -- Luaに関数登録ロード
-    init_stream("test.wav")          -- ファイルオープン＆初期化
+    init_stream("test.wav")                   -- ファイルオープン＆初期化
     print_status()                            -- 情報表示する
     dump(256)                                 -- 現在行から256バイト表示する 
     

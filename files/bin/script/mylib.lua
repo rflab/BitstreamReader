@@ -62,16 +62,16 @@ function print_status()
 	printf("remain   :0x%08x", gs_stream.stream:file_size()-gs_stream.stream:cur_byte())
 end
 
-function rbyte(name, size, table)
-	local val = gs_stream.stream:read_byte(name, size)
+function rbit(name, size, table)
+	local val = gs_stream.stream:read_bit(name, size)
 
 	if type(table) == "table" then
 		table[name] = val
 	end	
 end
 
-function rbit(name, size, table)
-	local val = gs_stream.stream:read_bit(name, size)
+function rbyte(name, size, table)
+	local val = gs_stream.stream:read_byte(name, size)
 
 	if type(table) == "table" then
 		table[name] = val
@@ -86,14 +86,6 @@ function rstr(name, size, table)
 	end	
 end
 
-function cbyte(name, size, comp, table)
-	local val = gs_stream.stream:comp_byte(name, size, comp)
-
-	if type(table) == "table" then
-		table[name] = val
-	end	
-end
-
 function cbit(name, size, comp, table)
 	local val = gs_stream.stream:comp_bit(name, size, comp)
 
@@ -102,12 +94,37 @@ function cbit(name, size, comp, table)
 	end	
 end
 
-function cstr(name, size, comp, table)
-	local val = gs_stream.stream:comp_str(name, size, comp)
+function cbyte(name, size, comp, table)
+	local val = gs_stream.stream:comp_byte(name, size, comp)
 
 	if type(table) == "table" then
 		table[name] = val
 	end	
+end
+
+function cstr(name, size, comp, table)
+	local val = gs_stream.stream:comp_string(name, size, comp)
+
+	if type(table) == "table" then
+		table[name] = val
+	end	
+end
+
+function sbyte(char)
+	gs_stream.stream:search_byte(char)
+end
+
+function sstr(str)
+	gs_stream.stream:search_byte_string(str, #str)
+end
+
+-- "00 01 02 .."ÇÃï∂éöóÒÇ©ÇÁÉoÉCÉgóÒÇåüçı
+function sbstr(bstr)
+	local str = ""
+	for hex in string.gmatch(bstr, "%w+") do
+		str = str .. string.char(tonumber(hex, 16))
+	end
+	gs_stream.stream:search_byte_string(str, #str)
 end
 
 function dump(size)

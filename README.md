@@ -73,4 +73,4 @@
 
     local data = {}                           -- 情報取得用テーブル
     rbyte("size_audio_data", 4, data)         -- テーブルにサイズ情報を取得
-    obyte("out.pcm", data["size_audio_data"]) -- ファイル書き出し
+    wbyte("out.pcm", data["size_audio_data"]) -- ファイル書き出し

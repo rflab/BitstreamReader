@@ -62,9 +62,9 @@
 （files/bin/script/wav.luaあたり参照のこと。）
 
     dofile("script/util.lua")                -- Luaに関数登録ロード
-    init_stream("test.wav")                   -- ファイルオープン＆初期化
+    open_stream("test.wav")                   -- ファイルオープン＆初期化
     print_status()                            -- 情報表示する
-    dump(256)                                 -- 現在行から256バイト表示する 
+    dump()                                    -- 現在行から最大256バイト表示される
     
     cstr("'hoge'",           4, "hoge")       -- 4バイトを文字列として読み込み比較する
     rbyte("file_size+muns8", 4)               -- 4バイトをバイナリデータとして読み込む

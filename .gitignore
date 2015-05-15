@@ -4,10 +4,11 @@ Release/
 *.opensdf
 *.sdf
 *.suo
+*.user
 *.log
 *.bak
+files/visual_studio_solution/visual_studio_solution/script/
 *.wav
-
 *.dat
 
 # Windows image file caches

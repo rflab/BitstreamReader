@@ -1,5 +1,5 @@
 -- ライブラリロード
-dofile("script/mylib.lua")
+dofile("script/util.lua")
 -- dofile("script/cmd.lua")
 -- dofile("script/explicit_globals.lua")
 -- use_explicit_globals()

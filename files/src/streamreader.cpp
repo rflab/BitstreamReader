@@ -263,14 +263,14 @@ public:
 			return false;
 		}
 
-		if (offset_by_bit(8 * length))
+		char* p = reinterpret_cast<char*>(&buf_.get()[cur_byte_]);
+		ret_str.assign(p, length);
+
+		if (!offset_by_bit(8 * length))
 		{
 			ERR << "read_by_string error" << endl;
 			return false;
 		}
-
-		char* p = reinterpret_cast<char*>(&buf_.get()[cur_byte_]);
-		ret_str.assign(p, length);
 
 		return true;
 	}
@@ -384,7 +384,7 @@ public:
 		file_size_ = static_cast<int>(ifs_.tellg());
 		ifs_.seekg(0, std::ios::beg);
 
-		return ifs_.good() && update_stream(0, file_size_);
+		return ifs_.good() && update_stream(0, BUF_SIZE);
 	}
 
 	bool close()
@@ -394,28 +394,25 @@ public:
 
 		return ifs_.good();
 	}
-
-	bool check_offset_by_bit(int offset) const
-	{
-		int next_byte = wa_.cur_byte() + (wa_.cur_bit() + offset) / 8;
-		if (file_size_ < next_byte || next_byte < 0)
-		{
-			ERR << "overrun size 0x" << hex << wa_.size()
-				<< " <= next 0x" << next_byte << endl;
-			return false;
-		}
-		return true;
-	}
-
+	
+	// 指定した範囲を含むようにファイルをバッファに展開する
+	// 現在のバッファで十分ならなにもしない、
+	// 現在のバッファで足りないカーソル位置をバッファ先頭になるように更新する
 	bool update_stream(int file_offset, int size)
 	{
 		if (size < 0 || file_offset < 0)
 			return false;
 
+		if (size > BUF_SIZE)
+		{
+			ERR << "# too big data size ofs=" << file_offset <<" siz="<< size << endl;
+			return false;
+		}
+
 		// 後方シークはもっとoffsetを手前にしたほうがうまくいくはず
 		// とりあえず処理を同じにする
 		if ((file_offset < file_offset_)
-		||  (file_bufferd_size_ < wa_.cur_byte() + size))
+		||  (file_offset_ + file_bufferd_size_ < file_offset + size))
 		{
 			file_offset_ = file_offset;
 		
@@ -442,7 +439,7 @@ public:
 		if (!update_stream(byte, 0))
 			return false;
 
-		return wa_.seek_by_bit(8 * (byte - file_offset_) + bit);
+		return wa_.seek_by_bit(8 * (byte - byte) + bit);
 	}
 
 	bool offset_by_bit(int offset)
@@ -453,32 +450,33 @@ public:
 		if (!update_stream(next_byte, 0))
 			return false;
 
-		return wa_.offset_by_bit(cur_bit() + offset);
+		return wa_.offset_by_bit(
+			((next_byte - cur_byte()) * 8) + (offset % 8));
 	}
 	
 	bool read_by_bit(int size, int& ret_value)
 	{
-		update_stream(file_offset_ + wa_.cur_byte(), (size + 7) / 8);
+		update_stream(cur_byte(), (size + 7) / 8);
 		return wa_.read_by_bit(size, ret_value);
 	}
 
 	bool read_by_string(int length, string& ret_str)
 	{
-		update_stream(file_offset_ + wa_.cur_byte(), length);
+		update_stream(cur_byte(), length);
 		return wa_.read_by_string(length, ret_str);
 	}
 
 	bool search_byte(char c, int& ret_offset, int limit = 1024 * 1024)
 	{
 		int search_size = min<int>(limit, file_size_ - cur_byte());
-		update_stream(file_offset_ + wa_.cur_byte(), search_size);
+		update_stream(cur_byte(), search_size);
 		return wa_.search_byte(c, ret_offset);
 	}
 
 	bool search_byte_string(const char* address, int size, int& ret_offset, int limit = 1024 * 1024)
 	{
 		int search_size = min<int>(limit, file_size_ - cur_byte());
-		update_stream(file_offset_ + wa_.cur_byte(), search_size);
+		update_stream(cur_byte(), search_size);
 		return wa_.search_byte_string(address, size, ret_offset);
 	}
 

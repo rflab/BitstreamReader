@@ -208,8 +208,9 @@ function pes_stream(size)
 end
 
 -- ファイルオープン＆初期化＆解析
-stream = open_stream(__file_name__)
+stream = open_stream(__stream_name__)
 print_on(false)
 pes_stream(file_size() - 1024*5) -- 解析開始、後半は5kb捨てる
+print_status()
 
 

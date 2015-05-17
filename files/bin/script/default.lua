@@ -6,7 +6,7 @@ dofile("script/util.lua")
 
 -- 拡張子にあわせてスクリプト実行
 assert(argv[1], "no file name in argv[1]") 
-__file_name__  = argv[1] 
+__stream_name__ = argv[1] 
 local ext = string.gsub(argv[1], ".*(%..*)", "%1")
 
 if ext == ".wav" then
@@ -22,8 +22,7 @@ elseif ext == ".pes" then
 	dofile("script/pes.lua")
 
 elseif ext == ".mp4" then
-	assert(false, "unsupported file type")
-	--dofile("script/mp4.lua")
+	dofile("script/mp4.lua")
 	
 elseif ext == ".dat" then
 	dofile("script/dat.lua")

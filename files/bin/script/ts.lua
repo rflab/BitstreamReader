@@ -251,7 +251,7 @@ function pmt()
 end
 
 -- ファイルオープン＆初期化＆解析
-local ext = string.gsub(__file_name__, ".*(%..*)", "%1")
+local ext = string.gsub(__stream_name__, ".*(%..*)", "%1")
 if ext == ".tts"
 or ext == ".m2ts" then
 	ts_packet_size = 192
@@ -259,7 +259,7 @@ else
 	ts_packet_size = 188
 end
 
-stream = open_stream(__file_name__)
+stream = open_stream(__stream_name__)
 print_on(false)
 
 -- PAT/PMT解析
@@ -274,10 +274,11 @@ end
 psi_check = false
 seek(0)
 ts(file_size() - 200) -- 解析開始、後半は200byte捨てる
+print_status()
 
 -- PES解析 1, 2はPAT/PMTなので無視
 for i=3, #pid_files do
-	__file_name__  = pid_files[i]
-	print(__file_name__)
+	__stream_name__  = pid_files[i]
+	print(__stream_name__)
 	dofile("script/pes.lua") -- PES解析は別ファイル
 end

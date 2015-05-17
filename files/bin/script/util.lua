@@ -122,7 +122,13 @@ end
 
 -- バイト単位読み込み
 function rbyte(name, size, table)
-	local val = gs_stream.stream:read_byte(name, size)
+	local val
+	if size <= 0x500000 then
+		val = gs_stream.stream:read_byte(name, size)
+	else
+		print("# unsupported big data ["..name.."]", size)
+		val = gs_stream.stream:offset_byte(size)
+	end
 	on_read(val, "rbyte:"..name)
 	
 	if table ~= nil then

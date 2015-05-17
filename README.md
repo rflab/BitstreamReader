@@ -16,7 +16,7 @@
 
 第２引数にファイル名を入れるとscript/default.luaで対応づけられた拡張子で解析が始まるようにしています
 
-    // windowsの場合はstreamreader.exeにファイルをドロップとおなじ。
+    // windowsの場合はbin/streamreader.exeにファイルをドロップとおなじ。
     S./a.out test.wav
     
 コンソールで起動した場合はオプション指定も可能です。

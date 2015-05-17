@@ -1,6 +1,7 @@
 # Stream Reader
 
 ビット単位、可変長でバイナリデータを構造体解析できるコンソールツール、Lua言語ベース
+サンプルとしてMPEG-2 TSの解析ができます。wavもおまけ程度にチェックできます。 
 
 ## ビルド・インストール
 とりあえずLua5.3.0＆VC++12＆gcc (Ubuntu 4.9.2-10ubuntu13) 4.9.2でビルド確認済み
@@ -34,29 +35,31 @@
 （関数仕様はfiles/src/streamreader.cpp参照のこと。
 　引数はfiles/bin/script/util.luaを参照するのが早いです。）
 
-    // 関数バインド
-    lua->def("reverse_16", LuaGlue::reverse_endian_16);                       // 16ビットエンディアン変換
-    lua->def("reverse_32", LuaGlue::reverse_endian_32);                       // 32ビットエンディアン変換
+	// 関数バインド
+	lua->def("reverse_16", LuaGlue::reverse_endian_16);                 // 16ビットエンディアン変換
+	lua->def("reverse_32", LuaGlue::reverse_endian_32);                 // 32ビットエンディアン変換
 
-    // クラスバインド
-    lua->def_class<LuaGlue>("Bitstream")->
-    	def("open",               &LuaGlue::open).                            // 解析ファイルオープン
-    	def("file_size",          &LuaGlue::file_size).                       // 解析ファイルサイズ取得
-    	def("enable_print",       &LuaGlue::enable_print).                    // コンソール出力ON/OFF
-    	def("seek",               &LuaGlue::seek).                            // ファイルポインタ移動
-    	def("dump",               (bool(LuaGlue::*)()) &LuaGlue::dump).       // 現在位置から最大256バイト表示
-    	def("cur_bit",            &LuaGlue::cur_bit).                         // 現在のビットオフセットを取得
-    	def("cur_byte",           &LuaGlue::cur_byte).                        // 現在のバイトオフセットを取得
-    	def("read_bit",           &LuaGlue::read_bit).                        // ビット単位で読み込み
-    	def("read_byte",          &LuaGlue::read_byte).                       // バイト単位で読み込み
-    	def("read_string",        &LuaGlue::read_string).                     // バイト単位で文字列として読み込み
-    	def("comp_bit",           &LuaGlue::compare_bit).                     // ビット単位で比較
-    	def("comp_byte",          &LuaGlue::compare_byte).                    // バイト単位で比較
-    	def("comp_string",        &LuaGlue::compare_string).                  // バイト単位で文字列として比較
-    	def("search_byte",        &LuaGlue::search_byte).                     // １バイトの一致を検索
-    	def("search_byte_string", &LuaGlue::search_byte_string).              // 数バイト分の一致を検索
-    	def("copy_byte",          &LuaGlue::copy_byte).                       // ストリームからファイルに出力
-    	def("write",              &LuaGlue::write);                           // 指定したバイト列をファイルに出力
+	// クラスバインド
+	lua->def_class<LuaGlue>("Bitstream")->
+		def("open",               &LuaGlue::open).                      // 解析ファイルオープン
+		def("file_size",          &LuaGlue::file_size).                 // 解析ファイルサイズ取得
+		def("enable_print",       &LuaGlue::enable_print).              // コンソール出力ON/OFF
+		def("seek",               &LuaGlue::seek).                      // 先頭からファイルポインタ移動
+		def("offset_bit",         &LuaGlue::offset_by_bit).             // 現在位置からファイルポインタ移動
+		def("offset_byte",        &LuaGlue::offset_by_byte).            // 現在位置からファイルポインタ移動
+		def("dump",               (bool(LuaGlue::*)()) &LuaGlue::dump). // 現在位置から最大256バイト表示
+		def("cur_bit",            &LuaGlue::cur_bit).                   // 現在のビットオフセットを取得
+		def("cur_byte",           &LuaGlue::cur_byte).                  // 現在のバイトオフセットを取得
+		def("read_bit",           &LuaGlue::read_by_bit).               // ビット単位で読み込み
+		def("read_byte",          &LuaGlue::read_by_byte).              // バイト単位で読み込み
+		def("read_string",        &LuaGlue::read_by_string).            // バイト単位で文字列として読み込み
+		def("comp_bit",           &LuaGlue::compare_by_bit).            // ビット単位で比較
+		def("comp_byte",          &LuaGlue::compare_by_byte).           // バイト単位で比較
+		def("comp_string",        &LuaGlue::compare_by_string).         // バイト単位で文字列として比較
+		def("search_byte",        &LuaGlue::search_byte).               // １バイトの一致を検索
+		def("search_byte_string", &LuaGlue::search_byte_string).        // 数バイト分の一致を検索
+		def("copy_byte",          &LuaGlue::copy_by_byte).              // ストリームからファイルに出力
+		def("write",              &LuaGlue::write);                     // 指定したバイト列をファイルに出力
 
 ぶっちゃけ↑のままだと使いにくいので、files/bin/script/util.luaに書いた関数を利用したほうがいいです。
 （files/bin/script/wav.luaあたり参照のこと。）

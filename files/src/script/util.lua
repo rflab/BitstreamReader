@@ -1,14 +1,34 @@
+--ストリーム簡易チェック用関数郡
+
 -- C言語と同じprintf
 function printf(format, ...)
 	print(string.format(format, ...))
 end
 
+-- 16進数をHHHH(DDDD)な感じの文字列にする
+function hex2str(value)
+	return string.format("0x%x(%d)", value, value)
+end
+
+-- 配列の中に値があればその
+function array_find(array, value)
+	assert(type(array) == "table")
+	
+	for i, v in ipairs(array) do
+		if v == value then 
+			return i
+		end
+	end
+	
+	return false
+end
+
 -- テーブルを最初の回層だけダンプする
 function dump_table(table)
 	if table ~= nil then
-		for i, v in ipairs(table) do
-			print("", i, v)
-		end
+		--for i, v in ipairs(table) do
+		--	print("", i, v)
+		--end
 		for k, v in pairs(table) do
 			print("", k, v)
 		end
@@ -34,11 +54,9 @@ function dump_table_all(table)
 	end
 end
 
---ストリーム簡易チェック用関数
-local gs_stream = {}
-
 -- ストリームファイルオープン
 function open_stream(file_name)
+	print("open_stream("..file_name..")")
 	gs_stream.status = {}
 	gs_stream.status.file_name = file_name
 	gs_stream.stream = Bitstream.new()
@@ -72,16 +90,32 @@ function cur()
 	return gs_stream.stream:cur_byte(), gs_stream.stream:cur_bit()
 end
 
+-- 現在のバイトオフセット、ビットオフセットを取得
+function seek(pos)
+	return gs_stream.stream:seek(pos, 0)
+end
+
+-- 現在のバイトオフセット、ビットオフセットを取得
+function offset_by_bit(size)
+	return gs_stream.stream:offset_by_bit(size)
+end
+
 -- 解析結果表示のON/OFF
 function print_on(b)
 	return gs_stream.stream:enable_print(b)
 end
 
+-- 指定したアドレス前後の読み込み結果を表示し、assert(false)する
+function set_debug_break(address)
+	gs_break_address = address
+end
+
 -- ビット単位読み込み
 function rbit(name, size, table)
 	local val = gs_stream.stream:read_bit(name, size)
-
-	if type(table) == "table" then
+	on_read(val, "rbit:"..name)
+	
+	if table ~= nil then
 		table[name] = val
 	end	
 end
@@ -89,8 +123,9 @@ end
 -- バイト単位読み込み
 function rbyte(name, size, table)
 	local val = gs_stream.stream:read_byte(name, size)
-
-	if type(table) == "table" then
+	on_read(val, "rbyte:"..name)
+	
+	if table ~= nil then
 		table[name] = val
 	end	
 end
@@ -98,8 +133,9 @@ end
 -- 文字列として読み込み
 function rstr(name, size, table)
 	local val = gs_stream.stream:read_string(name, size)
-
-	if type(table) == "table" then
+	on_read(val, "rstr:"..name)
+	
+	if table ~= nil then
 		table[name] = val
 	end	
 end
@@ -107,8 +143,9 @@ end
 -- ビット単位で読み込み、compとの一致を確認
 function cbit(name, size, comp, table)
 	local val = gs_stream.stream:comp_bit(name, size, comp)
-
-	if type(table) == "table" then
+	on_read(val, "cbit:"..name)
+	
+	if table ~= nil then
 		table[name] = val
 	end	
 end
@@ -116,8 +153,9 @@ end
 -- バイト単位で読み込み、compとの一致を確認
 function cbyte(name, size, comp, table)
 	local val = gs_stream.stream:comp_byte(name, size, comp)
+	on_read(val, "cbyte:"..name)
 
-	if type(table) == "table" then
+	if table ~= nil then
 		table[name] = val
 	end	
 end
@@ -125,15 +163,19 @@ end
 -- 文字列として読み込み、compとの一致を確認
 function cstr(name, size, comp, table)
 	local val = gs_stream.stream:comp_string(name, size, comp)
+	on_read(val, "cstr:"..name)
 
-	if type(table) == "table" then
+	if table ~= nil then
 		table[name] = val
 	end	
 end
 
 -- １バイト検索
 function sbyte(char)
-	gs_stream.stream:search_byte(char)
+	local ofs = gs_stream.stream:search_byte(char)
+	on_read(ofs, "sbyte:"..char)
+
+	return ofs
 end
 
 -- 文字列を検索、もしくは"00 11 22"のようなバイナリ文字列で検索
@@ -147,12 +189,17 @@ function sstr(pattern)
 	else
 		str = pattern
 	end
-	gs_stream.stream:search_byte_string(str, #str)
+	
+	local ofs = gs_stream.stream:search_byte_string(str, #str)
+	on_read(ofs, "sstr:"..pattern)
+	
+	return ofs
 end
 
 -- ストリームからファイルにデータを追記
 function wbyte(filename, size)
-	gs_stream.stream:copy_byte(filename, size)
+	local ret = gs_stream.stream:copy_byte(filename, size)
+	on_read(ret, "wbyte:"..filename)
 end
 
 -- 文字列、もしくは"00 11 22"のようなバイナリ文字列をファイルに追記
@@ -165,5 +212,30 @@ function write(filename, pattern)
 	else
 		str = pattern
 	end
-	gs_stream.stream:write(filename, str, #str)
+	
+	local ret = gs_stream.stream:write(filename, str, #str)
+	on_read(ret, "write:"..filename)
+end
+
+---------------------------
+-- 以下はutil.luaの内部関数
+---------------------------
+gs_break_address = nil
+gs_stream = {}
+function on_read(result, msg)
+	if gs_break_address ~= nil then
+		if cur() > gs_break_address - 127 then
+			print_on(true)
+		end
+		if cur() > gs_break_address + 126 then
+			assert(false)
+		end
+	end
+	
+	if result == false or result == nil then
+		print_status()
+		gs_stream.stream:offset_byte(-127)
+		dump()
+		assert(false, "assert on_read msg=".. msg)
+	end
 end

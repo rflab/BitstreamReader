@@ -10,6 +10,14 @@ Release/
 files/visual_studio_solution/visual_studio_solution/script/
 *.wav
 *.dat
+*.mp4
+*.m2ts
+*.ts
+*.tts
+*.pes
+*.pat
+*.pmt
+*.es
 
 # Windows image file caches
 Thumbs.db

@@ -1,0 +1,18 @@
+open_stream(test.mp4)
+# unknown box
+# unknown box
+# unknown box
+# unknown box
+# unknown box
+# unknown box
+# unknown box
+# unknown box
+# unknown box
+# unknown box
+# unknown box
+file_name:test.mp4
+file_size:0x005ec90c
+cursor   :0x005ec90c(6211852)
+remain   :0x00000000
+press any key..
+stdout to console

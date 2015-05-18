@@ -24,12 +24,12 @@ function array_find(array, value)
 end
 
 -- テーブルを最初の回層だけダンプする
-function dump_table(table)
-	if table ~= nil then
-		--for i, v in ipairs(table) do
+function dump_table(t)
+	if t ~= nil then
+		--for i, v in ipairs(t) do
 		--	print("", i, v)
 		--end
-		for k, v in pairs(table) do
+		for k, v in pairs(t) do
 			print("", k, v)
 		end
 	else
@@ -38,14 +38,13 @@ function dump_table(table)
 end
 
 -- テーブルとメタテーブルをダンプする
-function dump_table_all(table)
-	local t = type(table)
-	print("--"..t.."--")
-	if t == "table" then
-		dump_table(table)
+function dump_table_all(t)
+	print("--"..type(t).."--")
+	if type(t) == "table" then
+		dump_table(t)
 	end
 	
-	meta = getmetatable(table)
+	meta = getmetatable(t)
 	if meta ~= nil then
 		print("--metatable--")
 		dump_table(meta)
@@ -66,9 +65,7 @@ function open_stream(file_name)
 end
 
 -- ストリーム状態表示
-function print_status()
-	table.stream = gs_stream 
-	
+function print_status()	
 	printf("file_name:%s", gs_stream.status.file_name)
 	printf("file_size:0x%08x", file_size())
 	printf("cursor   :0x%08x(%d)", cur(), cur())
@@ -110,77 +107,53 @@ function set_debug_break(address)
 	gs_break_address = address
 end
 
+
 -- ビット単位読み込み
-function rbit(name, size, table)
+function rbit(name, size, t)
 	local val = gs_stream.stream:read_bit(name, size)
 	on_read(val, "rbit:"..name)
-	
-	if table ~= nil then
-		table[name] = val
-	end	
+	insert_if_table(t, name, val)
 end
 
 -- バイト単位読み込み
-function rbyte(name, size, table)
-	local val
-	if size <= 0x500000 then
-		val = gs_stream.stream:read_byte(name, size)
-	else
-		print("# unsupported big data ["..name.."]", size)
-		val = gs_stream.stream:offset_byte(size)
-	end
+function rbyte(name, size, t)
+	local val = gs_stream.stream:read_byte(name, size)
 	on_read(val, "rbyte:"..name)
-	
-	if table ~= nil then
-		table[name] = val
-	end	
+	insert_if_table(t, name, val)
 end
 
 -- 文字列として読み込み
-function rstr(name, size, table)
+function rstr(name, size, t)
 	local val = gs_stream.stream:read_string(name, size)
 	on_read(val, "rstr:"..name)
-	
-	if table ~= nil then
-		table[name] = val
-	end	
+	insert_if_table(t, name, val)
 end
 
 -- ビット単位で読み込み、compとの一致を確認
-function cbit(name, size, comp, table)
+function cbit(name, size, comp, t)
 	local val = gs_stream.stream:comp_bit(name, size, comp)
 	on_read(val, "cbit:"..name)
-	
-	if table ~= nil then
-		table[name] = val
-	end	
+	insert_if_table(t, name, val)
 end
 
 -- バイト単位で読み込み、compとの一致を確認
-function cbyte(name, size, comp, table)
+function cbyte(name, size, comp, t)
 	local val = gs_stream.stream:comp_byte(name, size, comp)
 	on_read(val, "cbyte:"..name)
-
-	if table ~= nil then
-		table[name] = val
-	end	
+	insert_if_table(t, name, val)
 end
 
 -- 文字列として読み込み、compとの一致を確認
-function cstr(name, size, comp, table)
+function cstr(name, size, comp, t)
 	local val = gs_stream.stream:comp_string(name, size, comp)
 	on_read(val, "cstr:"..name)
-
-	if table ~= nil then
-		table[name] = val
-	end	
+	insert_if_table(t, name, val)
 end
 
 -- １バイト検索
 function sbyte(char)
 	local ofs = gs_stream.stream:search_byte(char)
 	on_read(ofs, "sbyte:"..char)
-
 	return ofs
 end
 
@@ -223,11 +196,35 @@ function write(filename, pattern)
 	on_read(ret, "write:"..filename)
 end
 
+-- テーブルの中のテーブルをCSV形式出力
+--
+-- table = {A = {"data", 0, 1}, B = {"data", 2}} 
+--  ↓
+-- Adata, 0,
+-- Bdata, 1, 2,
+--  ↓
+-- エクセルでコピー→形式を選択して貼り付け→行列を入れ替えるをチェック
+--
+function save_as_csv(file_name, t)
+	f = io.open(file_name, "w")
+	for k, kv in pairs(t) do
+		if type(kv) == "table" then
+			for i, iv in ipairs(kv) do
+				f:write(k..tostring(iv)..", ")
+			end
+			f:write("\n")
+		else
+			-- f:write(k, ", ", kv, "\n")
+		end
+	end
+end
+
 ---------------------------
 -- 以下はutil.luaの内部関数
 ---------------------------
 gs_break_address = nil
 gs_stream = {}
+
 function on_read(result, msg)
 	if gs_break_address ~= nil then
 		if cur() > gs_break_address - 127 then
@@ -243,5 +240,14 @@ function on_read(result, msg)
 		gs_stream.stream:offset_byte(-127)
 		dump()
 		assert(false, "assert on_read msg=".. msg)
+	end
+end
+function insert_if_table(t, name, val)
+	if t ~= nil then
+		if type(t[name]) == "table" then
+			table.insert(t[name], val)
+		else
+			t[name] = val
+		end
 	end
 end

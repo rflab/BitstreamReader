@@ -1,5 +1,4 @@
 ﻿// 定義ファイルに従ってストリームを読む
-// いまのところ個々の読み込みは512MBまで
 
 #include <iostream>
 #include <vector>
@@ -15,14 +14,6 @@
 #include <cstring>
 
 #include "luabinder.hpp"
-
-#define ERR std::cerr << "# c++ error. L" << dec << __LINE__ << " " << __FUNCTION__ << ": "
-#define NULL_RETURN(x, ret) do{if ((x) == nullptr){ERR << "NULL ptr" << endl;return (ret);}} while (0)
-
-// コンパイラ依存？
-#define nullptr NULL
-#define final
-#define throw(x)
 
 using std::vector;
 using std::stack;
@@ -44,14 +35,49 @@ using std::make_tuple;
 using std::tie;
 using std::cout;
 using std::cin;
+using std::cerr;
 using std::endl;
 using std::hex;
 using std::dec;
 using std::min;
 
-bool valid_ptr(const void *ptr)
+// config、デバッグ、環境依存
+#define nullptr NULL
+#define final
+#define throw(x)
+#define FAILED(x) failed((x), __LINE__, __FUNCTION__, #x)
+#define ERR cerr << "# c++ error. L" << dec << __LINE__ << " " << __FUNCTION__ << ": "
+inline bool failed(bool b, int line, const string &fn, const string &msg)
+{
+	if (!b)
+		cerr << "# c++ failed. L" << dec << line << " " << fn << ": " << msg << endl;
+	return !b;
+}
+inline bool valid_ptr(const void *ptr)
 {
 	return ptr != nullptr;
+}
+bool stdout_to_file(bool enable)
+{
+	static FILE* fp = nullptr;
+	if (enable && fp == nullptr)
+	{
+		cout << "stdout to log.txt" << endl;
+
+		// fp = freopen("log.txt", "w", stdout);
+		// if (FAILED(fp != NULL))
+		//	return false;
+		if (FAILED(freopen_s(&fp, "log.txt", "w", stdout) == 0))
+			return false;
+	}
+	else if (fp != nullptr)
+	{
+		cout << "stdout to console" << endl;
+		fclose(fp);
+		fp = nullptr;
+	}
+
+	return true;
 }
 
 // バッファダンプ
@@ -132,7 +158,7 @@ public:
 
 	bool seek_by_bit(int offset)
 	{
-		if (size_ <= offset / 8 || offset < 0)
+		if (FAILED(size_ >= offset / 8 && offset >= 0))
 			return false;
 
 		cur_byte_ = offset / 8;
@@ -142,7 +168,7 @@ public:
 
 	bool offset_by_bit(int offset)
 	{
-		if (!check_offset_by_bit(offset))
+		if (FAILED(check_offset_by_bit(offset)))
 			return false;
 
 		cur_byte_ += (cur_bit_ + offset) / 8;
@@ -157,7 +183,7 @@ public:
 
 	bool assign(shared_ptr<unsigned char> buf, int size)
 	{
-		if (size < 0)
+		if (FAILED(size >= 0))
 			return false;
 
 		buf_ = buf;
@@ -199,13 +225,13 @@ public:
 	// 32bitまで
 	bool read_by_bit(int size, int &ret_value)
 	{
-		if (size < 0 || 32 < size)
+		if (FAILED(size >= 0 && 32 >= size))
 		{
 			ERR << "read bit size should be [0 < size < 32] but " << size << endl;
 			return false;
 		}
 				
-		if (!check_offset_by_bit(size))
+		if (FAILED(check_offset_by_bit(size)))
 			return false;
 
 		unsigned int value;
@@ -252,21 +278,22 @@ public:
 		return true;
 	}
 
-	bool read_by_string(int length, string &ret_str)
+	bool read_by_string(int length, string &ret_str, int ret_max = 48)
 	{
-		if (!check_offset_by_bit(8 * length))
+		if (FAILED(check_offset_by_bit(8 * length)))
 			return false;
 
-		if (cur_bit_ != 0)
+		if (FAILED(cur_bit_ == 0))
 		{
 			ERR << "cur_bit is not 0." << endl;
 			return false;
 		}
 
+		int actual_length = min<int>(length, ret_max);
 		char* p = reinterpret_cast<char*>(&buf_.get()[cur_byte_]);
-		ret_str.assign(p, length);
+		ret_str.assign(p, actual_length);
 
-		if (!offset_by_bit(8 * length))
+		if (FAILED(offset_by_bit(8 * length)))
 		{
 			ERR << "read_by_string error" << endl;
 			return false;
@@ -280,34 +307,34 @@ public:
 		// エラーチェック前に現在のbitを切り上げる
 		cut_bit();
 		
-		if (!check_offset_by_bit(start_offset*8))
+		if (FAILED(check_offset_by_bit(start_offset * 8)))
 			return false;
 		
 		auto result = std::find(&buf_.get()[cur_byte_ + start_offset], &buf_.get()[size_], c);
-		if (result != &buf_.get()[size_])
+		if (FAILED(result != &buf_.get()[size_]))
 		{
-			ret_offset = result - &buf_.get()[cur_byte_];
-			if (advance)
-				cur_byte_ += ret_offset;
-
-			return true;
+			return false;
 		}
 
-		return false;
+		ret_offset = result - &buf_.get()[cur_byte_];
+		if (advance)
+			cur_byte_ += ret_offset;
+
+		return true;
 	}
 
 	bool search_byte_string(const char* address, int size, int &ret_offset)
 	{
-		if (!valid_ptr(address))
+		if (FAILED(valid_ptr(address)))
 			return false;
 
 		int offset = 0;
 		for (;;)
 		{
-			if (!search_byte(address[0], offset, offset, false))
+			if (FAILED(search_byte(address[0], offset, offset, false)))
 				return false;
 
-			if (cur_byte_ + offset + size > size_)
+			if (FAILED(cur_byte_ + offset + size <= size_))
 				return false;
 			
 			if (std::memcmp(&buf_.get()[cur_byte_ + offset], address, size) == 0)
@@ -400,10 +427,10 @@ public:
 	// 現在のバッファで足りないカーソル位置をバッファ先頭になるように更新する
 	bool update_stream(int file_offset, int size)
 	{
-		if (size < 0 || file_offset < 0)
+		if (FAILED(size >= 0 && file_offset >= 0))
 			return false;
 
-		if (size > BUF_SIZE)
+		if (FAILED(size <= BUF_SIZE))
 		{
 			ERR << "# too big data size ofs=" << file_offset <<" siz="<< size << endl;
 			return false;
@@ -430,13 +457,13 @@ public:
 	// 
 	bool seek(int byte, int bit)
 	{
-		if (byte < 0 || bit < 0)
+		if (FAILED(byte > 0 && bit > 0))
 		{
 			ERR << "seek arg error" << endl;
 			return false;
 		}
 
-		if (!update_stream(byte, 0))
+		if (FAILED(update_stream(byte, 0)))
 			return false;
 
 		return wa_.seek_by_bit(8 * (byte - byte) + bit);
@@ -447,7 +474,7 @@ public:
 		int next_byte = cur_byte() + ((cur_bit() + offset) / 8);
 		if (cur_bit() + offset < 0)
 			next_byte--;
-		if (!update_stream(next_byte, 0))
+		if (FAILED(update_stream(next_byte, 0)))
 			return false;
 
 		return wa_.offset_by_bit(
@@ -475,6 +502,9 @@ public:
 
 	bool search_byte_string(const char* address, int size, int& ret_offset, int limit = 1024 * 1024)
 	{
+		if (FAILED(valid_ptr(address)))
+			return false;
+
 		int search_size = min<int>(limit, file_size_ - cur_byte());
 		update_stream(cur_byte(), search_size);
 		return wa_.search_byte_string(address, size, ret_offset);
@@ -486,9 +516,9 @@ class LuaGlue final
 {
 private:
 
-	FileBitstream         fs_;
+	FileBitstream                      fs_;
+	bool                               printf_on_;
 	map<string, shared_ptr<ofstream> > ofs_map_; // 暫定、出力ファイル名保存先
-	bool                  printf_on_;
 
 public:
 	LuaGlue() :printf_on_(true){}
@@ -529,7 +559,7 @@ public:
 
 	bool dump_line(int byte_size)
 	{
-		if (fs_.cur_byte() + byte_size > fs_.file_size())
+		if (FAILED(fs_.cur_byte() + byte_size <= fs_.file_size()))
 		{
 			ERR << "dump file size over" << endl;
 			return false;
@@ -539,23 +569,11 @@ public:
 		return ::dump_line(wa.buf().get(), wa.cur_byte(), byte_size);
 	}
 
-	bool dump(int byte_size)
+	bool dump(int max_size)
 	{
-		if (fs_.cur_byte() + byte_size > fs_.file_size())
-		{
-			ERR << "dump file size over" << endl;
-			// return false;
-
-			byte_size = std::min<int>(byte_size, fs_.file_size() - fs_.cur_byte());
-		}
-
+		max_size = std::min<int>(max_size, fs_.file_size() - fs_.cur_byte());
 		auto wa = fs_.work_area();
-		return ::dump(wa.buf().get(), wa.cur_byte(), fs_.file_offset(), byte_size);
-	}
-
-	bool dump()
-	{
-		return this->dump(min<int >(0xff, fs_.file_size() - fs_.cur_byte()));
+		return ::dump(wa.buf().get(), wa.cur_byte(), fs_.file_offset(), max_size);
 	}
 
 	int read_by_bit(string name, int size) throw(...)
@@ -565,7 +583,7 @@ public:
 
 		if (size > 32)
 		{
-			if (!fs_.offset_by_bit(size))
+			if (FAILED(fs_.offset_by_bit(size)))
 				throw LUA_RUNTIME_ERROR;
 
 			if (printf_on_ || (name[0] == '#'))
@@ -587,7 +605,7 @@ public:
 		else
 		{
 			int v;
-			if (!fs_.read_by_bit(size, v))
+			if (FAILED(fs_.read_by_bit(size, v)))
 				throw LUA_RUNTIME_ERROR;
 
 			if (printf_on_ || (name[0] == '#'))
@@ -612,7 +630,7 @@ public:
 
 		// 面倒なので文字列はバイトストリームになっていなければエラー
 		string str;
-		if (!fs_.read_by_string(size, str))
+		if (FAILED(fs_.read_by_string(size, str)))
 			throw LUA_RUNTIME_ERROR;
 
 		if (printf_on_ || (name[0] == '#'))
@@ -657,44 +675,45 @@ public:
 	{
 		int offset;
 		
-		if (fs_.search_byte(c, offset))
-		{
-			if (printf_on_)
-			{
-				printf(" adr=0x%08x(+0)| ofs=0x%08x(+0)| search '0x%02x' found.\n",
-					fs_.cur_byte(), offset, c);
-			}
-			return offset;
-		}
-		else
+		if (FAILED(fs_.search_byte(c, offset)))
 		{
 			ERR << "# can not find byte:0x" << hex << c << endl;
 			throw LUA_RUNTIME_ERROR;
 		}
+
+		if (printf_on_)
+		{
+			printf(" adr=0x%08x(+0)| ofs=0x%08x(+0)| search '0x%02x' found.\n",
+				fs_.cur_byte(), offset, c);
+		}
+
+		return offset;
 	}
 
 	int search_byte_string(const char* address, int size) throw(...)
 	{
+		if (FAILED(valid_ptr(address)))
+			return false;
+
 		string s((char*)address, size);
 		int offset;
 
-		if (fs_.search_byte_string(address, size, offset))
-		{
-			if (printf_on_)
-			{
-				printf(" adr=0x%08x(+0)| ofs=0x%08x(+0)| search [ ",
-					fs_.cur_byte(), offset);
-				for (int i = 0; i < size; ++i)
-					printf("%02x ", address[i]);
-				printf("] (\"%s\") found.\n", s.c_str());
-			}
-			return offset;
-		}
-		else
+		if (FAILED(fs_.search_byte_string(address, size, offset)))
 		{
 			ERR << "# can not find byte string: " << hex << s << endl;
 			throw LUA_RUNTIME_ERROR;
 		}
+
+		if (printf_on_)
+		{
+			printf(" adr=0x%08x(+0)| ofs=0x%08x(+0)| search [ ",
+				fs_.cur_byte(), offset);
+			for (int i = 0; i < size; ++i)
+				printf("%02x ", address[i]);
+			printf("] (\"%s\") found.\n", s.c_str());
+		}
+
+		return offset;
 	}
 
 	bool seek(int byte, int bit)
@@ -716,6 +735,9 @@ public:
 	// 暫定で毎回ファイルを開く
 	bool write(string file_name, const char* address, int size)
 	{
+		if (FAILED(valid_ptr(address)))
+			return false;
+
 		shared_ptr<ofstream> ofs;
 		auto it = ofs_map_.find(file_name);
 		if (it == ofs_map_.end())
@@ -750,7 +772,7 @@ public:
 	// bool output_byte(ofstream& file_name, int byte_offset, int byte_size)
 	bool copy_by_byte(string file_name, int size)
 	{
- 		if (!fs_.update_stream(fs_.cur_byte(), size))
+		if (FAILED(fs_.update_stream(fs_.cur_byte(), size)))
 			throw LUA_RUNTIME_ERROR;
 
 		char* p = reinterpret_cast<char*>(fs_.work_area().buf().get());
@@ -775,14 +797,14 @@ public:
 	}
 };
 
-
 shared_ptr<rf::LuaBinder> init_lua()
 {
 	auto lua = make_shared<rf::LuaBinder>();
 
 	// 関数バインド
-	lua->def("reverse_16", LuaGlue::reverse_endian_16);                 // 16ビットエンディアン変換
-	lua->def("reverse_32", LuaGlue::reverse_endian_32);                 // 32ビットエンディアン変換
+	lua->def("stdout_to_file", stdout_to_file);                         // コンソール出力の出力先切り替え
+	lua->def("reverse_16",     LuaGlue::reverse_endian_16);             // 16ビットエンディアン変換
+	lua->def("reverse_32",     LuaGlue::reverse_endian_32);             // 32ビットエンディアン変換
 
 	// クラスバインド
 	lua->def_class<LuaGlue>("Bitstream")->
@@ -806,7 +828,7 @@ shared_ptr<rf::LuaBinder> init_lua()
 		def("copy_byte",          &LuaGlue::copy_by_byte).              // ストリームからファイルに出力
 		def("write",              &LuaGlue::write);                     // 指定したバイト列をファイルに出力
 	
-	if (!lua->dostring("_G.argv = {}"))
+	if (FAILED(lua->dostring("_G.argv = {}")))
 	{
 		ERR << "lua.dostring err" << endl;
 	}
@@ -863,7 +885,7 @@ int main(int argc, char** argv)
 				string s = std::regex_replace(argv[i], std::regex(R"(\\)"), "/");
 				stringstream ss;
 				ss << "argv[" << lua_arg_count << "]=\"" << s << "\"" << endl;
-				if (!lua->dostring(ss.str()))
+				if (FAILED(lua->dostring(ss.str())))
 				{
 					ERR << "lua.dostring err" << endl;
 				}
@@ -896,17 +918,17 @@ int main(int argc, char** argv)
 			if (str == "q")
 				break;
 
-			if (!lua->dostring(str))
+			if (FAILED(lua->dostring(str)))
 			{
-				// ERR << "lua.dostring err" << endl;
+				ERR << "lua.dostring err" << endl;
 			}
 		};
 	}
 	else
 	{
-		if (!lua->dofile(lua_file_name))
+		if (FAILED(lua->dofile(lua_file_name)))
 		{
-			// ERR << "lua.dofile err" << endl;
+			ERR << "lua.dofile err" << endl;
 		}
 
 		// windowsのために入力待ちする
@@ -914,6 +936,7 @@ int main(int argc, char** argv)
 		getchar();
 	}
 	
+	stdout_to_file(false);	// 一応
 	return 0;
 }
 

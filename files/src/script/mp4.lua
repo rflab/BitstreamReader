@@ -44,7 +44,7 @@ function moov(size)
 		if header == "mvhd" then
 			mvhd(box_size-8)
 		elseif header == "trak" then
-			trak(box_size-8, header)
+			trak(box_size-8)
 		elseif header == "mvex" then
 			mvex(box_size-8)
 		elseif header == "udta" then
@@ -64,31 +64,23 @@ function mvhd(size)
 	rbyte("Version",                      1, data)
 	local x = data["Version"]+1
 	
-	rbyte("Flags",                        3)
-	rbyte("# CreationTime",               4 * x)
-	rbyte("# ModificationTime",           4 * x)
-	rbyte("# TimeScale",                  4, data)
-	rbyte("# Duration",                   4 * x)
-	rbyte("# Rate (fixed16.16)",          4)
-	rbyte("# Volume (fixed8.8)",          2)
-	cbyte("Reserved",                     2, 0)
-	rbyte("Reserved",                     4*2)
-	rbyte("# Matrix(SI32[9])",            4*9)
-	rbyte("Reserved",                     4*6)
-	rbyte("# NextTrackID",                4)
+	rbyte("Flags",                      3)
+	rbyte("CreationTime",               4 * x)
+	rbyte("ModificationTime",           4 * x)
+	rbyte("TimeScale",                  4, data)
+	rbyte("Duration",                   4 * x)
+	rbyte("Rate (fixed16.16)",          4)
+	rbyte("Volume (fixed8.8)",          2)
+	cbyte("Reserved",                   2, 0)
+	rbyte("Reserved",                   4*2)
+	rbyte("Matrix(SI32[9])",            4*9)
+	rbyte("Reserved",                   4*6)
+	rbyte("NextTrackID",                4)
 end
 
 function trak(size, header)
-	data[header] = {
-		TimeScale        = {"TimeScale"},
-		SttsSampleCount  = {"SttsSampleCount"},  -- DTS相当
-		SttsSampleDelta  = {"SttsSampleDelta"},  -- DTS相当
-		CttsSampleCount  = {"CttsSampleCount"},  -- PTS相当 STTSに足して使う
-		CttsSampleOffset = {"CttsSampleOffset"}, -- PTS相当 STTSに足して使う
-		MediaTime        = {"MediaTime"},        -- EDTS 
-		StcoOffsets      = {"StcoOffsets"},
-		SizeTable        = {"SizeTable"}}
-	cur_trak = data[header]
+	cur_trak = new_trak()
+	table.insert(data, cur_trak)
 
 	local total_size = 0;
 	while total_size < size do
@@ -105,6 +97,8 @@ function trak(size, header)
 		
 		total_size = total_size + box_size
 	end
+	
+	convert_and_store_timestamp(cur_trak)
 end
 
 function tkhd(size)
@@ -243,15 +237,15 @@ function VisualSampleEntryBox(header, size)
 	rbyte("Predefined",         2)
 	rbyte("Reserved",           2)
 	rbyte("Predefined",         4)
-	rbyte("#Width",              2)
-	rbyte("#Height",             2)
-	rbyte("#HorizResolution",    4)
-	rbyte("#VertResolution",     4)
+	rbyte("Width",              2)
+	rbyte("Height",             2)
+	rbyte("HorizResolution",    4)
+	rbyte("VertResolution",     4)
 	rbyte("Reserved",           4)
-	rbyte("#FrameCount",         2)
-	rstr ("#CompressorName",     32)
-	rbyte("#Depth",              2)
-	rbyte("#Predefined",         2)
+	rbyte("FrameCount",         2)
+	rstr ("CompressorName",     32)
+	rbyte("Depth",              2)
+	rbyte("Predefined",         2)
 end
 
 function DESCRIPTIONRECORD(count)
@@ -260,7 +254,7 @@ function DESCRIPTIONRECORD(count)
 		local box_size, header = boxheader()
 		
 		print("#"..header)
-		cur_trak.descriotir = {header}
+		cur_trak.descriotir = header
 		
 		if header == "avc1"
 		or header == "avcC"
@@ -532,11 +526,84 @@ function mp4(size)
 	return size, header
 end
 
+----------------------------------------
+-- 解析用util
+----------------------------------------
+function new_trak()
+	return {
+		TimeScale        = 0,
+		SttsSampleCount  = {}, -- DTS相当
+		SttsSampleDelta  = {}, -- DTS相当
+		CttsSampleCount  = {}, -- PTS相当 STTSに足して使う
+		CttsSampleOffset = {}, -- PTS相当 STTSに足して使う
+		MediaTime        = {}, -- EDTS 
+		StcoOffsets      = {},
+		SizeTable        = {}}
+end
+
+function convert_and_store_timestamp(trak)	
+	local time_scale = trak.TimeScale
+
+	-- tick単位のDTS
+	local DTS_in_tick = {}
+	local total_tick = 0
+	for i=1, #(trak.SttsSampleCount) do
+		local count = trak.SttsSampleCount[i]
+		local delta = trak.SttsSampleDelta[i]
+		for i=1, count do
+			table.insert(DTS_in_tick, total_tick)
+			total_tick = total_tick + delta
+		end
+	end
+
+	-- 秒単位に変換保管
+	local DTS = {}
+	for i=1, #DTS_in_tick do
+		table.insert(DTS, DTS_in_tick[i]/time_scale)
+	end
+
+	-- テーブルに保管
+	trak.DTS = DTS
+
+	if next(trak.CttsSampleCount) then
+		-- tick単位のPTS
+		local PTS_in_tick = {}
+		local ix = 1
+		for i=1, #(trak.CttsSampleCount) do
+			local count  = trak.CttsSampleCount[i]
+			local offset = trak.CttsSampleOffset[i]
+			for i=1, count do
+				table.insert(PTS_in_tick, DTS_in_tick[ix]+offset)
+				ix = ix + 1
+			end
+		end
+		
+		local PTS = {}
+		for i=1, #PTS_in_tick do
+			table.insert(PTS, PTS_in_tick[i]/time_scale)
+		end
+		
+		-- テーブルに保管
+		trak.PTS = PTS
+	else
+		print("no PTS")
+	end
+end
+
+
+--ttt = {{1, 2, 3},
+--       {4, 5},
+--       {{6, 7}, 
+--        {8, "hoge"}}}
+--save_as_csv("data.txt", ttt)
+--assert(false)
+
 stream = open_stream(__stream_name__)
 stdout_to_file(false)
 print_on(false)
 mp4(file_size())
 print_status()
-dump_table(data.trak)
+
+-- print_table(data)
 save_as_csv("data.csv", data)
 

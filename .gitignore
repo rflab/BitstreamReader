@@ -1,6 +1,8 @@
 #
 Debug/
 Release/
+*.txt
+*.csv
 *.opensdf
 *.sdf
 *.suo

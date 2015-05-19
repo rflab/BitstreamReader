@@ -10,47 +10,41 @@ function hex2str(value)
 	return string.format("0x%x(%d)", value, value)
 end
 
--- 配列の中に値があればその
+-- 配列の中に値があればそのインデックスを返す
 function array_find(array, value)
 	assert(type(array) == "table")
-	
+
 	for i, v in ipairs(array) do
-		if v == value then 
+		if v == value then
 			return i
 		end
 	end
-	
+
 	return false
 end
 
--- テーブルを最初の回層だけダンプする
-function dump_table(t)
-	if t ~= nil then
-		--for i, v in ipairs(t) do
-		--	print("", i, v)
-		--end
-		for k, v in pairs(t) do
-			print("", k, v)
-		end
-	else
-		print("--talbe = nil --")
-	end
-end
+-- テーブルをダンプする
+function print_table (tbl, indent)
+	indent = indent or 0
 
--- テーブルとメタテーブルをダンプする
-function dump_table_all(t)
-	print("--"..type(t).."--")
-	if type(t) == "table" then
-		dump_table(t)
+	for k, v in pairs(tbl) do
+		formatting = string.rep("  ", indent) .. k .. ": "
+		if type(v) == "table" then
+			print(formatting, type(v))
+			--print(formatting)
+			--print_table(v, indent+1)
+		else
+			print(formatting .. v)
+		end
 	end
-	
-	meta = getmetatable(t)
-	if meta ~= nil then
-		print("--metatable--")
-		dump_table(meta)
-	else
-		print("--no metatable--")
-	end
+
+	-- meta = getmetatable(t)
+	-- if meta ~= nil then
+	-- 	print("--metatable--")
+	-- 	dump_table(meta)
+	-- else
+	-- 	print("--no metatable--")
+	-- end
 end
 
 -- ストリームファイルオープン
@@ -65,7 +59,7 @@ function open_stream(file_name)
 end
 
 -- ストリーム状態表示
-function print_status()	
+function print_status()
 	printf("file_name:%s", gs_stream.status.file_name)
 	printf("file_size:0x%08x", file_size())
 	printf("cursor   :0x%08x(%d)", cur(), cur())
@@ -168,10 +162,10 @@ function sstr(pattern)
 	else
 		str = pattern
 	end
-	
+
 	local ofs = gs_stream.stream:search_byte_string(str, #str)
 	on_read(ofs, "sstr:"..pattern)
-	
+
 	return ofs
 end
 
@@ -191,32 +185,15 @@ function write(filename, pattern)
 	else
 		str = pattern
 	end
-	
+
 	local ret = gs_stream.stream:write(filename, str, #str)
 	on_read(ret, "write:"..filename)
 end
 
--- テーブルの中のテーブルをCSV形式出力
---
--- table = {A = {"data", 0, 1}, B = {"data", 2}} 
---  ↓
--- Adata, 0,
--- Bdata, 1, 2,
---  ↓
--- エクセルでコピー→形式を選択して貼り付け→行列を入れ替えるをチェック
---
-function save_as_csv(file_name, t)
-	f = io.open(file_name, "w")
-	for k, kv in pairs(t) do
-		if type(kv) == "table" then
-			for i, iv in ipairs(kv) do
-				f:write(k..tostring(iv)..", ")
-			end
-			f:write("\n")
-		else
-			-- f:write(k, ", ", kv, "\n")
-		end
-	end
+-- 今のところ二層以降はipairのみ
+function save_as_csv(file_name, tbl)
+	fp = io.open(file_name, "w")
+	save_as_csv_recursive(fp, transpose(normalize_table(tbl)))
 end
 
 ---------------------------
@@ -225,6 +202,7 @@ end
 gs_break_address = nil
 gs_stream = {}
 
+-- ストリーム読み込み時のエラーを表示する
 function on_read(result, msg)
 	if gs_break_address ~= nil then
 		if cur() > gs_break_address - 127 then
@@ -234,7 +212,7 @@ function on_read(result, msg)
 			assert(false)
 		end
 	end
-	
+
 	if result == false or result == nil then
 		print_status()
 		gs_stream.stream:offset_byte(-127)
@@ -242,6 +220,8 @@ function on_read(result, msg)
 		assert(false, "assert on_read msg=".. msg)
 	end
 end
+
+-- tテーブルであればpush_backする
 function insert_if_table(t, name, val)
 	if t ~= nil then
 		if type(t[name]) == "table" then
@@ -251,3 +231,109 @@ function insert_if_table(t, name, val)
 		end
 	end
 end
+
+function save_as_csv_recursive(fp, tbl)
+	save_as_csv_recursive_ipairs(fp, tbl)
+	for k, v in pairs(tbl) do
+		if type(k) == "string" then
+			fp:write(k..", ")
+			if type(v) == "table" then
+				save_as_csv_recursive(fp, v)
+			else
+				fp:write(tostring(v).."\n")
+			end
+		end
+	end
+end
+function save_as_csv_recursive_ipairs(fp, tbl)
+	for i, v in ipairs(tbl) do
+		if type(v) == "table" then
+			save_as_csv_recursive(fp, v)
+		else
+			fp:write(tostring(v)..", ")
+		end
+	end
+	fp:write("\n")
+end
+
+function normalize_table(tbl, k, dest)
+	dest = dest or {}
+	k = k or "root"
+	normalize_table_ipairs(tbl, k, dest)
+	for k, v in pairs(tbl) do
+		if type(k) == "string" then
+			if type(v) == "table" then
+				normalize_table(v, k, dest)
+			else
+				dest[k] = v
+			end
+		end
+	end
+	return dest
+end
+function normalize_table_ipairs(tbl, k, dest)
+	local t = {k}
+	for i, v in ipairs(tbl) do
+		if type(v) == "table" then
+			normalize_table(v, "table"..i, dest)
+		else
+			table.insert(t, v)
+		end
+	end
+	table.insert(dest, t)
+end
+
+-- テーブルの転置
+function transpose(tbl, ret)
+	ret = ret or {}
+	local colmuns = {}
+	local max_row = 0
+	local num_colmuns = 0
+	for k, v in pairs(tbl) do
+		if type(v) == "table" then
+			num_colmuns = num_colmuns + 1
+			max_row = math.max(#v, max_row)
+			table.insert(colmuns, v)
+		end
+	end
+	for i=1, max_row do
+		table.insert(ret, {})
+		for j=1, num_colmuns do
+			ret[i][j] = colmuns[j][i] or ""
+		end
+	end
+	return ret
+end
+---------------------------
+-- 以下は未実装でうまく動かない
+---------------------------
+--[[
+function save_as_csv(file_name, tbl, trans)
+	fp = io.open(file_name, "w")
+	--local nt = normalize_table(tbl)
+	--
+	--print("---")
+	--print_table(tbl)
+	--print("---")
+	--print_table(nt)
+	--print("---")
+	--assert(false)
+	--local tnt = transpose(nt)
+	--save_as_csv_recursive(fp, tnt)
+	save_as_csv_recursive(fp, tbl)
+end
+function save_as_csv_recursive(fp, tbl)
+	for k, v in pairs(tbl) do
+		if type(v) == "table" then
+			save_as_csv_recursive(fp, v)
+		else
+			if v ~= false then
+				fp:write(tostring(v))
+			end
+			fp:write(", ")
+		end
+	end
+	fp:write("\n")
+end
+
+--]]

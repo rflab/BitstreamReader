@@ -814,7 +814,7 @@ shared_ptr<rf::LuaBinder> init_lua()
 		def("seek",               &LuaGlue::seek).                      // 先頭からファイルポインタ移動
 		def("offset_bit",         &LuaGlue::offset_by_bit).             // 現在位置からファイルポインタ移動
 		def("offset_byte",        &LuaGlue::offset_by_byte).            // 現在位置からファイルポインタ移動
-		def("dump",               (bool(LuaGlue::*)()) &LuaGlue::dump). // 現在位置から最大256バイト表示
+		def("dump",               &LuaGlue::dump).                      // 現在位置からバイト表示
 		def("cur_bit",            &LuaGlue::cur_bit).                   // 現在のビットオフセットを取得
 		def("cur_byte",           &LuaGlue::cur_byte).                  // 現在のバイトオフセットを取得
 		def("read_bit",           &LuaGlue::read_by_bit).               // ビット単位で読み込み

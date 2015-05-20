@@ -68,15 +68,14 @@ MPEG-2 TS(PES)、MP4のタイムスタンプその他を解析するサンプル
 
     dofile("script/util.lua")    -- Luaに関数登録ロード
     open_stream("test.wav")      -- ファイルオープン＆初期化
-    print_status()               -- 情報表示する
-    dump()                       -- 現在行から最大256バイト表示される
+    dump()                       -- 現在行から数バイト表示してみる
     
-    rstr("tag",  4)    -- 4バイト文字列読み込み
-    rbyte("tag",  1)   -- 1バイト読み込み
-    rbit("flagA", 1)   -- 1ビット読み込み
-    rbit("flagB", 2)   -- 2ビット読み込み
-    rbit("flagC", 5)   -- 4ビット読み込み
-    rbit("flagC", 80)  -- 80ビット読み込み
+    rstr ("tag",   4)            -- 4バイト文字列読み込み
+    rbyte("dataA", 1)            -- 1バイト読み込み
+    rbit ("flagA", 1)            -- 1ビット読み込み
+    rbit ("flagB", 2)            -- 2ビット読み込み
+    rbit ("flagC", 5)            -- 4ビット読み込み
+    rbit ("flagC", 80)           -- 80ビット読み込み
 
     -- 中略
 

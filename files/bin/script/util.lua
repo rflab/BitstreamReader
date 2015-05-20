@@ -30,9 +30,9 @@ function print_table (tbl, indent)
 	for k, v in pairs(tbl) do
 		formatting = string.rep("  ", indent) .. k .. ": "
 		if type(v) == "table" then
-			print(formatting, type(v))
-			--print(formatting)
-			--print_table(v, indent+1)
+			--print(formatting, type(v))
+			print(formatting)
+			print_table(v, indent+1)
 		else
 			print(formatting .. v)
 		end
@@ -73,7 +73,7 @@ end
 
 -- ストリームを最大256バイト出力
 function dump()
-	gs_stream.stream:dump()
+	gs_stream.stream:dump(256)
 end
 
 -- 現在のバイトオフセット、ビットオフセットを取得
@@ -106,42 +106,42 @@ end
 function rbit(name, size, t)
 	local val = gs_stream.stream:read_bit(name, size)
 	on_read(val, "rbit:"..name)
-	insert_if_table(t, name, val)
+	return t and insert_if_table(t, name, val)
 end
 
 -- バイト単位読み込み
 function rbyte(name, size, t)
 	local val = gs_stream.stream:read_byte(name, size)
 	on_read(val, "rbyte:"..name)
-	insert_if_table(t, name, val)
+	return t and insert_if_table(t, name, val)
 end
 
 -- 文字列として読み込み
 function rstr(name, size, t)
 	local val = gs_stream.stream:read_string(name, size)
 	on_read(val, "rstr:"..name)
-	insert_if_table(t, name, val)
+	return t and insert_if_table(t, name, val)
 end
 
 -- ビット単位で読み込み、compとの一致を確認
 function cbit(name, size, comp, t)
 	local val = gs_stream.stream:comp_bit(name, size, comp)
 	on_read(val, "cbit:"..name)
-	insert_if_table(t, name, val)
+	return t and insert_if_table(t, name, val)
 end
 
 -- バイト単位で読み込み、compとの一致を確認
 function cbyte(name, size, comp, t)
 	local val = gs_stream.stream:comp_byte(name, size, comp)
 	on_read(val, "cbyte:"..name)
-	insert_if_table(t, name, val)
+	return t and insert_if_table(t, name, val)
 end
 
 -- 文字列として読み込み、compとの一致を確認
 function cstr(name, size, comp, t)
 	local val = gs_stream.stream:comp_string(name, size, comp)
 	on_read(val, "cstr:"..name)
-	insert_if_table(t, name, val)
+	return t and insert_if_table(t, name, val)
 end
 
 -- １バイト検索
@@ -192,8 +192,10 @@ end
 
 -- 今のところ二層以降はipairのみ
 function save_as_csv(file_name, tbl)
-	fp = io.open(file_name, "w")
-	save_as_csv_recursive(fp, transpose(normalize_table(tbl)))
+	fp = io.open(file_name, "w") or io.open("_"..file_name, "w")	
+	--save_as_csv_recursive(fp, tbl)
+	--save_as_csv_recursive(fp, normalize_table(tbl))
+	save_as_csv_recursive(fp, transpose_table(normalize_table(tbl)))
 end
 
 ---------------------------
@@ -222,25 +224,32 @@ function on_read(result, msg)
 end
 
 -- tテーブルであればpush_backする
-function insert_if_table(t, name, val)
-	if t ~= nil then
-		if type(t[name]) == "table" then
-			table.insert(t[name], val)
-		else
-			t[name] = val
-		end
+-- すでに値が入っていればtableにしてpush_backする
+function insert_if_table(t, name, value)
+	assert(t ~= nil, "nil table specified")
+	
+	t[name] = t[name] or {}
+	t[name].val = value
+
+	if type(t[name].tbl) == "table" then
+		table.insert(t[name].tbl, value)
+	else
+		t[name].tbl = {value}
 	end
 end
 
+-- csv変換
+-- 無名2次元配列はうまく処理できない
 function save_as_csv_recursive(fp, tbl)
 	save_as_csv_recursive_ipairs(fp, tbl)
+	
 	for k, v in pairs(tbl) do
 		if type(k) == "string" then
-			fp:write(k..", ")
+			fp:write("["..k.."]"..", ")
 			if type(v) == "table" then
 				save_as_csv_recursive(fp, v)
 			else
-				fp:write(tostring(v).."\n")
+				fp:write(tostring(v)..",\n")
 			end
 		end
 	end
@@ -256,26 +265,31 @@ function save_as_csv_recursive_ipairs(fp, tbl)
 	fp:write("\n")
 end
 
-function normalize_table(tbl, k, dest)
+-- CSV出力用に2次元配列に変換する
+-- 配列中にテーブルが出てきた場合は再起して出力する
+-- テーブルと値が混ざっている場合は順番は保証されない
+function normalize_table(tbl, name, dest)
 	dest = dest or {}
-	k = k or "root"
-	normalize_table_ipairs(tbl, k, dest)
+	name = name or ""
+	
+	normalize_table_ipairs(tbl, name, dest)
+
 	for k, v in pairs(tbl) do
 		if type(k) == "string" then
 			if type(v) == "table" then
-				normalize_table(v, k, dest)
+				normalize_table(v, name.."/"..k, dest)
 			else
-				dest[k] = v
+				table.insert(dest, {name.."/"..k, v})
 			end
 		end
 	end
 	return dest
 end
-function normalize_table_ipairs(tbl, k, dest)
-	local t = {k}
+function normalize_table_ipairs(tbl, name, dest)
+	local t = {name}
 	for i, v in ipairs(tbl) do
 		if type(v) == "table" then
-			normalize_table(v, "table"..i, dest)
+			normalize_table(v, name.."/["..i.."]", dest)
 		else
 			table.insert(t, v)
 		end
@@ -284,7 +298,7 @@ function normalize_table_ipairs(tbl, k, dest)
 end
 
 -- テーブルの転置
-function transpose(tbl, ret)
+function transpose_table(tbl, ret)
 	ret = ret or {}
 	local colmuns = {}
 	local max_row = 0
@@ -307,33 +321,3 @@ end
 ---------------------------
 -- 以下は未実装でうまく動かない
 ---------------------------
---[[
-function save_as_csv(file_name, tbl, trans)
-	fp = io.open(file_name, "w")
-	--local nt = normalize_table(tbl)
-	--
-	--print("---")
-	--print_table(tbl)
-	--print("---")
-	--print_table(nt)
-	--print("---")
-	--assert(false)
-	--local tnt = transpose(nt)
-	--save_as_csv_recursive(fp, tnt)
-	save_as_csv_recursive(fp, tbl)
-end
-function save_as_csv_recursive(fp, tbl)
-	for k, v in pairs(tbl) do
-		if type(v) == "table" then
-			save_as_csv_recursive(fp, v)
-		else
-			if v ~= false then
-				fp:write(tostring(v))
-			end
-			fp:write(", ")
-		end
-	end
-	fp:write("\n")
-end
-
---]]

@@ -7,7 +7,7 @@ function boxheader()
 	-- print("BOX")
 	rbyte("boxsize",                     4, data)
 	rstr ("boxheader",                   4, data)
-	return data["boxsize"], data["boxheader"]
+	return data["boxsize"].val, data["boxheader"].val
 end
 
 function ftyp(size)
@@ -62,7 +62,7 @@ end
 
 function mvhd(size)
 	rbyte("Version",                      1, data)
-	local x = data["Version"]+1
+	local x = data["Version"].val+1
 	
 	rbyte("Flags",                      3)
 	rbyte("CreationTime",               4 * x)
@@ -79,7 +79,7 @@ function mvhd(size)
 end
 
 function trak(size, header)
-	cur_trak = new_trak()
+	cur_trak = {}
 	table.insert(data, cur_trak)
 
 	local total_size = 0;
@@ -112,12 +112,12 @@ end
 
 function elst(size)
 	rbyte("Version",                      1, data)
-	local x = data["Version"]+1
+	local x = data["Version"].val+1
 	rbyte("Flags",                        3)
 	rbyte("EntryCount",                   4, data)
 	
 	-- ELSTRECORD
-	for i=1, data["EntryCount"] do
+	for i=1, data["EntryCount"].val do
 		rbyte("SegmentDuration",              4 * x)
 		rbyte("MediaTime",                    4 * x, cur_trak)
 		rbyte("MediaRateInteger",             2)
@@ -147,7 +147,7 @@ function mdhd(size)
 	rbyte("Version",                   1, data)
 	rbyte("Flags",                     3)
 
-	local x = data["Version"]          + 1
+	local x = data["Version"].val          + 1
 	rbyte("CreationTime",              4 * x)
 	rbyte("ModificationTime",          4 * x)
 	rbyte("TimeScale",                 4, cur_trak)
@@ -276,7 +276,7 @@ function stsd(size)
 	rbyte("Version",      1)
 	rbyte("Flags",        3)
 	rbyte("Count",        4, data)
-	DESCRIPTIONRECORD(data["Count"])
+	DESCRIPTIONRECORD(data["Count"].val)
 end
 
 function rtmp(size)
@@ -360,7 +360,7 @@ function stts(size)
 	rbyte("Flags",                                3)
 	rbyte("Count",                                4, data)
 	
-	for i=1, data["Count"] do
+	for i=1, data["Count"].val do
 		rbyte("SttsSampleCount",                  4, cur_trak)
 		rbyte("SttsSampleDelta",                  4, cur_trak)
 	end
@@ -371,7 +371,7 @@ function ctts(size)
 	rbyte("Version",              1)
 	rbyte("Flags",                3)
 	rbyte("Count",                4, data)
-	for i=1, data["Count"] do
+	for i=1, data["Count"].val do
 		rbyte("CttsSampleCount",  4, cur_trak)
 		rbyte("CttsSampleOffset", 4, cur_trak)
 	end
@@ -386,7 +386,7 @@ function stsz(size)
 	rbyte("Flags",                          3)
 	rbyte("ConstantSize",                   4)
 	rbyte("SizeCount",                      4, data)
-	for i=1, data["SizeCount"] do
+	for i=1, data["SizeCount"].val do
 		rbyte("SizeTable",                  4, cur_trak)
 	end
 end
@@ -395,7 +395,7 @@ function stco(size)
 	rbyte("Version",                     1)
 	rbyte("Flags",                       3)
 	rbyte("OffsetCount",                 4, data)
-	for i=1, data["OffsetCount"] do
+	for i=1, data["OffsetCount"].val do
 		rbyte("StcoOffsets",             4, cur_trak)
 	end
 end
@@ -404,7 +404,7 @@ function co64(size)
 	rbyte("Version",                     4)
 	rbyte("Flags",                       4)
 	rbyte("OffsetCount",                 4, data)
-	for i=1, data["OffsetCount"] do
+	for i=1, data["OffsetCount"].val do
 		rbyte("StcoOffsets",             8, cur_trak)
 	end
 end
@@ -529,27 +529,16 @@ end
 ----------------------------------------
 -- 解析用util
 ----------------------------------------
-function new_trak()
-	return {
-		TimeScale        = 0,
-		SttsSampleCount  = {}, -- DTS相当
-		SttsSampleDelta  = {}, -- DTS相当
-		CttsSampleCount  = {}, -- PTS相当 STTSに足して使う
-		CttsSampleOffset = {}, -- PTS相当 STTSに足して使う
-		MediaTime        = {}, -- EDTS 
-		StcoOffsets      = {},
-		SizeTable        = {}}
-end
 
 function convert_and_store_timestamp(trak)	
-	local time_scale = trak.TimeScale
+	local time_scale = trak.TimeScale.val
 
 	-- tick単位のDTS
 	local DTS_in_tick = {}
 	local total_tick = 0
-	for i=1, #(trak.SttsSampleCount) do
-		local count = trak.SttsSampleCount[i]
-		local delta = trak.SttsSampleDelta[i]
+	for i=1, #(trak.SttsSampleCount.tbl) do
+		local count = trak.SttsSampleCount.tbl[i]
+		local delta = trak.SttsSampleDelta.tbl[i]
 		for i=1, count do
 			table.insert(DTS_in_tick, total_tick)
 			total_tick = total_tick + delta
@@ -565,13 +554,13 @@ function convert_and_store_timestamp(trak)
 	-- テーブルに保管
 	trak.DTS = DTS
 
-	if next(trak.CttsSampleCount) then
+	if trak.CttsSampleCount and next(trak.CttsSampleCount.tbl) then
 		-- tick単位のPTS
 		local PTS_in_tick = {}
 		local ix = 1
-		for i=1, #(trak.CttsSampleCount) do
-			local count  = trak.CttsSampleCount[i]
-			local offset = trak.CttsSampleOffset[i]
+		for i=1, #(trak.CttsSampleCount.tbl) do
+			local count  = trak.CttsSampleCount.tbl[i]
+			local offset = trak.CttsSampleOffset.tbl[i]
 			for i=1, count do
 				table.insert(PTS_in_tick, DTS_in_tick[ix]+offset)
 				ix = ix + 1
@@ -590,20 +579,12 @@ function convert_and_store_timestamp(trak)
 	end
 end
 
-
---ttt = {{1, 2, 3},
---       {4, 5},
---       {{6, 7}, 
---        {8, "hoge"}}}
---save_as_csv("data.txt", ttt)
---assert(false)
-
 stream = open_stream(__stream_name__)
 stdout_to_file(false)
 print_on(false)
-mp4(file_size())
-print_status()
 
--- print_table(data)
+mp4(file_size())
+
+print_status()
 save_as_csv("data.csv", data)
 

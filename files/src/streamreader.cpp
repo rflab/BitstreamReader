@@ -64,11 +64,14 @@ bool stdout_to_file(bool enable)
 	{
 		cout << "stdout to log.txt" << endl;
 
-		// fp = freopen("log.txt", "w", stdout);
-		// if (FAILED(fp != NULL))
-		//	return false;
-		if (FAILED(freopen_s(&fp, "log.txt", "w", stdout) == 0))
-			return false;
+		#ifdef _MSC_VER
+			if (FAILED(freopen_s(&fp, "log.txt", "w", stdout) == 0))
+				return false;
+		#else
+			fp = freopen("log.txt", "w", stdout);
+			if (FAILED(fp != NULL))
+				return false;
+		#endif
 	}
 	else if (fp != nullptr)
 	{

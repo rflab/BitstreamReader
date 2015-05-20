@@ -3,6 +3,7 @@ Debug/
 Release/
 *.txt
 *.csv
+*.zip
 *.opensdf
 *.sdf
 *.suo

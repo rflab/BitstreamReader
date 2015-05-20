@@ -5,7 +5,7 @@
 MPEG-2 TS(PES)、MP4のタイムスタンプその他を解析するサンプルを含みます。wavもおまけ程度にチェックできます。 
 
 ## ビルド・インストール
-とりあえずLua5.3.0＆VC++12＆gcc (Ubuntu 4.9.2-10ubuntu13) 4.9.2でビルド確認済み
+とりあえずLua5.3.0＆VC++12＆gcc version 4.9.2 (Ubuntu 4.9.2-10ubuntu13) でビルド確認済み
 * gccの場合はfiles/srcでmake build
 * VisualStudio2013の場合は、files/visual_studio_solution/visual_studio_solution.slnを開いてF5
 * Windows用の実行ファイルはfiles/bin/streamreader.exe
@@ -37,8 +37,9 @@ MPEG-2 TS(PES)、MP4のタイムスタンプその他を解析するサンプル
 　引数はfiles/bin/script/util.luaを参照するのが早いです。）
 
 	// 関数バインド
-	lua->def("reverse_16", LuaGlue::reverse_endian_16);                 // 16ビットエンディアン変換
-	lua->def("reverse_32", LuaGlue::reverse_endian_32);                 // 32ビットエンディアン変換
+	lua->def("stdout_to_file", stdout_to_file);                         // コンソール出力の出力先切り替え
+	lua->def("reverse_16",     LuaGlue::reverse_endian_16);             // 16ビットエンディアン変換
+	lua->def("reverse_32",     LuaGlue::reverse_endian_32);             // 32ビットエンディアン変換
 
 	// クラスバインド
 	lua->def_class<LuaGlue>("Bitstream")->
@@ -48,7 +49,7 @@ MPEG-2 TS(PES)、MP4のタイムスタンプその他を解析するサンプル
 		def("seek",               &LuaGlue::seek).                      // 先頭からファイルポインタ移動
 		def("offset_bit",         &LuaGlue::offset_by_bit).             // 現在位置からファイルポインタ移動
 		def("offset_byte",        &LuaGlue::offset_by_byte).            // 現在位置からファイルポインタ移動
-		def("dump",               (bool(LuaGlue::*)()) &LuaGlue::dump). // 現在位置から最大256バイト表示
+		def("dump",               &LuaGlue::dump).                      // 現在位置からバイト表示
 		def("cur_bit",            &LuaGlue::cur_bit).                   // 現在のビットオフセットを取得
 		def("cur_byte",           &LuaGlue::cur_byte).                  // 現在のバイトオフセットを取得
 		def("read_bit",           &LuaGlue::read_by_bit).               // ビット単位で読み込み
@@ -61,17 +62,21 @@ MPEG-2 TS(PES)、MP4のタイムスタンプその他を解析するサンプル
 		def("search_byte_string", &LuaGlue::search_byte_string).        // 数バイト分の一致を検索
 		def("copy_byte",          &LuaGlue::copy_by_byte).              // ストリームからファイルに出力
 		def("write",              &LuaGlue::write);                     // 指定したバイト列をファイルに出力
-
+		
 ぶっちゃけ↑のままだと使いにくいので、files/bin/script/util.luaに書いた関数を利用したほうがいいです。
 （files/bin/script/wav.luaあたり参照のこと。）
 
-    dofile("script/util.lua")                -- Luaに関数登録ロード
-    open_stream("test.wav")                   -- ファイルオープン＆初期化
-    print_status()                            -- 情報表示する
-    dump()                                    -- 現在行から最大256バイト表示される
+    dofile("script/util.lua")    -- Luaに関数登録ロード
+    open_stream("test.wav")      -- ファイルオープン＆初期化
+    print_status()               -- 情報表示する
+    dump()                       -- 現在行から最大256バイト表示される
     
-    cstr("'hoge'",           4, "hoge")       -- 4バイトを文字列として読み込み比較する
-    rbyte("file_size+muns8", 4)               -- 4バイトをバイナリデータとして読み込む
+    rstr("tag",  4)    -- 4バイト文字列読み込み
+    rbyte("tag",  1)   -- 1バイト読み込み
+    rbit("flagA", 1)   -- 1ビット読み込み
+    rbit("flagB", 2)   -- 2ビット読み込み
+    rbit("flagC", 5)   -- 4ビット読み込み
+    rbit("flagC", 80)  -- 80ビット読み込み
 
     -- 中略
 

@@ -435,7 +435,7 @@ public:
 
 		if (FAILED(size <= BUF_SIZE))
 		{
-			ERR << "# too big data size ofs=" << file_offset <<" siz="<< size << endl;
+			ERR << "too big data size ofs=" << file_offset <<" siz="<< size << endl;
 			return false;
 		}
 
@@ -460,7 +460,7 @@ public:
 	// 
 	bool seek(int byte, int bit)
 	{
-		if (FAILED(byte > 0 && bit > 0))
+		if (FAILED(byte >= 0 && bit >= 0))
 		{
 			ERR << "seek arg error" << endl;
 			return false;
@@ -680,7 +680,7 @@ public:
 		
 		if (FAILED(fs_.search_byte(c, offset)))
 		{
-			ERR << "# can not find byte:0x" << hex << c << endl;
+			printf("# can not find byte:0x%x\n", c);
 			throw LUA_RUNTIME_ERROR;
 		}
 
@@ -703,7 +703,7 @@ public:
 
 		if (FAILED(fs_.search_byte_string(address, size, offset)))
 		{
-			ERR << "# can not find byte string: " << hex << s << endl;
+			printf("# can not find byte string: %s\n", s.c_str());
 			throw LUA_RUNTIME_ERROR;
 		}
 

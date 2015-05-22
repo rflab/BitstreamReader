@@ -1,13 +1,10 @@
 -- mp4解析
-
-data = {}
-cur_trak = nil
+local cur_trak = nil
 
 function boxheader()
-	-- print("BOX")
-	rbyte("boxsize",                     4, data)
-	rstr ("boxheader",                   4, data)
-	return data["boxsize"].val, data["boxheader"].val
+	rbyte("boxsize",                     4)
+	rstr ("boxheader",                   4)
+	return get("boxsize"), get("boxheader")
 end
 
 function ftyp(size)
@@ -61,26 +58,25 @@ function moov(size)
 end
 
 function mvhd(size)
-	rbyte("Version",                      1, data)
-	local x = data["Version"].val+1
+	rbyte("Version",                      1)
+	local x = get("Version")+1
 	
-	rbyte("Flags",                      3)
-	rbyte("CreationTime",               4 * x)
-	rbyte("ModificationTime",           4 * x)
-	rbyte("TimeScale",                  4, data)
-	rbyte("Duration",                   4 * x)
-	rbyte("Rate (fixed16.16)",          4)
-	rbyte("Volume (fixed8.8)",          2)
-	cbyte("Reserved",                   2, 0)
-	rbyte("Reserved",                   4*2)
-	rbyte("Matrix(SI32[9])",            4*9)
-	rbyte("Reserved",                   4*6)
-	rbyte("NextTrackID",                4)
+	rbyte("Flags",                        3)
+	rbyte("CreationTime",                 4 * x)
+	rbyte("ModificationTime",             4 * x)
+	rbyte("TimeScale",                    4)
+	rbyte("Duration",                     4 * x)
+	rbyte("Rate (fixed16.16)",            4)
+	rbyte("Volume (fixed8.8)",            2)
+	cbyte("Reserved",                     2, 0)
+	rbyte("Reserved",                     4*2)
+	rbyte("Matrix(SI32[9])",              4*9)
+	rbyte("Reserved",                     4*6)
+	rbyte("NextTrackID",                  4)
 end
 
 function trak(size, header)
 	cur_trak = {}
-	table.insert(data, cur_trak)
 
 	local total_size = 0;
 	while total_size < size do
@@ -111,17 +107,18 @@ function edts(size)
 end
 
 function elst(size)
-	rbyte("Version",                      1, data)
-	local x = data["Version"].val+1
-	rbyte("Flags",                        3)
-	rbyte("EntryCount",                   4, data)
+	rbyte("Version",                          1)
+	local x = get("Version")+1
+	rbyte("Flags",                            3)
+	rbyte("EntryCount",                       4)
 	
 	-- ELSTRECORD
-	for i=1, data["EntryCount"].val do
+	for i=1, get("EntryCount") do
 		rbyte("SegmentDuration",              4 * x)
-		rbyte("MediaTime",                    4 * x, cur_trak)
+		store(rbyte("MediaTime",              4 * x))
 		rbyte("MediaRateInteger",             2)
 		rbyte("MediaRateFraction",            2)
+		
 	end
 end
 
@@ -144,17 +141,17 @@ function mdia(size)
 end
 
 function mdhd(size)
-	rbyte("Version",                   1, data)
-	rbyte("Flags",                     3)
+	rbyte("Version",                         1)
+	rbyte("Flags",                           3)
 
-	local x = data["Version"].val          + 1
-	rbyte("CreationTime",              4 * x)
-	rbyte("ModificationTime",          4 * x)
-	rbyte("TimeScale",                 4, cur_trak)
-	rbyte("Duration",                  4 * x)
-	rbit("Pad",                        1)
-	rbit("Language",                   15)
-	rbyte("Reserved",                  2)
+	local x = get("Version") + 1
+	store(rbyte("CreationTime",              4 * x))
+	store(rbyte("ModificationTime",          4 * x))
+	store(rbyte("TimeScale",                 4))
+	store(rbyte("Duration",                  4 * x))
+	store(rbit ("Pad",                       1))
+	store(rbit ("Language",                  15))
+	store(rbyte("Reserved",                  2))
 end
 
 function hdlr(size)
@@ -232,20 +229,20 @@ function stbl(size)
 end
 
 function VisualSampleEntryBox(header, size)
-	rbyte("Reserved",           6)
-	rbyte("DataReferenceIndex", 2)
-	rbyte("Predefined",         2)
-	rbyte("Reserved",           2)
-	rbyte("Predefined",         4)
-	rbyte("Width",              2)
-	rbyte("Height",             2)
-	rbyte("HorizResolution",    4)
-	rbyte("VertResolution",     4)
-	rbyte("Reserved",           4)
-	rbyte("FrameCount",         2)
-	rstr ("CompressorName",     32)
-	rbyte("Depth",              2)
-	rbyte("Predefined",         2)
+	store(rbyte("Reserved",                    6))
+	store(rbyte("DataReferenceIndex",          2))
+	store(rbyte("Predefined",                  2))
+	store(rbyte("Reserved",                    2))
+	store(rbyte("Predefined",                  4))
+	store(rbyte("Width",                       2))
+	store(rbyte("Height",                      2))
+	store(rbyte("HorizResolution",             4))
+	store(rbyte("VertResolution",              4))
+	store(rbyte("Reserved",                    4))
+	store(rbyte("FrameCount",                  2))
+	store(rstr ("CompressorName",              32))
+	store(rbyte("Depth",                       2))
+	store(rbyte("Predefined",                  2))
 end
 
 function DESCRIPTIONRECORD(count)
@@ -253,8 +250,7 @@ function DESCRIPTIONRECORD(count)
 		local begin = cur()
 		local box_size, header = boxheader()
 		
-		print("#"..header)
-		cur_trak.descriotir = header
+		cur_trak.descriptor = header
 		
 		if header == "avc1"
 		or header == "avcC"
@@ -275,8 +271,8 @@ end
 function stsd(size)
 	rbyte("Version",      1)
 	rbyte("Flags",        3)
-	rbyte("Count",        4, data)
-	DESCRIPTIONRECORD(data["Count"].val)
+	rbyte("Count",        4)
+	DESCRIPTIONRECORD(get("Count"))
 end
 
 function rtmp(size)
@@ -356,24 +352,23 @@ function adaf(size)
 end
 
 function stts(size)
-	rbyte("Version",                              1)
-	rbyte("Flags",                                3)
-	rbyte("Count",                                4, data)
+	rbyte("Version",                                        1)
+	rbyte("Flags",                                          3)
+	rbyte("Count",                                          4)
 	
-	for i=1, data["Count"].val do
-		rbyte("SttsSampleCount",                  4, cur_trak)
-		rbyte("SttsSampleDelta",                  4, cur_trak)
+	for i=1, get("Count") do
+		store_to_table(cur_trak, rbyte("SttsSampleCount",   4))
+		store_to_table(cur_trak, rbyte("SttsSampleDelta",   4))
 	end
 end
 
 function ctts(size)
-	print("sdfd")
-	rbyte("Version",              1)
-	rbyte("Flags",                3)
-	rbyte("Count",                4, data)
-	for i=1, data["Count"].val do
-		rbyte("CttsSampleCount",  4, cur_trak)
-		rbyte("CttsSampleOffset", 4, cur_trak)
+	rbyte("Version",                                        1)
+	rbyte("Flags",                                          3)
+	rbyte("Count",                                          4)
+	for i=1, get("Count") do
+		store_to_table(cur_trak, rbyte("CttsSampleCount",   4))
+		store_to_table(cur_trak, rbyte("CttsSampleOffset",  4))
 	end
 end
 
@@ -382,30 +377,30 @@ function stsc(size)
 end
 
 function stsz(size)
-	rbyte("Version",                        1)
-	rbyte("Flags",                          3)
-	rbyte("ConstantSize",                   4)
-	rbyte("SizeCount",                      4, data)
-	for i=1, data["SizeCount"].val do
-		rbyte("SizeTable",                  4, cur_trak)
+	rbyte("Version",                                        1)
+	rbyte("Flags",                                          3)
+	rbyte("ConstantSize",                                   4)
+	rbyte("SizeCount",                                      4)
+	for i=1, get("SizeCount") do
+		store_to_table(cur_trak, rbyte("SizeTable",         4))
 	end
 end
 
 function stco(size)
-	rbyte("Version",                     1)
-	rbyte("Flags",                       3)
-	rbyte("OffsetCount",                 4, data)
-	for i=1, data["OffsetCount"].val do
-		rbyte("StcoOffsets",             4, cur_trak)
+	rbyte("Version",                                        1)
+	rbyte("Flags",                                          3)
+	rbyte("OffsetCount",                                    4)
+	for i=1, get("OffsetCount") do
+		store_to_table(cur_trak, rbyte("StcoOffsets",       4))
 	end
 end
 
 function co64(size)
-	rbyte("Version",                     4)
-	rbyte("Flags",                       4)
-	rbyte("OffsetCount",                 4, data)
-	for i=1, data["OffsetCount"].val do
-		rbyte("StcoOffsets",             8, cur_trak)
+	rbyte("Version",                                        4)
+	rbyte("Flags",                                          4)
+	rbyte("OffsetCount",                                    4)
+	for i=1, get("OffsetCount") do
+		store_to_table(cur_trak, rbyte("StcoOffsets",       8))
 	end
 end
 
@@ -531,7 +526,7 @@ end
 ----------------------------------------
 
 function convert_and_store_timestamp(trak)	
-	local time_scale = trak.TimeScale.val
+	local time_scale = get("TimeScale")
 
 	-- tick単位のDTS
 	local DTS_in_tick = {}
@@ -550,9 +545,9 @@ function convert_and_store_timestamp(trak)
 	for i=1, #DTS_in_tick do
 		table.insert(DTS, DTS_in_tick[i]/time_scale)
 	end
-
-	-- テーブルに保管
-	trak.DTS = DTS
+	
+	-- 記録
+	store(trak.descriptor.."DTS", DTS)
 
 	if trak.CttsSampleCount and next(trak.CttsSampleCount.tbl) then
 		-- tick単位のPTS
@@ -572,19 +567,20 @@ function convert_and_store_timestamp(trak)
 			table.insert(PTS, PTS_in_tick[i]/time_scale)
 		end
 		
-		-- テーブルに保管
-		trak.PTS = PTS
+		-- 記録		
+		store(trak.descriptor.."PTS", PTS)
+
 	else
-		print("no PTS")
+		print("no PTS in ", descriptor)
 	end
 end
 
-stream = open_stream(__stream_name__)
+open(__stream_path__)
+enable_print(false)
 stdout_to_file(false)
-print_on(false)
 
 mp4(file_size())
 
 print_status()
-save_as_csv("data.csv", data)
+save_as_csv("data.csv")
 

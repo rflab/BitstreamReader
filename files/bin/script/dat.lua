@@ -1,7 +1,5 @@
 -- 数値文字列解析
-
-assert(argv[1])
-stream = open_stream(argv[1])
+open(__stream_path__)
 dump()
 
 -- 解析するなら以下のような感じ

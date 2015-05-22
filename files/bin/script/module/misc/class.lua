@@ -133,8 +133,6 @@ function C_Instance(class, recycle)
 	--C_Create内で、大本のテーブルに__indexを入れてあるため（class.__index = class）
 	--インスタンスでは大本のテーブルをメタテーブルとしてしまうことができる、
 	--大本のテーブルには__.*以外に、普通の値も保存できるので、メンバ関数とその継承、スタティック変数的なことが可能になる
-	--妙技
-	--★
 	if rawget(class, "__index") == class then
 		setmetatable(t, class)
 	else

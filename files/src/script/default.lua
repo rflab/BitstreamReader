@@ -1,14 +1,17 @@
 -- ライブラリロード
-dofile("script/util.lua")
--- dofile("script/cmd.lua")
--- dofile("script/explicit_globals.lua")
--- use_explicit_globals()
+dofile("script/module/util.lua")
+
+-- 各種値定義
+assert(argv[1], "no file name in argv[1]") 
+__stream_path__ = argv[1] 
+__stream_ext__  = string.gsub(argv[1], ".*(%..*)", "%1")
+--__stream_name__ = string.gsub(argv[1], "(?!.*/).", "%1")
+__stream_name__ = string.gsub(argv[1], ".*/(.*)%..*$", "%1")
+
+print("###########", __stream_name__)
 
 -- 拡張子にあわせてスクリプト実行
-assert(argv[1], "no file name in argv[1]") 
-__stream_name__ = argv[1] 
-local ext = string.gsub(argv[1], ".*(%..*)", "%1")
-
+local ext = __stream_ext__
 if ext == ".wav" then
 	dofile("script/wav.lua")
 
@@ -33,4 +36,3 @@ elseif string.match(argv[1], "[0-9][0-9] ") ~= nil then
 else
 	print("not found extension")
 end
-

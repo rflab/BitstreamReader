@@ -20,7 +20,7 @@
 #define throw(x)
 
 // これをC++関数内でthrowするとLua関数の戻り値をfalseになる
-#define LUA_RUNTIME_ERROR std::runtime_error(string("c++ runtime exception. L") + to_string(__LINE__) + " " + __FUNCTION__)
+#define LUA_RUNTIME_ERROR ::std::runtime_error(::std::string("c++ runtime exception. L") + ::std::to_string(__LINE__) + " " + __FUNCTION__)
 
 namespace rf
 {
@@ -183,11 +183,27 @@ namespace rf
 			return lua_toboolean(L, index) == 0 ? false : true;
 		}
 
+
 		template<typename T>
-		static const char* get_stack(lua_State* L, int index, typename enable_if<is_string<T>::value>::type* = 0)
+		static const char *get_stack(lua_State* L, int index, typename enable_if<is_string<T>::value>::type* = 0)
 		{
-			return lua_tostring(L, index);
+			const char* str = lua_tostring(L, index);
+			if (str == nullptr)
+				throw LUA_RUNTIME_ERROR;
+			return str;
 		}
+
+		//template<typename T>
+		//static const char *get_stack(lua_State* L, int index, typename enable_if<std::is_same<T, char const*>::value>::type* = 0)
+		//{
+		//	return lua_tostring(L, index);
+		//}
+		//
+		//template<typename T>
+		//static const string get_stack(lua_State* L, int index, typename enable_if<std::is_same<T, string>::value>::type* = 0)
+		//{
+		//	return lua_tostring(L, index);
+		//}
 
 		template<typename T>
 		static T get_stack(lua_State* L, int index, typename enable_if<!is_basic_type<T>::value>::type* = 0)

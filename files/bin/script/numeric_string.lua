@@ -14,7 +14,7 @@ f:write(str)
 f:close()
 
 -- ファイルストリームとして読み込み
-stream = open_stream("bin.dat")
+stream = open("bin.dat")
 dump()
 
 -- 解析するなら以下のような感じ

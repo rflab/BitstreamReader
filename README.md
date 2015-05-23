@@ -68,7 +68,7 @@ C++側からは以下のような関数・クラスがバインドされてい�
 		def("open",                  &LuaGlue::open).               // 解析ファイルオープン
 		def("file_size",             &LuaGlue::file_size).          // 解析ファイルサイズ取得
 		def("enable_print",          &LuaGlue::enable_print).       // コンソール出力ON/OFF
-		def("little_endian",         &LuaGlue::little_endian).      // ２バイト/４バイトの読み込み時はエンディアンを変換する
+		def("little_endian",         &LuaGlue::little_endian).      // ２or４バイトの読み込み時のエンディアン指定
 		def("seek",                  &LuaGlue::seek).               // 先頭からファイルポインタ移動
 		def("offset_bit",            &LuaGlue::offset_by_bit).      // 現在位置からファイルポインタ移動
 		def("offset_byte",           &LuaGlue::offset_by_byte).     // 現在位置からファイルポインタ移動

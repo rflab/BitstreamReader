@@ -39,7 +39,7 @@ end
 
 function _m:new(file_name)
 	assert(type(file_name)=="string")
-	print("open_stream("..file_name..")")
+	print("open("..file_name..")")
 	obj = {tbl={}}
 	--_v[obj] = {}
 	setmetatable(obj, _meta )
@@ -130,7 +130,7 @@ end
 
 function _m:sstr(pattern)
 	local str = ""
-	if string.match(pattern, "[0-9][0-9] ") ~= nil then
+	if string.match(pattern, "[0-9a-f][0-9a-f]") ~= nil then
 		for hex in string.gmatch(pattern, "%w+") do
 			str = str .. string.char(tonumber(hex, 16))
 		end
@@ -178,6 +178,12 @@ end
 function _m:set_exit(address)	
 	self.break_address = address
 end
+
+function _m:little_endian(enable)	
+	assert(type(enable) == "boolean")
+	self.stream:little_endian(enable)
+end
+
 
 
 --function progress()

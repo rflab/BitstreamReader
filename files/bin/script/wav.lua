@@ -2,6 +2,7 @@
 local __stream_path__ = argv[1] or "test.wav"
 
 open(__stream_path__)
+little_endian(true)
 dump()
 
 cstr ("'RIFF'",                       4, "RIFF")
@@ -17,8 +18,9 @@ rbyte("block_size(smaple_x_channel)", 2)
 rbyte("bit_depth",                    2)
 rbyte("'data'",                       4)
 rbyte("size_audio_data",              4)
-wbyte("pcm.dat",                      reverse_32(get("size_audio_data"))) -- PCMを書き出す
+wbyte("pcm.dat",                      get("size_audio_data")) -- PCMを書き出す
 rbyte("tag",                          4)
 rbyte("size_data",                    4, data)
-rbyte("data",                         reverse_32(get("size_data")))
+rbyte("data",                         get("size_data"))
 
+print_status()

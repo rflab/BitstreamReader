@@ -257,14 +257,13 @@ end
 ---------------------------------- 
 -- 解析
 ---------------------------------- 
-stream = open(__stream_path__)
+open(__stream_path__)
 enable_print(false)
 stdout_to_file(false)
 
 -- 初期TSパケット長
-local ext = string.gsub(__stream_path__, ".*(%..*)", "%1")
-if ext == ".tts"
-or ext == ".m2ts" then
+if __stream_ext__ == ".tts"
+or __stream_ext__ == ".m2ts" then
 	ts_packet_size = 192
 else
 	ts_packet_size = 188
@@ -282,13 +281,13 @@ end
 psi_check = false
 seek(0)
 ts(file_size() - 200) -- 解析開始、後半は200byte捨てる
-print_status()
+save_as_csv("ts.csv")
 
 -- PES解析 1, 2はPAT/PMTなので無視
-for i=3, #pid_files do
-	__stream_path__  = pid_files[i]
-	print(__stream_path__)
+for i=3, #pid_files do	
+	__stream_path__, __stream_name__, __stream_ext__  = split_file_name("out/"..pid_files[i])
+	
+	print(__stream_path__, __stream_name__, __stream_ext__ )
 	dofile("script/pes.lua") -- PES解析は別ファイル
 end
 
-save_as_csv("data.csv")

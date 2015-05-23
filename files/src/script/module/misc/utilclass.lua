@@ -10,7 +10,7 @@ gs_csv = nil
 -- ƒXƒgƒŠ[ƒ€
 Stream = {
 	new = function (file_name)
-			print("open_stream("..file_name..")")
+			print("open("..file_name..")")
 
 			local obj = {tbl={}}
 			obj.file_name = file_name

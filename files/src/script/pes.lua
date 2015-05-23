@@ -213,11 +213,10 @@ function pes_stream(size)
 end
 
 -- ファイルオープン＆初期化＆解析
-stream = open(__stream_path__)
+open(__stream_path__)
 enable_print(false)
 stdout_to_file(false)
 
 pes_stream(file_size() - 1024*5) -- 解析開始、後半は5kb捨てる
 save_as_csv(__stream_name__..".csv")
-
 

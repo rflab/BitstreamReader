@@ -7,25 +7,34 @@ local gs_stream
 local gs_csv
 
 --------------------------------------------
--- よく使う関数群
+-- 雑関数郡、
 --------------------------------------------
 -- 性能計測用
 perf = profiler:new()
 progress = {
-	prev = 0,
+	prev = 10,
 	check = function (self)
-		local p = math.modf(cur()/file_size() * 100)
-		if math.modf(p % 10) == 0 and self.prev <= p then
-			
-			self.prev = self.prev + 10
+		local cur = math.modf(cur()/file_size() * 100)
+		if math.abs(self.prev - cur) >= 9.99 then
+			self.prev = cur
 			print("--------------------------")
-			print(p.."%", os.clock().."sec.\n")
+			print(cur.."%", os.clock().."sec.\n")
 			print_status()
 			perf:print()
 			print("--------------------------")
 		end
 	end
 }
+
+-- グローバル変数を設定する
+-- とりあえずファイルパスだけ
+function split_file_name(path)
+	return
+		path,
+		string.gsub(path, ".*/(.*)%..*$", "%1"),
+		string.gsub(path, ".*(%..*)", "%1")
+end
+
 
 -- 最後に勝手に\nが入るprintf
 function printf(format, ...)
@@ -52,7 +61,7 @@ end
 function print_table(tbl, indent)
 	indent = indent or 0
 	for k, v in pairs(tbl) do
-		formatting = string.rep("  ", indent) .. k .. ": "
+		formatting = string.rep("  ", indent) .. k
 		if type(v) == "table" then
 			print(formatting)
 			print_table(v, indent+1)
@@ -83,6 +92,10 @@ end
 function open(file_name)
 	gs_stream = stream:new(file_name)
 	gs_csv = csv:new()
+
+	-- wbyte/writeの出力用フォルダ作成
+	print("os.execute", os.execute())
+	print(os.execute("mkdir out"))
 	return gs_stream
 end
 
@@ -182,12 +195,17 @@ end
 
 -- ストリームからファイルにデータを追記
 function wbyte(filename, size)
-	return gs_stream:wbyte(filename, size)
+	return gs_stream:wbyte("out/"..filename, size)
 end
 
 -- 文字列、もしくは"00 11 22"のようなバイナリ文字列をファイルに追記
 function write(filename, pattern)
-	return gs_stream:write(filename, pattern)
+	return gs_stream:write("out/"..filename, pattern)
+end
+
+-- ２バイト/４バイトの読み込みでエンディアンを変換する
+function little_endian(enable)
+	return gs_stream:little_endian(enable)
 end
 
 -- csv保存用に値を記憶

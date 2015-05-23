@@ -307,13 +307,14 @@ public:
 
 	bool search_byte(char c, int &ret_offset, int start_offset = 0, bool advance = true)
 	{
+
 		// エラーチェック前に現在のbitを切り上げる
 		cut_bit();
 		
 		if (FAILED(check_offset_by_bit(start_offset * 8)))
 			return false;
 		
-		auto result = std::find(&buf_.get()[cur_byte_ + start_offset], &buf_.get()[size_], c);
+		auto result = std::find(&buf_.get()[cur_byte_ + start_offset], &buf_.get()[size_], (unsigned char)c);
 		if (FAILED(result != &buf_.get()[size_]))
 		{
 			return false;
@@ -521,10 +522,11 @@ private:
 
 	FileBitstream                      fs_;
 	bool                               printf_on_;
+	bool                               little_endian_;
 	map<string, shared_ptr<ofstream> > ofs_map_; // 暫定、出力ファイル名保存先
 
 public:
-	LuaGlue() :printf_on_(true){}
+	LuaGlue() :printf_on_(true), little_endian_(false){}
 	
 	~LuaGlue()
 	{
@@ -579,6 +581,11 @@ public:
 		return ::dump(wa.buf().get(), wa.cur_byte(), fs_.file_offset(), max_size);
 	}
 
+	void little_endian(bool enable_)
+	{
+		little_endian_ = enable_;
+	}
+
 	int read_by_bit(string name, int size) throw(...)
 	{
 		int prev_byte = fs_.work_area().cur_byte();
@@ -611,10 +618,19 @@ public:
 			if (FAILED(fs_.read_by_bit(size, v)))
 				throw LUA_RUNTIME_ERROR;
 
+			if (little_endian_)
+			{
+				if (size == 32)
+					v = reverse_endian_32(v);
+				else if (size == 16)
+					v = reverse_endian_16(v);
+			}
+
 			if (printf_on_ || (name[0] == '#'))
 			{
-				printf(" adr=0x%08x(+%d)| siz=0x%08x(+%d)| %-40s | val=0x%-8x (%d)\n",
-					prev_byte, prev_bit, size / 8, size % 8, name.c_str(), v, v);
+				printf(" adr=0x%08x(+%d)| siz=0x%08x(+%d)| %-40s | val=0x%-8x (%d%s)\n",
+					prev_byte, prev_bit, size / 8, size % 8, name.c_str(), v, v,
+					((size == 32 || size == 16) && little_endian_) ? ", \"little\"" : "");
 			}
 
 			return v;
@@ -680,14 +696,14 @@ public:
 		
 		if (FAILED(fs_.search_byte(c, offset)))
 		{
-			printf("# can not find byte:0x%x\n", c);
+			printf("# can not find byte:0x%x\n", (unsigned char)c);
 			throw LUA_RUNTIME_ERROR;
 		}
 
 		if (printf_on_)
 		{
 			printf(" adr=0x%08x(+0)| ofs=0x%08x(+0)| search '0x%02x' found.\n",
-				fs_.cur_byte(), offset, c);
+				fs_.cur_byte(), offset, (unsigned char)c);
 		}
 
 		return offset;
@@ -712,7 +728,7 @@ public:
 			printf(" adr=0x%08x(+0)| ofs=0x%08x(+0)| search [ ",
 				fs_.cur_byte(), offset);
 			for (int i = 0; i < size; ++i)
-				printf("%02x ", address[i]);
+				printf("%02x ", (unsigned char)address[i]);
 			printf("] (\"%s\") found.\n", s.c_str());
 		}
 
@@ -805,31 +821,32 @@ shared_ptr<rf::LuaBinder> init_lua()
 	auto lua = make_shared<rf::LuaBinder>();
 
 	// 関数バインド
-	lua->def("stdout_to_file", stdout_to_file);                         // コンソール出力の出力先切り替え
-	lua->def("reverse_16",     LuaGlue::reverse_endian_16);             // 16ビットエンディアン変換
-	lua->def("reverse_32",     LuaGlue::reverse_endian_32);             // 32ビットエンディアン変換
+	lua->def("stdout_to_file", stdout_to_file);                     // コンソール出力の出力先切り替え
+	lua->def("reverse_16",     LuaGlue::reverse_endian_16);         // 16ビットエンディアン変換
+	lua->def("reverse_32",     LuaGlue::reverse_endian_32);         // 32ビットエンディアン変換
 
 	// クラスバインド
 	lua->def_class<LuaGlue>("Bitstream")->
-		def("open",               &LuaGlue::open).                      // 解析ファイルオープン
-		def("file_size",          &LuaGlue::file_size).                 // 解析ファイルサイズ取得
-		def("enable_print",       &LuaGlue::enable_print).              // コンソール出力ON/OFF
-		def("seek",               &LuaGlue::seek).                      // 先頭からファイルポインタ移動
-		def("offset_bit",         &LuaGlue::offset_by_bit).             // 現在位置からファイルポインタ移動
-		def("offset_byte",        &LuaGlue::offset_by_byte).            // 現在位置からファイルポインタ移動
-		def("dump",               &LuaGlue::dump).                      // 現在位置からバイト表示
-		def("cur_bit",            &LuaGlue::cur_bit).                   // 現在のビットオフセットを取得
-		def("cur_byte",           &LuaGlue::cur_byte).                  // 現在のバイトオフセットを取得
-		def("read_bit",           &LuaGlue::read_by_bit).               // ビット単位で読み込み
-		def("read_byte",          &LuaGlue::read_by_byte).              // バイト単位で読み込み
-		def("read_string",        &LuaGlue::read_by_string).            // バイト単位で文字列として読み込み
-		def("comp_bit",           &LuaGlue::compare_by_bit).            // ビット単位で比較
-		def("comp_byte",          &LuaGlue::compare_by_byte).           // バイト単位で比較
-		def("comp_string",        &LuaGlue::compare_by_string).         // バイト単位で文字列として比較
-		def("search_byte",        &LuaGlue::search_byte).               // １バイトの一致を検索
-		def("search_byte_string", &LuaGlue::search_byte_string).        // 数バイト分の一致を検索
-		def("copy_byte",          &LuaGlue::copy_by_byte).              // ストリームからファイルに出力
-		def("write",              &LuaGlue::write);                     // 指定したバイト列をファイルに出力
+		def("open",                  &LuaGlue::open).               // 解析ファイルオープン
+		def("file_size",             &LuaGlue::file_size).          // 解析ファイルサイズ取得
+		def("enable_print",          &LuaGlue::enable_print).       // コンソール出力ON/OFF
+		def("little_endian",         &LuaGlue::little_endian).      // ２バイト/４バイトの読み込み時はエンディアンを変換する
+		def("seek",                  &LuaGlue::seek).               // 先頭からファイルポインタ移動
+		def("offset_bit",            &LuaGlue::offset_by_bit).      // 現在位置からファイルポインタ移動
+		def("offset_byte",           &LuaGlue::offset_by_byte).     // 現在位置からファイルポインタ移動
+		def("dump",                  &LuaGlue::dump).               // 現在位置からバイト表示
+		def("cur_bit",               &LuaGlue::cur_bit).            // 現在のビットオフセットを取得
+		def("cur_byte",              &LuaGlue::cur_byte).           // 現在のバイトオフセットを取得
+		def("read_bit",              &LuaGlue::read_by_bit).        // ビット単位で読み込み
+		def("read_byte",             &LuaGlue::read_by_byte).       // バイト単位で読み込み
+		def("read_string",           &LuaGlue::read_by_string).     // バイト単位で文字列として読み込み
+		def("comp_bit",              &LuaGlue::compare_by_bit).     // ビット単位で比較
+		def("comp_byte",             &LuaGlue::compare_by_byte).    // バイト単位で比較
+		def("comp_string",           &LuaGlue::compare_by_string).  // バイト単位で文字列として比較
+		def("search_byte",           &LuaGlue::search_byte).        // １バイトの一致を検索
+		def("search_byte_string",    &LuaGlue::search_byte_string). // 数バイト分の一致を検索
+		def("copy_byte",             &LuaGlue::copy_by_byte).       // ストリームからファイルに出力
+		def("write",                 &LuaGlue::write);              // 指定したバイト列をファイルに出力
 	
 	if (FAILED(lua->dostring("_G.argv = {}")))
 	{

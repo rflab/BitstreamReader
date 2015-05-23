@@ -75,6 +75,7 @@ function print_table(tbl, indent)
 	end
 end
 
+-- tbl[name].tblの末尾とtbl[name].valに値を入れる
 function store_to_table(tbl, name, value)
 	assert(name ~= nil, "nil name specified")
 	assert(value ~= nil, "nil value specified")
@@ -83,6 +84,33 @@ function store_to_table(tbl, name, value)
 	tbl[name].val = value
 	tbl[name].tbl = tbl[name].tbl or {}
 	table.insert(tbl[name].tbl, value)
+end
+
+-- 4文字までのバッファを数値に変換する
+function str2val(buf_str, little_endian)
+	local s
+	local val = 0
+	local len = #buf_str
+	if little_endian then	
+		assert(len==4 or len==2, "length str:"..str)
+		s = buf_str:reverse()
+	else
+		s = buf_str
+	end
+	
+	for i=1, len do
+		val = val << 8 | s:byte(i)
+	end
+	return val
+end
+
+-- 数字に変える
+function val2str(val)
+	local str = ""
+	for i=1, 4 do
+		str = str .. string.char((val >> (32-8*i)) & 0xff)
+	end
+	return str
 end
 
 --------------------------------------------
@@ -208,6 +236,11 @@ function little_endian(enable)
 	return gs_stream:little_endian(enable)
 end
 
+-- 現在位置からストリームを抜き出す
+function sub_stream(size)
+	return gs_stream:sub_stream(size)
+end
+
 -- csv保存用に値を記憶
 -- 引数はcbyte()等の戻り値に合わせてあるのでstore(cbyte())という書き方も可能
 -- valueにはテーブル等を指定することも可
@@ -221,5 +254,4 @@ end
 function save_as_csv(file_name)
 	return gs_csv:save(file_name)
 end
-
 

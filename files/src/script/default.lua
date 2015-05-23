@@ -15,6 +15,7 @@ elseif ext == ".bmp" then
 	dofile("script/bmp.lua")
 	
 elseif ext == ".jpg" then
+elseif ext == ".JPG" then
 	dofile("script/jpg.lua")
 	
 elseif ext == ".ts"

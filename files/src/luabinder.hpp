@@ -112,14 +112,43 @@ namespace rf
 
 			return true;
 		}
-		
-		// スタック操作 オーバーロードでC++->Lua
+
+		// Lua型判定
 
 		template<typename T>
-		static void push_stack(lua_State* L, T a)
+		struct is_boolean
 		{
-			lua_pushnumber(L, static_cast<lua_Number>(a));
-		}
+			static const bool value =
+				std::is_same < T, bool >::value;
+		};
+
+		template<typename T>
+		struct is_number
+		{
+			static const bool value =
+				((!is_boolean<T>::value)
+				&& ((std::is_integral<T>::value)
+				|| (std::is_floating_point<T>::value)));
+		};
+
+		template<typename T>
+		struct is_string
+		{
+			static const bool value =
+				((std::is_same<T, string>::value)
+				|| (std::is_same<T, char const*>::value));
+		};
+
+		template<typename T>
+		struct is_basic_type
+		{
+			static const bool value =
+				((is_boolean<T>::value)
+				|| (is_number<T>::value)
+				|| (is_string<T>::value));
+		};
+
+		// スタック操作 オーバーロードでC++->Lua
 
 		static void push_stack(lua_State* L, bool a)
 		{
@@ -136,41 +165,35 @@ namespace rf
 			lua_pushstring(L, a.c_str());
 		}
 
+		template<typename T>
+		static void push_stack(lua_State* L, T a)
+		{
+			lua_pushnumber(L, static_cast<lua_Number>(a));
+		}
+
+		// どうすりゃいいかわからん
+		//template<typename T>
+		//static void push_stack(lua_State* L, T a, enable_if<is_number<T>::value>::type* = 0)
+		//{
+		//	lua_pushnumber(L, static_cast<lua_Number>(a));
+		//}
+		//
+		//template<typename T>
+		//static void push_stack(lua_State* L, T a, enable_if<!is_basic_type<T>::value>::type* = 0)
+		//{
+		//	void* p = lua_newuserdata(L, sizeof(T));
+		//	new(p) T(a);
+		//
+		//	lua_pushvalue(L, lua_upvalueindex(1)); // クラスを取り出す
+		//	lua_setmetatable(L, userdata); // メタテーブルに追加する
+		//
+		//	return 1; // インスタンス1つを返す
+		//
+		//	lua_pushnumber(L, static_cast<lua_Number>(a));
+		//}
+
 		// スタック操作 型推論でLua->C++
-
-		template<typename T>
-		struct is_boolean
-		{
-			static const bool value =
-				std::is_same < T, bool >::value;
-		};
-
-		template<typename T>
-		struct is_number
-		{
-			static const bool value =
-				(  (!is_boolean<T>::value)
-				&& (  (std::is_integral<T>::value)
-				   || (std::is_floating_point<T>::value)));
-		};
-
-		template<typename T>
-		struct is_string
-		{
-			static const bool value =
-				(  (std::is_same<T, string>::value)
-				|| (std::is_same<T, char const*>::value));
-		};
-
-		template<typename T>
-		struct is_basic_type
-		{
-			static const bool value =
-				(  (is_boolean<T>::value) 
-				|| (is_number<T>::value)
-				|| (is_string<T>::value));
-		};
-
+		
 		template<typename T>
 		static T get_stack(lua_State* L, int index, typename enable_if<is_number<T>::value>::type* = 0)
 		{
@@ -460,7 +483,7 @@ namespace rf
 			int userdata = lua_gettop(L);
 			
 			// void* instance = new(p)T;
-			new(p)T;
+			new(p) T;
 			
 			lua_pushvalue(L, lua_upvalueindex(1)); // クラスを取り出す
 			lua_setmetatable(L, userdata); // メタテーブルに追加する

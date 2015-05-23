@@ -45,7 +45,7 @@ function _m:new(file_name)
 	setmetatable(obj, _meta )
 
 	obj.file_name = file_name
-	obj.stream = Bitstream.new()
+	obj.stream = FileBitstream.new()
 	assert(obj.stream:open(file_name))
 	return obj
 end
@@ -147,7 +147,7 @@ function _m:offset(ofs)
 end
 
 function _m:seek(pos)
-	return self.stream:seek(pos, 0)
+	return self.stream:seek(pos)
 end
 function _m:wbyte(filename, size)	
 	local ret = self.stream:copy_byte(filename, size)
@@ -171,7 +171,7 @@ function _m:enable_print(b)
 	return self.stream:enable_print(b)
 end
 
-function _m:bit_seek(size)	
+function _m:offset_bit(size)	
 	return self.stream:offset_by_bit(size)
 end
 
@@ -184,7 +184,11 @@ function _m:little_endian(enable)
 	self.stream:little_endian(enable)
 end
 
-
+function _m:sub_stream(size)	
+	local b = Bitstream:new()
+	self.stream:sub_stream(b, size)
+	return b
+end
 
 --function progress()
 --	local p = math.modf(cur()/file_size() * 100)

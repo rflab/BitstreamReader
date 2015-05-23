@@ -15,14 +15,14 @@ bmp, jpg, wavもおまけ程度にチェックできます。
 ## 使い方・機能
 引数なしで起動した場合はLuaのインタプリタとして起動されます。
 
-第２引数にファイル名を入れるとscript/default.luaで対応づけられた拡張子で解析が始まるようにしています
+第２引数にファイル名を入れると解析が始まるようにしています。
 
     // windowsの場合はbin/streamreader.exeにファイルをドロップとおなじ。
     S./a.out test.wav
     
-コンソールで起動した場合はオプション指定も可能です。
-最初の'-オプション'より前に指定された引数はテーブルargv[]に文字列として代入され、script/default.luaが起動されます。
-（argvに実行ファイル名は含まれません。現状のdefault.luaはarg[1]をファイル名として拡張子を判別し、対応するスクリプトをコールするようにしています。）
+より詳しくは、起動時のオプション指定によります。
+引数がある場合、最初の'-'付きオプションより前のものはluaのテーブル'argv[]'に文字列として代入され、script/default.luaが起動されます。
+（現状のdefault.luaはarg[1]をファイル名とみなして拡張子を判定し、対応する解析スクリプトをコールするようにしています。）
 
     S./a.out --help
     S./a.out --lua script/wav.lua --arg test.wav
@@ -30,12 +30,33 @@ bmp, jpg, wavもおまけ程度にチェックできます。
 
 ## 定義ファイルの書き方
 
-ストリームの構造はLuaスクリプトで記述します。
+解析方法はLuaスクリプトで記述します。
 （Luaの文法は http://milkpot.sakura.ne.jp/lua/lua52_manual_ja.html あたり参照のこと。）
 
-以下のような関数・クラスがバインドされています。
-（関数仕様はfiles/src/streamreader.cpp参照のこと。
-　引数はfiles/bin/script/util.luaを参照するのが早いです。）
+通常はfiles/bin/script/module/util.luaに書いた関数を利用したほうが簡単です。
+（files/bin/script/wav.luaあたり参照のこと。）
+
+    -- 準備
+    dofile("script/util.lua")    -- Luaに関数登録ロード
+    open("test.dat")             -- ファイルオープン＆初期化
+    
+    -- 読み込み
+    dump()                       -- 現在行から数バイト表示してみる
+    rstr ("tag",   4)            -- 4バイトを文字列として読み込み
+    rbyte("dataA", 1)            -- 1バイトを読み込み
+    rbit ("flagA", 1)            -- 1ビットを読み込み
+    rbit ("flagB", 7)            -- 7ビットを読み込み
+    rbit ("flagC", 80)           -- 80ビットを読み込み
+    wbyte("out.pcm", 16)         -- 16バイトをファイルに書き写す
+    print(get("flagC"))          -- 取得済みのデータを参照する
+
+    -- その他
+    store(rbyte("size_audio_data", 4))  -- csvファイルに書き出すデータ１
+    store("data", get("flafA"))         -- csvファイルに書き出すデータ２
+    save_as_csv(result.csv)             -- csvファイルに書き出す
+
+C++側からは以下のような関数・クラスがバインドされています。
+（関数・クラスの仕様はfiles/src/streamreader.cpp参照のこと。）
 
 	// 関数バインド
 	lua->def("stdout_to_file", stdout_to_file);                     // コンソール出力の出力先切り替え
@@ -65,24 +86,3 @@ bmp, jpg, wavもおまけ程度にチェックできます。
 		def("copy_byte",             &LuaGlue::copy_by_byte).       // ストリームからファイルに出力
 		def("write",                 &LuaGlue::write);              // 指定したバイト列をファイルに出力
 		
-ぶっちゃけ↑のままだと使いにくいので、files/bin/script/module/util.luaに書いた関数を利用したほうがいいです。
-（files/bin/script/wav.luaあたり参照のこと。）
-
-    -- 準備
-    dofile("script/util.lua")    -- Luaに関数登録ロード
-    open("test.dat")             -- ファイルオープン＆初期化
-    
-    -- 読み込み
-    dump()                       -- 現在行から数バイト表示してみる
-    rstr ("tag",   4)            -- 4バイトを文字列として読み込み
-    rbyte("dataA", 1)            -- 1バイトを読み込み
-    rbit ("flagA", 1)            -- 1ビットを読み込み
-    rbit ("flagB", 7)            -- 7ビットを読み込み
-    rbit ("flagC", 80)           -- 80ビットを読み込み
-    wbyte("out.pcm", 16)         -- 16バイトをファイルに書き写す
-    print(get("flagC"))          -- 取得済みのデータを参照する
-
-    -- その他
-    store(rbyte("size_audio_data", 4))  -- csvファイルに書き出すデータ１
-    store("data", get("flafA"))         -- csvファイルに書き出すデータ２
-    save_as_csv(result.csv)             -- csvファイルに書き出す

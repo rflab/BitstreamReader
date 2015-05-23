@@ -65,7 +65,7 @@ bmp, jpg, wavもおまけ程度にチェックできます。
 		def("copy_byte",             &LuaGlue::copy_by_byte).       // ストリームからファイルに出力
 		def("write",                 &LuaGlue::write);              // 指定したバイト列をファイルに出力
 		
-ぶっちゃけ↑のままだと使いにくいので、files/bin/script/util.luaに書いた関数を利用したほうがいいです。
+ぶっちゃけ↑のままだと使いにくいので、files/bin/script/module/util.luaに書いた関数を利用したほうがいいです。
 （files/bin/script/wav.luaあたり参照のこと。）
 
     -- 準備

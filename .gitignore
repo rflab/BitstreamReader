@@ -21,6 +21,8 @@ files/visual_studio_solution/visual_studio_solution/script/
 *.pat
 *.pmt
 *.es
+*.jpg
+*.bmp
 
 # Windows image file caches
 Thumbs.db

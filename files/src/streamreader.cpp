@@ -669,7 +669,7 @@ namespace rf{
 			if (printf_on_ || (name[0] == '#'))
 			{
 				printf(" adr=0x%08x(+%d)| siz=0x%08x(+0)| %-40s | str=\"%s\"\n",
-					prev_byte, prev_bit, str.length(), name.c_str(), str.c_str());
+					prev_byte, prev_bit, static_cast<unsigned int>(str.length()), name.c_str(), str.c_str());
 				if (max_length < static_cast<int>(str.length() - 1))
 					ERR << "max_length > str.length() - 1 (" << str.length()
 						<< " != "<< max_length << ")" << endl;
@@ -950,7 +950,10 @@ namespace rf{
 			if (printf_on_ || (name[0] == '#'))
 			{
 				printf(" adr=0x%08x(+%d)| siz=0x%08x(+0)| %-40s | str=\"%s\"\n",
-					prev_byte, prev_bit, str.length(), name.c_str(), str.c_str());
+					prev_byte, prev_bit, static_cast<unsigned int>(str.length()), name.c_str(), str.c_str());
+				if (max_length < static_cast<int>(str.length() - 1))
+					ERR << "max_length > str.length() - 1 (" << str.length()
+						<< " != "<< max_length << ")" << endl;
 			}
 
 			return str;
@@ -1121,27 +1124,6 @@ namespace rf{
 		lua->def("reverse_32",     reverse_endian_32);         // 32ビットエンディアン変換
 
 		// クラスバインド
-		lua->def_class<LuaGlueBitstream>("Bitstream")->
-			def("file_size",             &LuaGlueBitstream::size).               // 解析ファイルサイズ取得
-			def("enable_print",          &LuaGlueBitstream::enable_print).       // コンソール出力ON/OFF
-			def("little_endian",         &LuaGlueBitstream::little_endian).      // ２バイト/４バイトの読み込み時はエンディアンを変換する
-			def("seek",                  &LuaGlueBitstream::seek).               // 先頭からファイルポインタ移動
-			def("offset_bit",            &LuaGlueBitstream::offset_by_bit).      // 現在位置からファイルポインタ移動
-			def("offset_byte",           &LuaGlueBitstream::offset_by_byte).     // 現在位置からファイルポインタ移動
-			def("dump",                  &LuaGlueBitstream::dump).               // 現在位置からバイト表示
-			def("cur_bit",               &LuaGlueBitstream::cur_bit).            // 現在のビットオフセットを取得
-			def("cur_byte",              &LuaGlueBitstream::cur_byte).           // 現在のバイトオフセットを取得
-			def("read_bit",              &LuaGlueBitstream::read_by_bit).        // ビット単位で読み込み
-			def("read_byte",             &LuaGlueBitstream::read_by_byte).       // バイト単位で読み込み
-			def("read_string",           &LuaGlueBitstream::read_by_string).     // バイト単位で文字列として読み込み
-			def("comp_bit",              &LuaGlueBitstream::compare_by_bit).     // ビット単位で比較
-			def("comp_byte",             &LuaGlueBitstream::compare_by_byte).    // バイト単位で比較
-			def("comp_string",           &LuaGlueBitstream::compare_by_string).  // バイト単位で文字列として比較
-			def("search_byte",           &LuaGlueBitstream::search_byte).        // １バイトの一致を検索
-			def("search_byte_string",    &LuaGlueBitstream::search_byte_string). // 数バイト分の一致を検索
-			def("copy_byte",             &LuaGlueBitstream::copy_by_byte).       // ストリームからファイルに出力
-			def("write",                 &LuaGlueBitstream::write);              // 指定したバイト列をファイルに出力
-
 		lua->def_class<LuaGlueFileBitstream>("FileBitstream")->
 			def("open",                  &LuaGlueFileBitstream::open).               // 解析ファイルオープン
 			def("file_size",             &LuaGlueFileBitstream::file_size).          // 解析ファイルサイズ取得
@@ -1163,8 +1145,28 @@ namespace rf{
 			def("search_byte_string",    &LuaGlueFileBitstream::search_byte_string). // 数バイト分の一致を検索
 			def("copy_byte",             &LuaGlueFileBitstream::copy_by_byte).       // ストリームからファイルに出力
 			def("write",                 &LuaGlueFileBitstream::write).              // 指定したバイト列をファイルに出力
-			def("sub_stream",            &LuaGlueFileBitstream::sub_stream);         // 部分ストリームを作成
+			def("sub_stream",            &LuaGlueFileBitstream::sub_stream);         // 部分ストリーム(Bitstream)を作成
 
+		lua->def_class<LuaGlueBitstream>("Bitstream")->
+			def("file_size",             &LuaGlueBitstream::size).                   // 解析ファイルサイズ取得
+			def("enable_print",          &LuaGlueBitstream::enable_print).           // コンソール出力ON/OFF
+			def("little_endian",         &LuaGlueBitstream::little_endian).          // ２バイト/４バイトの読み込み時はエンディアンを変換する
+			def("seek",                  &LuaGlueBitstream::seek).                   // 先頭からファイルポインタ移動
+			def("offset_bit",            &LuaGlueBitstream::offset_by_bit).          // 現在位置からファイルポインタ移動
+			def("offset_byte",           &LuaGlueBitstream::offset_by_byte).         // 現在位置からファイルポインタ移動
+			def("dump",                  &LuaGlueBitstream::dump).                   // 現在位置からバイト表示
+			def("cur_bit",               &LuaGlueBitstream::cur_bit).                // 現在のビットオフセットを取得
+			def("cur_byte",              &LuaGlueBitstream::cur_byte).               // 現在のバイトオフセットを取得
+			def("read_bit",              &LuaGlueBitstream::read_by_bit).            // ビット単位で読み込み
+			def("read_byte",             &LuaGlueBitstream::read_by_byte).           // バイト単位で読み込み
+			def("read_string",           &LuaGlueBitstream::read_by_string).         // バイト単位で文字列として読み込み
+			def("comp_bit",              &LuaGlueBitstream::compare_by_bit).         // ビット単位で比較
+			def("comp_byte",             &LuaGlueBitstream::compare_by_byte).        // バイト単位で比較
+			def("comp_string",           &LuaGlueBitstream::compare_by_string).      // バイト単位で文字列として比較
+			def("search_byte",           &LuaGlueBitstream::search_byte).            // １バイトの一致を検索
+			def("search_byte_string",    &LuaGlueBitstream::search_byte_string).     // 数バイト分の一致を検索
+			def("copy_byte",             &LuaGlueBitstream::copy_by_byte).           // ストリームからファイルに出力
+			def("write",                 &LuaGlueBitstream::write);                  // 指定したバイト列をファイルに出力
 	
 		if (FAILED(lua->dostring("_G.argv = {}")))
 		{

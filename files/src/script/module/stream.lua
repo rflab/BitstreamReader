@@ -44,9 +44,12 @@ function _m:new(file_name)
 	--_v[obj] = {}
 	setmetatable(obj, _meta )
 
-	obj.file_name = file_name
 	obj.stream = FileBitstream.new()
 	assert(obj.stream:open(file_name))
+	obj.stream:little_endian(false)
+
+	obj.file_name = file_name
+	obj.is_little_endian = false
 	return obj
 end
 
@@ -179,9 +182,13 @@ function _m:set_exit(address)
 	self.break_address = address
 end
 
-function _m:little_endian(enable)	
-	assert(type(enable) == "boolean")
-	self.stream:little_endian(enable)
+function _m:little_endian(enable)
+	if type(enable) ~= "boolean" then 
+		return self.stream.is_little_endian
+	else
+		self.is_little_endian = enable
+		self.stream:little_endian(enable)
+	end
 end
 
 function _m:sub_stream(size)	

@@ -4,6 +4,7 @@ local cur_trak = nil
 function boxheader()
 	rbyte("boxsize",                     4)
 	rstr ("boxheader",                   4)
+	printf("0x%08x      %s", get("boxsize"), get("boxheader"))
 	return get("boxsize"), get("boxheader")
 end
 
@@ -264,7 +265,7 @@ function DESCRIPTIONRECORD(count)
 			VisualSampleEntryBox(box_size-8)
 		end
 
-		rbyte("#some data", box_size - (cur()-begin))
+		rbyte("some data", box_size - (cur()-begin))
 	end
 end
 

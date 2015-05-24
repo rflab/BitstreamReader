@@ -670,6 +670,9 @@ namespace rf{
 			{
 				printf(" adr=0x%08x(+%d)| siz=0x%08x(+0)| %-40s | str=\"%s\"\n",
 					prev_byte, prev_bit, str.length(), name.c_str(), str.c_str());
+				if (max_length < static_cast<int>(str.length() - 1))
+					ERR << "max_length > str.length() - 1 (" << str.length()
+						<< " != "<< max_length << ")" << endl;
 			}
 
 			return str;

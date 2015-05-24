@@ -123,7 +123,7 @@ function open(file_name)
 
 	-- wbyte/writeの出力用フォルダ作成
 	print("os.execute", os.execute())
-	print(os.execute("mkdir out"))
+	print("mkdir out", os.execute("mkdir out"))
 	return gs_stream
 end
 

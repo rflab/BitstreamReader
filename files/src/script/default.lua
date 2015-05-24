@@ -14,8 +14,8 @@ if ext == ".wav" then
 elseif ext == ".bmp" then
 	dofile("script/bmp.lua")
 	
-elseif ext == ".jpg" then
-elseif ext == ".JPG" then
+elseif ext == ".jpg"
+or     ext == ".JPG" then
 	dofile("script/jpg.lua")
 	
 elseif ext == ".ts"

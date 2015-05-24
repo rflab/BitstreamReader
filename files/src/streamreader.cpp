@@ -1194,14 +1194,28 @@ int main(int argc, char** argv)
 {
 	string lua_file_name = "script/default.lua";
 
+	// パス情報を取得する
+	string dir;
+	string path;
+	if (argc>0)
+	{
+		path = std::regex_replace(argv[0], std::regex(R"(\\)"), "/");
+		std::smatch result;
+		std::regex_search(path, result, std::regex("(.*)/"));
+		dir = result.str();
+		lua_file_name = dir + "script/default.lua";
+	}
+
 	// lua初期化
 	auto lua = rf::init_lua();
 
 	// 引数適用
-	int flag = 1;
+	int flag = 0;
 	int lua_arg_count = 0;
-	for (int i = 1; i < argc; ++i)
+	for (int i = 0; i < argc; ++i)
 	{
+		// cout << "argv[" << i << "] = " << argv[i] << endl;
+
 		if ((string("--arg") == argv[i])
 		||  (string("-a") == argv[i]))
 		{
@@ -1220,10 +1234,22 @@ int main(int argc, char** argv)
 		}
 		else switch (flag)
 		{
+			case 0:
+			{
+				// パス情報を設定して引き続き引数登録に移る
+				stringstream ss;
+				ss << "_G.__exec_dir__=\"" << dir << '\"';
+				if (FAILED(lua->dostring(ss.str())))
+				{
+					ERR << "lua.dostring err" << endl;
+				}
+
+				flag = 1;
+
+				// fall through
+			}
 			case 1:
 			{
-				lua_arg_count++;
-
 				// \を/に置換
 				string s = std::regex_replace(argv[i], std::regex(R"(\\)"), "/");
 				stringstream ss;
@@ -1232,6 +1258,7 @@ int main(int argc, char** argv)
 				{
 					ERR << "lua.dostring err" << endl;
 				}
+				lua_arg_count++;
 				break;
 			}
 			case 2:
@@ -1269,6 +1296,7 @@ int main(int argc, char** argv)
 	}
 	else
 	{
+		cout << lua_file_name << endl;
 		if (FAILED(lua->dofile(lua_file_name)))
 		{
 			ERR << "lua.dofile err" << endl;

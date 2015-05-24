@@ -61,12 +61,12 @@ C++側からは以下のような関数・クラスがバインドされてい�
 
 		// streamreader.cpp
         
-		// 関数バインド
+		// 関数
 		lua->def("stdout_to_file", stdout_to_file);            // コンソール出力の出力先切り替え
 		lua->def("reverse_16",     reverse_endian_16);         // 16ビットエンディアン変換
 		lua->def("reverse_32",     reverse_endian_32);         // 32ビットエンディアン変換
 
-		// クラスバインド
+		// ファイルストリーム
 		lua->def_class<LuaGlueFileBitstream>("FileBitstream")->
 			def("open",                  &LuaGlueFileBitstream::open).               // 解析ファイルオープン
 			def("file_size",             &LuaGlueFileBitstream::file_size).          // 解析ファイルサイズ取得
@@ -90,6 +90,8 @@ C++側からは以下のような関数・クラスがバインドされてい�
 			def("write",                 &LuaGlueFileBitstream::write).              // 指定したバイト列をファイルに出力
 			def("sub_stream",            &LuaGlueFileBitstream::sub_stream);         // 部分ストリーム(Bitstream)を作成
 
+
+		// 部分ストリーム（FileBitstream:sub_stream()で生成する）
 		lua->def_class<LuaGlueBitstream>("Bitstream")->
 			def("file_size",             &LuaGlueBitstream::size).                   // 解析ファイルサイズ取得
 			def("enable_print",          &LuaGlueBitstream::enable_print).           // コンソール出力ON/OFF

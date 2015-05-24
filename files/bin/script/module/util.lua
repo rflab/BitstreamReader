@@ -1,5 +1,5 @@
 -- ライブラリロード
-package.path = "script/module/?.lua"
+package.path = __exec_dir__.."script/module/?.lua"
 require("profiler")
 require("stream")
 require("csv")
@@ -30,9 +30,10 @@ progress = {
 -- とりあえずファイルパスだけ
 function split_file_name(path)
 	return
-		path,
-		string.gsub(path, ".*/(.*)%..*$", "%1"),
-		string.gsub(path, ".*(%..*)", "%1")
+		path,                                    -- path
+		string.gsub(path, "(.*/).*%..*$", "%1"), -- dir
+		string.gsub(path, ".*/(.*)%..*$", "%1"), -- name
+		string.gsub(path, ".*(%..*)", "%1")      -- ext
 end
 
 

@@ -1,5 +1,5 @@
 -- CSVファイル出力ストリーム
-package.path = "script/module/?.lua"
+package.path = __exec_dir__.."script/module/?.lua"
 require("profiler")
 
 local name = ...           -- 第一引数がモジュール名

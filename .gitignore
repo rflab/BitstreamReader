@@ -18,6 +18,7 @@ files/visual_studio_solution/visual_studio_solution/script/
 *.ts
 *.tts
 *.pes
+*.h264
 *.pat
 *.pmt
 *.es

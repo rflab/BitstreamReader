@@ -176,13 +176,13 @@ function get_tag(t)
 	elseif t == 41729 then return "SceneType"                   ,"シーンタイプ                          :"
 	elseif t == 41730 then return "CFAPattern"                  ,"CFAパターン                           :"
 	elseif t == 40965 then return "InteroperabilityIFDPointer"  ,"互換性IFDへのポインタ                 :"   
-	else                   return "UNDEFINED"                   ,"不明なタグ                            :"   
+	else                   return "UNDEFINED"                   ,"不明なタグ ("..t.."):"   
 	end
 end
 
 function exif(size)
 	info.exif_begin = cur()
-	info.exif = sub_stream(size)
+	info.exif = sub_stream("Exif", size)
 	info.exif:enable_print(false)
 	
 	rstr ("ByteCode",            2)
@@ -221,9 +221,9 @@ function ifd(offset, indent)
 		local sz, ty = get_type(get("Type"))
 		
 		if get("Count") * sz > 4 then
-			info.exif:seek(get("ValueOffset"))
+			info.exif:seek_byte(get("ValueOffset"))
 		else
-			info.exif:seek(cur() - info.exif_begin - 4)
+			info.exif:seek_byte(cur() - info.exif_begin - 4)
 		end
 		
 		if ty == "byte" then
@@ -326,7 +326,7 @@ end
 
 open(__stream_path__)
 little_endian(false)
-enable_print(false)
+enable_print(true)
 jpg()
 print_table(info)
 print_status()

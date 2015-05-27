@@ -60,6 +60,9 @@ function _m:print()
 	printf("remain    : 0x%08x", self:size() - self:cur())
 	perf:print()
 end
+function _m:print_table()	
+	print_table(self.tbl)
+end
 
 function _m:size()	
 	return self.stream:file_size()
@@ -70,12 +73,13 @@ function _m:dump()
 end
 
 function _m:cur()	
-	return self.stream:cur_byte(), self.stream:cur_bit()
+	return self.stream:byte_pos(), self.stream:bit_pos()
 end
 
 function _m:get(name)	
 	return self.tbl[name]
 end
+
 
 function _m:rbit(name, size)
 --perf:enter("_rbit")
@@ -101,6 +105,19 @@ function _m:rstr(name, size)
  	local val = self.stream:read_string(name, size)
 	check(self, val, "rstr:"..name)
 	self.tbl[name] = val
+	return val
+end
+
+function _m:rexp(name)
+	local val = self.stream:read_expgolomb(name)
+	check(self, val, "rbyte:"..name)
+	self.tbl[name] = val
+	return val
+end
+
+function _m:gbyte(size)	
+ 	local val = self.stream:get_byte(size)
+	check(self, val, "gbyte:")
 	return val
 end
 
@@ -150,10 +167,10 @@ function _m:offset(ofs)
 end
 
 function _m:seek(pos)
-	return self.stream:seek(pos)
+	return self.stream:seek_byte(pos)
 end
 function _m:wbyte(filename, size)	
-	local ret = self.stream:copy_byte(filename, size)
+	local ret = self.stream:copy_byte(filename, size, true)
 	check(self, ret, "wbyte:"..filename)
 end
 
@@ -166,7 +183,7 @@ function _m:write(filename, pattern)
 	else
 		str = pattern
 	end
-	local ret = self.stream:write(filename, str, #str)
+	local ret = self.stream:output_to_file(filename, str, #str)
 	check(self, ret, "write:"..filename)
 end
 
@@ -191,9 +208,10 @@ function _m:little_endian(enable)
 	end
 end
 
-function _m:sub_stream(size)	
+function _m:sub_stream(name, size)	
 	local b = Bitstream:new()
-	self.stream:sub_stream(b, size)
+	print(size)
+	self.stream:sub_stream("Exif", b, size, false)
 	return b
 end
 

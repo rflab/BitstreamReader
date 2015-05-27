@@ -29,11 +29,15 @@ progress = {
 -- グローバル変数を設定する
 -- とりあえずファイルパスだけ
 function split_file_name(path)
-	return
-		path,                                    -- path
-		string.gsub(path, "(.*/).*%..*$", "%1"), -- dir
-		string.gsub(path, ".*/(.*)%..*$", "%1"), -- name
-		string.gsub(path, ".*(%..*)", "%1")      -- ext
+	local dir  = string.gsub(path, "(.*/).*%..*$", "%1")
+	if dir == path then dir = "" end
+
+	local name = string.gsub(path, ".*/(.*)%..*$", "%1")
+	if name == path then name = string.gsub(path, "(.*)%..*$", "%1") end
+
+	local ext  = string.gsub(path, ".*(%..*)", "%1")
+	
+	return path, dir, name, ext
 end
 
 
@@ -114,6 +118,7 @@ function val2str(val)
 	return str
 end
 
+
 --------------------------------------------
 -- ストリーム解析用関数群
 --------------------------------------------
@@ -121,16 +126,16 @@ end
 function open(file_name)
 	gs_stream = stream:new(file_name)
 	gs_csv = csv:new()
-
-	-- wbyte/writeの出力用フォルダ作成
-	print("os.execute", os.execute())
-	print("mkdir out", os.execute("mkdir out"))
 	return gs_stream
 end
 
 -- ストリーム状態表示
 function print_status()
 	return gs_stream:print()
+end
+
+function print_status_all()
+	return gs_stream:print_table()
 end
 
 -- ストリームファイルサイズ取得
@@ -141,6 +146,16 @@ end
 -- ストリームを最大256バイト出力
 function dump()
 	return gs_stream:dump()
+end
+
+-- 解析結果表示のON/OFF
+function enable_print(b)
+	return gs_stream:enable_print(b)
+end
+
+-- ２バイト/４バイトの読み込みでエンディアンを変換する
+function little_endian(enable)
+	return gs_stream:little_endian(enable)
 end
 
 -- 現在のバイトオフセット、ビットオフセットを取得
@@ -164,11 +179,6 @@ end
 -- 現在のバイトオフセット、ビットオフセットを取得
 function offset_by_bit(size)
 	return gs_stream:offset_by_bit(size)
-end
-
--- 解析結果表示のON/OFF
-function enable_print(b)
-	return gs_stream:enable_print(b)
 end
 
 -- 指定したアドレス前後の読み込み結果を表示し、assert(false)する
@@ -195,6 +205,11 @@ end
 -- 文字列として読み込み
 function rstr(name, size)
 	return name, gs_stream:rstr(name, size)
+end
+
+-- 指数ゴロムとして読み込み
+function rexp(name)
+	return name, gs_stream:rexp(name)
 end
 
 -- ビット単位で読み込み、compとの一致を確認
@@ -224,7 +239,7 @@ end
 
 -- ストリームからファイルにデータを追記
 function wbyte(filename, size)
-	return gs_stream:wbyte("out/"..filename, size)
+	return gs_stream:wbyte(filename, size)
 end
 
 -- 文字列、もしくは"00 11 22"のようなバイナリ文字列をファイルに追記
@@ -232,14 +247,14 @@ function write(filename, pattern)
 	return gs_stream:write("out/"..filename, pattern)
 end
 
--- ２バイト/４バイトの読み込みでエンディアンを変換する
-function little_endian(enable)
-	return gs_stream:little_endian(enable)
+-- バイト単位で読み込むがポインタは進めない
+function gbyte(size)
+	return gs_stream:gbyte(size)
 end
 
 -- 現在位置からストリームを抜き出す
-function sub_stream(size)
-	return gs_stream:sub_stream(size)
+function sub_stream(name, size)
+	return gs_stream:sub_stream(name, size)
 end
 
 -- csv保存用に値を記憶

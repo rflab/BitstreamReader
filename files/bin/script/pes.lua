@@ -184,9 +184,11 @@ function pes()
 	    --    rbit("stuffing_byte",                                     N1) -- 0xFFデータ、デコーダがすてるはずでここではパースしない
 	    --end
         if no_packet_length then
-        	--vpes()
+	        h264_byte_stream(1024*1024*5)
+        	dump()
+        	assert(false)
         else
-	        wbyte("PES_packet_data_byte.dat",                           N)
+	        wbyte("out/PES_packet_data_byte_"..hex2str(__pid__)..".dat",         N)
         end
         
 	elseif get("stream_id") == program_stream_map
@@ -212,11 +214,19 @@ function pes_stream(size)
 	end
 end
 
+-- 264解析用関数ロード
+dofile(__exec_dir__.."script/h264.lua")
+
 -- ファイルオープン＆初期化＆解析
 open(__stream_path__)
-enable_print(false)
+enable_print(true)
 stdout_to_file(false)
 
 pes_stream(file_size() - 1024*5) -- 解析開始、後半は5kb捨てる
-save_as_csv(__stream_name__..".csv")
+
+if __pid__ then
+	save_as_csv("out/pid"..hex2str(__pid__)..".csv")
+else
+	save_as_csv(__stream_path__..".csv")
+end
 

@@ -20,7 +20,8 @@
 #define throw(x)
 
 // これをC++関数内でthrowするとLua関数の戻り値をfalseになる
-#define LUA_RUNTIME_ERROR ::std::runtime_error(::std::string("c++ runtime exception. L") + ::std::to_string(__LINE__) + " " + __FUNCTION__)
+#define LUA_RUNTIME_ERROR(x) ::std::runtime_error(::std::string("c++ runtime exception. L") + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
+#define LUA_ARGUMENT_ERROR(x) ::std::invalid_argument(::std::string("c++ invalid argument exception. L") + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
 
 namespace rf
 {
@@ -92,17 +93,6 @@ namespace rf
 			ss.str("");
 			ss.clear();
 			
-			// switch (lua_ret)
-			// {
-			// 	case LUA_OK: break;
-			// 	case LUA_ERRRUN:    ss << "ERROR LUA RUNTIME "; break;
-			// 	case LUA_ERRSYNTAX: ss << "ERROR LUA SYNTAX ";  break;
-			// 	case LUA_ERRMEM:    ss << "ERROR LUA MEM ";     break;
-			// 	case LUA_ERRFILE:   ss << "ERROR LUA FILE ";    break;
-			// 	default: ss << "ERROR LUA "; break;
-			// }
-
-			// エラーメッセージ表示
 			if (lua_ret != LUA_OK)
 			{
 				ss << lua_tostring(L_, -1);
@@ -111,6 +101,16 @@ namespace rf
 			}
 
 			return true;
+		}
+
+		static int traceback_func(lua_State* L)
+		{
+			const char* msg = lua_tostring(L, -1);
+			if (msg)
+			{
+				luaL_traceback(L, L, msg, 1);
+			}
+			return 1;
 		}
 
 		// Lua型判定
@@ -197,12 +197,16 @@ namespace rf
 		template<typename T>
 		static T get_stack(lua_State* L, int index, typename enable_if<is_number<T>::value>::type* = 0)
 		{
+			if (lua_type(L, index) != LUA_TNUMBER)
+				throw LUA_ARGUMENT_ERROR(string("not a number arg:") + std::to_string(index));
 			return static_cast<T>(lua_tonumber(L, index));
 		}
 
 		template<typename T>
 		static bool get_stack(lua_State* L, int index, typename enable_if<is_boolean<T>::value>::type* = 0)
 		{
+			if (lua_type(L, index) != LUA_TBOOLEAN)
+				throw LUA_ARGUMENT_ERROR(string("not a boolean arg:") + std::to_string(index));
 			return lua_toboolean(L, index) == 0 ? false : true;
 		}
 
@@ -210,9 +214,11 @@ namespace rf
 		template<typename T>
 		static const char *get_stack(lua_State* L, int index, typename enable_if<is_string<T>::value>::type* = 0)
 		{
+			if (lua_type(L, index) != LUA_TSTRING)
+				throw LUA_ARGUMENT_ERROR(string("not a string arg:") + std::to_string(index));
 			const char* str = lua_tostring(L, index);
 			if (str == nullptr)
-				throw LUA_RUNTIME_ERROR;
+				throw LUA_RUNTIME_ERROR("nil ptr");
 			return str;
 		}
 
@@ -231,6 +237,8 @@ namespace rf
 		template<typename T>
 		static T get_stack(lua_State* L, int index, typename enable_if<!is_basic_type<T>::value>::type* = 0)
 		{
+			if (lua_type(L, index) != LUA_TUSERDATA)
+				throw LUA_ARGUMENT_ERROR(string("not a userdata arg:") + std::to_string(index));
 			typedef typename std::remove_reference<T>::type type;
 			auto obj = static_cast<type*>(lua_touserdata(L, index));
 			return *obj;
@@ -295,11 +303,14 @@ namespace rf
 					Ret r = f(get_stack<Args>(L, Ixs)...);
 					LuaBinder::push_stack(L, r);
 				}
+				catch (const std::invalid_argument e)
+				{
+					return luaL_error(L, e.what()); // longjmp
+				}
 				catch (const std::exception) // &e)
 				{
 					LuaBinder::push_stack(L, false);
 					return 0;
-					//return luaL_error(L, e.what()); // longjmp
 				}
 				catch (...)
 				{
@@ -327,9 +338,14 @@ namespace rf
 				{
 					f(get_stack<Args>(L, Ixs)...);
 				}
-				catch (const std::exception &e)
+				catch (const std::invalid_argument e)
 				{
 					return luaL_error(L, e.what()); // longjmp
+				}
+				catch (const std::exception)
+				{
+					LuaBinder::push_stack(L, false);
+					return 0;
 				}
 				catch (...)
 				{
@@ -389,11 +405,14 @@ namespace rf
 					Ret r = (self->*fp)(get_stack<Args>(L, Ixs)...);
 					push_stack(L, r);
 				}
-				catch (const std::exception) // &e)
+				catch (const std::invalid_argument e)
+				{
+					return luaL_error(L, e.what()); // longjmp
+				}
+				catch (const std::exception)
 				{
 					LuaBinder::push_stack(L, false);
 					return 0;
-					// luaL_error(L, e.what()); // longjmp
 				}
 				catch (...)
 				{
@@ -430,9 +449,14 @@ namespace rf
 				{
 					(self->*fp)(get_stack<Args>(L, Ixs)...);
 				}
-				catch (const std::exception &e)
+				catch (const std::invalid_argument e)
 				{
 					return luaL_error(L, e.what()); // longjmp
+				}
+				catch (const std::exception)
+				{
+					LuaBinder::push_stack(L, false);
+					return 0;
 				}
 				catch (...)
 				{
@@ -514,14 +538,18 @@ namespace rf
 		bool dofile(const string& filename)
 		{
 			int top = lua_gettop(L_);
+			lua_pushcfunction(L_, traceback_func);
+			lua_insert(L_, top);
+			int func = lua_gettop(L_);
 
-			int lua_ret = luaL_dofile(L_, filename.c_str());
+			if ((!luaresult(luaL_loadfile(L_, filename.c_str())))
+			|| (!luaresult(lua_pcall(L_, 0, LUA_MULTRET, func))))
+				return false;
 
-			bool result = luaresult(lua_ret);
-
+			lua_remove(L_, func);
 			lua_settop(L_, top);
 
-			return result;
+			return true;
 		}
 
 		// Luaスクリプト文字列を実行
@@ -529,14 +557,18 @@ namespace rf
 		bool dostring(const string& str)
 		{
 			int top = lua_gettop(L_);
+			lua_pushcfunction(L_, traceback_func);
+			lua_insert(L_, top);
+			int func = lua_gettop(L_);
 
-			int lua_ret = luaL_dostring(L_, str.c_str());
+			if ((!luaresult(luaL_loadstring(L_, str.c_str())))
+			|| (!luaresult(lua_pcall(L_, 0, LUA_MULTRET, func))))
+				return false;
 
-			bool result = luaresult(lua_ret);
-
+			lua_remove(L_, func);
 			lua_settop(L_, top);
 
-			return result;
+			return true;
 		}
 
 		// 関数バインド

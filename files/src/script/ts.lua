@@ -7,12 +7,21 @@ local psi_check = true
 
 local pid_array = {0}
 local pid_infos = {"pat"}
-local pid_files = {"pat.pat"}
+local pid_files = {"out/pat.pat"}
 
 
 function ts(size)
 	local total = 0
 	local begin
+	
+	-- 初期TSパケット長
+	if __stream_ext__ == ".tts"
+	or __stream_ext__ == ".m2ts" then
+		ts_packet_size = 192
+	else
+		ts_packet_size = 188
+	end
+
 	while total < size do
 			
 		progress:check()
@@ -20,7 +29,7 @@ function ts(size)
 		begin = cur()
 	
 		if ts_packet_size == 192 then
-			rbyte("ATS",                                    4, data)
+			rbyte("ATS",                                    4)
 			-- printf("  ATS = %x(%fsec)", get("ATS"), get("ATS")/90000)
 		end
 		
@@ -36,14 +45,14 @@ function ts(size)
 		end
 
 		rbit("transport_error_indicator",                   1)
-		rbit("payload_unit_start_indicator",                1,  data)
+		rbit("payload_unit_start_indicator",                1)
 		rbit("transport_priority",                          1)
-		rbit("PID",                                         13, data)
+		rbit("PID",                                         13)
 		rbit("transport_scrambling_control",                2)
 		-- adaptation_field_control
-	    rbit("adaptation_field_present",                    1, data)
-	    rbit("data_byte_present",                           1, data)
-		rbit("continuity_counter",                          4, data)
+	    rbit("adaptation_field_present",                    1)
+	    rbit("data_byte_present",                           1)
+		rbit("continuity_counter",                          4)
 
 		if get("adaptation_field_present") == 1 then
 			adaptation_field()
@@ -76,7 +85,6 @@ function ts(size)
 			else
 				local result = find(pid_array, get("PID"))
 				if result == false then
-					--print("# unknown PID", hex2str(get("PID")))
 					rbyte("unknown data", ts_packet_size - (cur() - begin))
 				else		
 					wbyte(pid_files[result], ts_packet_size - (cur() - begin))
@@ -91,18 +99,18 @@ end
 function adaptation_field()
 --print("adaptation_field")
 	local begin = cur()
-	rbit("adaptation_field_length",                         8, data)
+	rbit("adaptation_field_length",                         8)
 	if get("adaptation_field_length") == 0 then
 		return
 	end
 	rbit("discontinuity_indicator",                         1)
 	rbit("random_access_indicator",                         1)
 	rbit("elementary_stream_priority_indicator",            1)
-	rbit("PCR_flag",                                        1, data)
-	rbit("OPCR_flag",                                       1, data)
-	rbit("splicing_point_flag",                             1, data)
-	rbit("transport_private_data_flag",                     1, data)
-	rbit("adaptation_field_extension_flag",                 1, data)
+	rbit("PCR_flag",                                        1)
+	rbit("OPCR_flag",                                       1)
+	rbit("splicing_point_flag",                             1)
+	rbit("transport_private_data_flag",                     1)
+	rbit("adaptation_field_extension_flag",                 1)
 
 	if get("PCR_flag") == 1 then
 		rbit("program_clock_reference_base",                33)
@@ -118,12 +126,12 @@ function adaptation_field()
 		rbit("splice_countdown",                            8)
 	end
 	if get("transport_private_data_flag") == 1 then
-		rbit("transport_private_data_length",               8, data)
+		rbit("transport_private_data_length",               8)
 		rstr("private_data_byte",                           get("transport_private_data_length"))
 	end
 	if get("adaptation_field_extension_flag") == 1 then
 		local begin = cur()
-	    rbit("adaptation_field_extension_length",           8, data)
+	    rbit("adaptation_field_extension_length",           8)
 	    rbit("ltw_flag",                                    1)
 	    rbit("piecewise_rate_flag",                         1)
 	    rbit("seamless_splice_flag",                        1)
@@ -162,7 +170,7 @@ function pat()
 	rbit("section_syntax_indicator",                        1)
 	rbit("'0'",                                             1)
 	rbit("reserved",                                        2)
-	rbit("section_length",                                  12, data)
+	rbit("section_length",                                  12)
 	rbit("transport_stream_id",                             16)
 	rbit("reserved",                                        2)
 	rbit("version_number",                                  5)
@@ -173,18 +181,18 @@ function pat()
 	local len = get("section_length") - 5 - 4
 	local total = 0
 	while total < len do
-		rbit("program_number",                              16, data)
+		rbit("program_number",                              16)
 		rbit("reserved",                                    3)
 		if get("program_number") == 0 then
 		    rbit("network_PID",                             13)
 		else
-		    rbit("program_map_PID",                         13, data)
+		    rbit("program_map_PID",                         13)
 		    
 		    -- 初めて見るPIDなら追加
 		    if find(pid_array, get("program_map_PID")) == false then
 			    table.insert(pid_infos, "PMT"..#pid_infos.."="..hex2str(get("program_map_PID")))
 				table.insert(pid_array, get("program_map_PID"))
-		  		table.insert(pid_files, "pid"..string.format("%x", get("program_map_PID"))..".pmt")
+		  		table.insert(pid_files, __stream_dir__.."out/pid"..hex2str(get("program_map_PID"))..".pmt")
 			end
 		end
 		total = total + 4 
@@ -215,7 +223,7 @@ function pmt()
 	rbit("section_syntax_indicator",                        1) 
 	rbit("'0'",                                             1) 
 	rbit("reserved",                                        2) 
-	rbit("section_length",                                  12, data)
+	rbit("section_length",                                  12)
 	rbit("program_number",                                  16)
 	rbit("reserved",                                        2) 
 	rbit("version_number",                                  5) 
@@ -225,18 +233,18 @@ function pmt()
 	rbit("reserved",                                        3) 
 	rbit("PCR_PID",                                         13)
 	rbit("reserved",                                        4) 
-	rbit("program_info_length",                             12, data)
+	rbit("program_info_length",                             12)
 	rbyte("descriptor()",                                   get("program_info_length"))
 	
 	local len = get("section_length") - 4  - 9 - get("program_info_length")
 	local total = 0
 	local num_es = 0
 	while total < len do
-		rbit("stream_type",                                 8, data)
+		rbit("stream_type",                                 8)
 		rbit("reserved",                                    3)
-		rbit("elementary_PID",                              13, data)
+		rbit("elementary_PID",                              13)
 		rbit("reserved",                                    4)
-		rbit("ES_info_length",                              12, data)
+		rbit("ES_info_length",                              12)
 		rbyte("descriptor()",                               get("ES_info_length"))
 		
 		-- 初めて見るPIDなら追加
@@ -244,7 +252,7 @@ function pmt()
 			table.insert(pid_infos, stream_type_to_string(get("stream_type")).."="..hex2str(get("elementary_PID")))
 			
 		    table.insert(pid_array, get("elementary_PID"))
-		   	table.insert(pid_files, "pid"..string.format("%x", get("elementary_PID"))..".pes")
+		   	table.insert(pid_files, __stream_dir__.."out/pid"..hex2str(get("elementary_PID"))..".pes")
 		end
 
 		total = total + get("ES_info_length") + 5
@@ -254,23 +262,12 @@ function pmt()
 	return cur() - begin
 end
 
----------------------------------- 
--- 解析
----------------------------------- 
 open(__stream_path__)
 enable_print(false)
 stdout_to_file(false)
 
--- 初期TSパケット長
-if __stream_ext__ == ".tts"
-or __stream_ext__ == ".m2ts" then
-	ts_packet_size = 192
-else
-	ts_packet_size = 188
-end
 
 -- PAT/PMT解析
--- 最大1MB見る
 psi_check = true
 ts(1024*1024)
 for i=1, #pid_infos do
@@ -281,13 +278,12 @@ end
 psi_check = false
 seek(0)
 ts(file_size() - 200) -- 解析開始、後半は200byte捨てる
-save_as_csv("ts.csv")
+save_as_csv("out/ts.csv")
 
 -- PES解析 1, 2はPAT/PMTなので無視
 for i=3, #pid_files do	
-	__stream_path__, __stream_name__, __stream_ext__  = split_file_name("out/"..pid_files[i])
+	__stream_path__ = pid_files[i];
+	__pid__ = pid_array[i]
 	
-	print(__stream_path__, __stream_name__, __stream_ext__ )
-	dofile("script/pes.lua") -- PES解析は別ファイル
+	dofile(__exec_dir__.."script/pes.lua")
 end
-

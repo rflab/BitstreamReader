@@ -2,6 +2,8 @@
 
 -- VideoPESは規格上PES_packet_length=0が許可されているので特別扱いする
 local no_packet_length = false 
+local start_code = pat2str("00 00 01 C0")
+
 
 -- 各種タグ
 local program_stream_map = 0xbc;
@@ -28,11 +30,10 @@ local fast_reverse = 0x3;
 local slow_reverse = 0x4;
 
 function pes()
-	--print("PES")	
+	local begin = cur()
 	progress:check()
 	
-	local begin = cur()
-    sstr("00 00 01")
+    fstr("00 00 01", true)
 	rbit("packet_start_code_prefix",                                    24)
 	rbit("stream_id",                                                   8,  data)
 	rbit("PES_packet_length",                                           16, data)
@@ -179,16 +180,19 @@ function pes()
 	        end
 	    end
 	    
-	    local N = get("PES_packet_length") - (cur() - begin) + 6
 	    --for i = 0; i < N1; i++) do
 	    --    rbit("stuffing_byte",                                     N1) -- 0xFFデータ、デコーダがすてるはずでここではパースしない
 	    --end
+
+	    local N = get("PES_packet_length") - (cur() - begin) + 6
         if no_packet_length then
-	        h264_byte_stream(1024*1024*5)
-        	dump()
-        	assert(false)
+			seek(cur()+4)
+			local ofs = fstr(val2str(start_code), false)
+			seek(cur()-4)
+			
+	        wbyte("out/PES_packet_data_byte_"..hex2str(__pid__)..".dat", ofs + 4)
         else
-	        wbyte("out/PES_packet_data_byte_"..hex2str(__pid__)..".dat",         N)
+	        wbyte("out/PES_packet_data_byte_"..hex2str(__pid__)..".dat", N)
         end
         
 	elseif get("stream_id") == program_stream_map
@@ -208,24 +212,25 @@ function pes()
 end
 
 function pes_stream(size)
+    fstr("00 00 01", false)
+    start_code = gbyte(4)
+
 	local total_size = 0;
 	while total_size < size do
 		total_size = total_size + pes()
 	end
 end
 
--- 264解析用関数ロード
-dofile(__exec_dir__.."script/h264.lua")
-
 -- ファイルオープン＆初期化＆解析
 open(__stream_path__)
-enable_print(true)
+enable_print(false)
 stdout_to_file(false)
+__pid__ = __pid__ or 0
 
-pes_stream(file_size() - 1024*5) -- 解析開始、後半は5kb捨てる
+pes_stream(file_size() - 1024*500) -- 解析開始、後半は500kb捨てる
 
 if __pid__ then
-	save_as_csv("out/pid"..hex2str(__pid__)..".csv")
+	save_as_csv(__stream_dir__.."out/pid"..hex2str(__pid__)..".csv")
 else
 	save_as_csv(__stream_path__..".csv")
 end

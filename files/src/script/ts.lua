@@ -33,7 +33,7 @@ function ts(size)
 			-- printf("  ATS = %x(%fsec)", get("ATS"), get("ATS")/90000)
 		end
 		
-		local ofs = sbyte(0x47)
+		local ofs = fbyte(0x47)
 		rbit("syncbyte",                                    8)
 		if ofs ~= 0 then
 			print("# discontinuous syncbyte", ts_packet_size, ofs, hex2str(cur()))
@@ -276,7 +276,7 @@ end
 
 -- PESファイル抽出
 psi_check = false
-seek(0)
+seekpos(0)
 ts(file_size() - 200) -- 解析開始、後半は200byte捨てる
 save_as_csv("out/ts.csv")
 

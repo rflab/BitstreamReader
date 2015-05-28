@@ -1,8 +1,3 @@
--- ライブラリロード
-package.path = __exec_dir__.."script/module/?.lua"
-require("profiler")
-require("stream")
-require("csv")
 local gs_stream
 local gs_csv
 
@@ -118,7 +113,18 @@ function val2str(val)
 	return str
 end
 
-
+-- 00 01 ... のような文字列パターンをバッファに変換する
+function pat2str(pattern)
+	local str = ""
+	if string.match(pattern, "[0-9a-f][0-9a-f]") ~= nil then
+		for hex in string.gmatch(pattern, "%w+") do
+			str = str .. string.char(tonumber(hex, 16))
+		end
+	else
+		str = pattern
+	end
+	return str
+end
 --------------------------------------------
 -- ストリーム解析用関数群
 --------------------------------------------
@@ -173,7 +179,7 @@ end
 
 -- 現在のバイトオフセット、ビットオフセットを取得
 function seek(pos)
-	return gs_stream:seek(pos)
+	return gs_stream:seekpos(pos)
 end
 
 -- 現在のバイトオフセット、ビットオフセットを取得
@@ -228,13 +234,13 @@ function cstr(name, size, comp)
 end
 
 -- １バイト検索
-function sbyte(char)
-	return gs_stream:sbyte(char)
+function fbyte(char, advance)
+	return gs_stream:fbyte(char, advance)
 end
 
 -- 文字列を検索、もしくは"00 11 22"のようなバイナリ文字列で検索
-function sstr(pattern)
-	return gs_stream:sstr(pattern)
+function fstr(pattern, advance)
+	return gs_stream:fstr(pattern, advance)
 end
 
 -- ストリームからファイルにデータを追記

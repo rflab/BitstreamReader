@@ -1,7 +1,3 @@
--- CSVファイル出力ストリーム
-package.path = __exec_dir__.."script/module/?.lua"
-require("profiler")
-
 local name = ...           -- 第一引数がモジュール名
 local _m = {}              -- メンバ関数を補樹威するテーブル
 local _meta = {__index=_m} 
@@ -142,33 +138,27 @@ function _m:cstr(name, size, comp)
 	return val
 end
 
-function _m:sbyte(char)	
-	local ofs = self.stream:search_byte(char)
-	check(self, ofs, "sbyte:"..char)
+function _m:fbyte(char, advance)	
+	local ofs = self.stream:find_byte(char, advance)
+	check(self, ofs, "fbyte:"..char)
 	return ofs
 end
 
-function _m:sstr(pattern)
-	local str = ""
-	if string.match(pattern, "[0-9a-f][0-9a-f]") ~= nil then
-		for hex in string.gmatch(pattern, "%w+") do
-			str = str .. string.char(tonumber(hex, 16))
-		end
-	else
-		str = pattern
-	end
-	local ofs = self.stream:search_byte_string(str, #str)
+function _m:fstr(pattern, advance)
+	local str = pat2str(pattern)
+	local ofs = self.stream:find_byte_string(str, #str, advance)
 	check(self, ofs, "sstr:"..pattern)
 	return ofs	
 end
 
-function _m:offset(ofs)
-	self.stream:offset_byte(ofs)
+function _m:seek(pos)
+	self.stream:seekoff_byte(pos)
 end
 
-function _m:seek(pos)
-	return self.stream:seek_byte(pos)
+function _m:seekpos(pos)
+	return self.stream:seekpos_byte(pos)
 end
+
 function _m:wbyte(filename, size)	
 	local ret = self.stream:copy_byte(filename, size, true)
 	check(self, ret, "wbyte:"..filename)
@@ -189,10 +179,6 @@ end
 
 function _m:enable_print(b)	
 	return self.stream:enable_print(b)
-end
-
-function _m:offset_bit(size)	
-	return self.stream:offset_by_bit(size)
 end
 
 function _m:set_exit(address)	

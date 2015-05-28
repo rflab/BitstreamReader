@@ -1,5 +1,5 @@
 -- ライブラリロード
-dofile(__exec_dir__.."script/module/util.lua")
+dofile(__exec_dir__.."script/module/include.lua")
 
 -- 各種値定義
 assert(argv[0], "no file name in argv[0]") 
@@ -15,8 +15,13 @@ print("__stream_dir__ :"..__stream_dir__)
 print("__stream_name__:"..__stream_name__)
 print("__stream_ext__ :"..__stream_ext__)
 -- 解析結果出力先ディレクトリ作成
-print("os.execute", os.execute())
-print("mkdir out", os.execute("mkdir out"))
+if windows then
+	print("os.execute", os.execute())
+	local win_dir = string.gsub(__stream_dir__, "/", "\\")
+	print("mkdir out", os.execute("mkdir \""..win_dir.."out\""))
+else
+	print("mkdir out", os.execute("mkdir out"))
+end
 
 -- 拡張子にあわせてスクリプト実行
 local ext = __stream_ext__
@@ -40,7 +45,7 @@ or     ext == ".mpg" then
 elseif ext == ".pes" then
 	dofile(__exec_dir__.."script/pes.lua")
 
-elseif ext == ".264" then
+elseif ext == ".h264" then
 	dofile(__exec_dir__.."script/h264.lua")
 
 elseif ext == ".mp4" then

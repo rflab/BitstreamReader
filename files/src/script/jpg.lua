@@ -307,7 +307,7 @@ function jpg()
 			sof0()
 		elseif get("Markar") == 0xffda then
 			sos()
-			sstr("ff d9")
+			sstr("ff d9", true)
 		elseif get("Markar") == 0xffd0
 		or     get("Markar") == 0xffd1
 		or     get("Markar") == 0xffd2

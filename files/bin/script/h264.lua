@@ -268,7 +268,8 @@ function byte_stream_nal_unit(NumBytesInNALunit)
 	return cur() - begin
 end
 
-function h264_byte_stream(max_length)
+function h264_byte_stream()
+	local max_length = file_size()
 	local total_size = 0;
 	while total_size < max_length do
 		total_size = total_size + byte_stream_nal_unit(max_length-total_size)
@@ -277,4 +278,35 @@ function h264_byte_stream(max_length)
 		end
 	end
 end
+
+function remove_dummy()
+	print("replace 00 00 03 -> 00 00")
+
+	local max_length = file_size() - 1000
+	local total_size = 0;
+	local ofs = 0
+	local path = __stream_dir__.."removed264.h264"
+	while total_size < max_length do
+		ofs = fstr("00 00 03", false)
+		if cur() == file_size() then
+			break
+		end
+		wbyte(path, ofs+2)
+		rbyte("dummy", 1)
+		total_size = total_size + ofs + 3
+	end
+	
+	return path
+end
+
+-- ‰ðÍ
+open(__stream_path__)
+enable_print(true)
+stdout_to_file(false)
+local removed_path = remove_dummy()
+
+open(removed_path)
+enable_print(true)
+stdout_to_file(false)
+h264_byte_stream()
 

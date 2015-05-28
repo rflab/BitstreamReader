@@ -583,5 +583,5 @@ stdout_to_file(false)
 mp4(file_size())
 
 print_status()
-save_as_csv("mp4.csv")
+save_as_csv(__stream_dir__.."out/mp4.csv")
 

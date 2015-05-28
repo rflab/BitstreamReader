@@ -20,8 +20,16 @@
 #define throw(x)
 
 // これをC++関数内でthrowするとLua関数の戻り値をfalseになる
-#define LUA_RUNTIME_ERROR(x) ::std::runtime_error(::std::string("c++ runtime exception. L") + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
-#define LUA_ARGUMENT_ERROR(x) ::std::invalid_argument(::std::string("c++ invalid argument exception. L") + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
+// 古いコンパイラだとto_stringが使えない
+#ifdef _MSC_VER
+	#define LUA_RUNTIME_ERROR(x) std::runtime_error(std::string("c++ runtime exception. L") + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
+	#define LUA_DOMEIN_ERROR(x) std::domain_error(std::string("c++ domein error exception. L") + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
+	#define LUA_ARGUMENT_ERROR(x) std::invalid_argument(std::string("c++ invalid argument exception. L") + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
+#else
+	#define LUA_RUNTIME_ERROR(x) std::runtime_error("c++ runtime exception.")
+	#define LUA_DOMEIN_ERROR(x) std::domain_error("c++ omein error exception.")
+	#define LUA_ARGUMENT_ERROR(x) std::invalid_argument("c++ invalid argument exception.")
+#endif
 
 namespace rf
 {
@@ -303,14 +311,14 @@ namespace rf
 					Ret r = f(get_stack<Args>(L, Ixs)...);
 					LuaBinder::push_stack(L, r);
 				}
-				catch (const std::invalid_argument e)
+				catch (const string s)
+				{
+					LuaBinder::push_stack(L, s);
+					return 1;
+				}
+				catch (const std::exception &e)
 				{
 					return luaL_error(L, e.what()); // longjmp
-				}
-				catch (const std::exception) // &e)
-				{
-					LuaBinder::push_stack(L, false);
-					return 0;
 				}
 				catch (...)
 				{
@@ -338,14 +346,14 @@ namespace rf
 				{
 					f(get_stack<Args>(L, Ixs)...);
 				}
-				catch (const std::invalid_argument e)
+				catch (const string s)
+				{
+					LuaBinder::push_stack(L, s);
+					return 1;
+				}
+				catch (const std::exception &e)
 				{
 					return luaL_error(L, e.what()); // longjmp
-				}
-				catch (const std::exception)
-				{
-					LuaBinder::push_stack(L, false);
-					return 0;
 				}
 				catch (...)
 				{
@@ -405,14 +413,14 @@ namespace rf
 					Ret r = (self->*fp)(get_stack<Args>(L, Ixs)...);
 					push_stack(L, r);
 				}
-				catch (const std::invalid_argument e)
+				catch (const string s)
+				{
+					LuaBinder::push_stack(L, s);
+					return 1;
+				}
+				catch (const std::exception &e)
 				{
 					return luaL_error(L, e.what()); // longjmp
-				}
-				catch (const std::exception)
-				{
-					LuaBinder::push_stack(L, false);
-					return 0;
 				}
 				catch (...)
 				{
@@ -449,14 +457,14 @@ namespace rf
 				{
 					(self->*fp)(get_stack<Args>(L, Ixs)...);
 				}
-				catch (const std::invalid_argument e)
+				catch (const string s)
+				{
+					LuaBinder::push_stack(L, s);
+					return 1;
+				}
+				catch (const std::exception &e)
 				{
 					return luaL_error(L, e.what()); // longjmp
-				}
-				catch (const std::exception)
-				{
-					LuaBinder::push_stack(L, false);
-					return 0;
 				}
 				catch (...)
 				{
@@ -662,12 +670,12 @@ namespace rf
 				lua_pop(L_, 2);
 			}
 
-			template<typename Ret, typename... Args>
-			const class_chain<T>& def(const string & method_name, Ret(T::*f)(Args...),
-				typename enable_if<std::is_member_function_pointer<Ret(T::*)(Args...)>::value>::type* = 0) const
+			template<class S, typename Ret, typename... Args>
+			const class_chain<T>& def(const string & method_name, Ret(S::*f)(Args...),
+				typename enable_if<std::is_member_function_pointer<Ret(S::*)(Args...)>::value>::type* = 0) const
 			{
 				typedef typename make_integral_sequence<size_t, 2, sizeof...(Args)+2>::type seq;
-				lua_CFunction upvalue = invoker<Ret(T::*)(Args...), seq>::apply;
+				lua_CFunction upvalue = invoker<Ret(S::*)(Args...), seq>::apply;
 
 				luaL_getmetatable(L_, name_.c_str());
 				int metatable = lua_gettop(L_);
@@ -681,7 +689,7 @@ namespace rf
 				// メンバ関数は実体としてしかコピー出来ない
 				// つまり↓は通らない
 				// (void*)f; 
-				typedef typename std::remove_reference<Ret(T::*)(Args...)>::type mf_type;
+				typedef typename std::remove_reference<Ret(S::*)(Args...)>::type mf_type;
 				void* buf = lua_newuserdata(L_, sizeof(std::array<mf_type, 1>));
 				auto a = static_cast<std::array<mf_type, 1>*>(buf);
 				(*a)[0] = f;

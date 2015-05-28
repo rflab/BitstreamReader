@@ -106,7 +106,10 @@
     <ClCompile Include="..\..\src\lua\lutf8lib.c" />
     <ClCompile Include="..\..\src\lua\lvm.c" />
     <ClCompile Include="..\..\src\lua\lzio.c" />
-    <ClCompile Include="..\..\src\streamreader.cpp" />
+    <ClCompile Include="..\..\src\streamreader.cpp">
+      <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Level4</WarningLevel>
+      <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Level4</WarningLevel>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\luabinder.hpp" />

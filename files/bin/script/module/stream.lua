@@ -12,11 +12,14 @@ local perf = profiler:new() -- ê´î\åvë™
 ------------------------------------------------
 
 local function check(_self, result, msg)
-	if result == false or result == nil then
-		print_table(_self.tbl)
-		_self:offset(-127)
-		_self:dump()
-		assert(false, "assertion failed! msg=".. msg)
+	if 0 == 0 then
+		if result == false or result == nil then
+			print_table(_self.tbl)
+			_self:offset(-127)
+			_self:dump()
+			_self:offset(127)
+			assert(false, "assertion failed! msg=".. msg)
+		end
 	end
 	
 	if _self.break_address ~= nil then
@@ -56,12 +59,13 @@ function _m:print()
 	printf("remain    : 0x%08x", self:size() - self:cur())
 	perf:print()
 end
+
 function _m:print_table()	
 	print_table(self.tbl)
 end
 
 function _m:size()	
-	return self.stream:file_size()
+	return self.stream:size()
 end
 
 function _m:dump()	
@@ -78,15 +82,9 @@ end
 
 
 function _m:rbit(name, size)
---perf:enter("_rbit")
 	local val = self.stream:read_bit(name, size)
---perf:leave("_rbit")
---perf:enter("_check")
 	check(self, val, "rbit:"..name)
---perf:leave("_check")
---perf:enter("_tbl")
 	self.tbl[name] = val
---perf:leave("_tbl")
 	return val
 end
 
@@ -151,15 +149,12 @@ function _m:fstr(pattern, advance)
 	return ofs	
 end
 
-function _m:seek(pos)
-	self.stream:seekoff_byte(pos)
+function _m:seek(byte, bit)
+	self.stream:seekpos(byte, bit or 0)
 end
 
-function _m:seekpos(pos)
-	return self.stream:seekpos_byte(pos)
-end
-
-function _m:wbyte(filename, size)	
+function _m:wbyte(filename, size)
+-- print(hex2str(cur()), hex2str(size))
 	local ret = self.stream:copy_byte(filename, size, true)
 	check(self, ret, "wbyte:"..filename)
 end

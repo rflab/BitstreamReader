@@ -62,31 +62,6 @@ namespace rf{
 			<< line << " " << fn << ": " << exp << std::endl;
 		return !b;
 	}
-	static bool stdout_to_file(bool enable)
-	{
-		static FILE* fp = nullptr;
-		if (enable && fp == nullptr)
-		{
-			std::cout << "stdout to log.txt" << std::endl;
-
-			#ifdef _MSC_VER
-				if (FAILED("fopen", freopen_s(&fp, "log.txt", "w", stdout) == 0))
-					return false;
-			#else
-				fp = freopen("log.txt", "w", stdout);
-				if (FAILED("fopen", fp != NULL))
-					return false;
-			#endif
-		}
-		else if (fp != nullptr)
-		{
-			std::cout << "stdout to console" << std::endl;
-			fclose(fp);
-			fp = nullptr;
-		}
-
-		return true;
-	}
 
 	inline static bool valid_ptr(const void *p)
 	{
@@ -98,6 +73,124 @@ namespace rf{
 	{
 		return !(!p);
 	}
+
+	inline static uint16_t reverse_endian_16(uint16_t value)
+	{
+		return ((value >> 8) & 0xff) | ((value << 8) & 0xff00);
+	}
+
+	inline static uint32_t reverse_endian_32(uint32_t value)
+	{
+		return ((value >> 24) & 0xff) | ((value >> 8) & 0xff00)
+			| ((value << 8) & 0xff0000) | ((value << 24) & 0xff000000);
+	}
+
+	class FileManager final
+	{
+	private:
+
+		//  出力ファイル名から保存先
+		static map<string, shared_ptr<ofstream> > ofs_map_;
+
+		FileManager(){}
+		FileManager(const FileManager &){}
+		FileManager &operator=(const FileManager &){}
+
+		~FileManager()
+		{
+			#ifdef _MSC_VER
+				for (auto c : ofs_map_)
+				{
+					c.second->close();
+					if (c.second->fail())
+					{
+						ERR << c.first << "close fail" << endl;
+					}
+				}
+			#else
+				for (auto it = ofs_map_.begin(); it != ofs_map_.end(); ++it)
+				{
+					it->second->close();
+					if (it->second->fail())
+					{
+						ERR << it->first << "close fail" << endl;
+					}
+			#endif
+
+			stdout_to_file(false);	// 一応
+		}
+
+	public:
+		static FileManager &getInstance()
+		{
+			static FileManager instance;
+			return instance;
+		}
+
+		// 指定したバイト列をファイルに出力
+		static bool output_to_file(string file_name, const char* address, int size)
+		{
+			if (FAILED("check ptr", valid_ptr(address)))
+				return false;
+
+			// ファイル名に応じて読み込んだデータを出力して
+			// 暫定で毎回ファイルを開く
+			shared_ptr<ofstream> ofs;
+			auto it = ofs_map_.find(file_name);
+			if (it == ofs_map_.end())
+			{
+				ofs = make_shared<ofstream>();
+				ofs_map_.insert(std::make_pair(file_name, ofs));
+
+				std::ios::openmode mode = std::ios::binary | std::ios::out;
+				ofs->open(file_name, mode);
+				if (FAILED("file open", !(!ofs)))
+				{
+					return false;
+				}
+			}
+			else
+			{
+				ofs = it->second;
+			}
+
+			ofs->write(address, size);
+			if (FAILED("file write", !ofs->fail()))
+			{
+				ERR << "file write " << file_name << endl;
+				return false;
+			}
+			return true;
+		}
+
+		static bool stdout_to_file(bool enable)
+		{
+			static FILE* fp = nullptr;
+			if (enable && fp == nullptr)
+			{
+				std::cout << "stdout to log.txt" << std::endl;
+
+				#ifdef _MSC_VER
+					if (FAILED("fopen", freopen_s(&fp, "log.txt", "w", stdout) == 0))
+						return false;
+				#else
+					fp = freopen("log.txt", "w", stdout);
+					if (FAILED("fopen", fp != NULL))
+						return false;
+				#endif
+			}
+			else if (fp != nullptr)
+			{
+				std::cout << "stdout to console" << std::endl;
+				fclose(fp);
+				fp = nullptr;
+			}
+
+			return true;
+		}
+	};
+
+	map<string, shared_ptr<ofstream> > FileManager::ofs_map_;
 
 	class Bitstream
 	{
@@ -152,7 +245,7 @@ namespace rf{
 		{
 			if (FAILED("check range", (0 <= bit) && ((bit + 7) / 8 <= size_)))
 			{
-				ERR << "overrun bit. size 0x" << hex << bit/8 << endl;
+				ERR << "overrun bit. pos 0x" << hex << bit/8 << endl;
 				return false;
 			}
 
@@ -163,7 +256,7 @@ namespace rf{
 		{
 			if (FAILED("check range", (0 <= byte) && (byte <= size_)))
 			{
-				ERR << "overrun bit. size 0x" << hex << byte << endl;
+				ERR << "overrun byte. pos 0x" << hex << byte << endl;
 				return false;
 			}
 			return true;
@@ -185,6 +278,21 @@ namespace rf{
 				return false;
 			}
 			return true;
+		}
+
+
+		bool seekpos(int byte, int bit)
+		{
+			if (FAILED("check byte", check_by_byte(byte)))
+				return false;
+
+			if (FAILED("check bit", (0 >= bit) && (bit <= 8)))
+				return false;
+
+			byte_pos_ = byte;
+			bit_pos_ = bit;
+
+			return sync();
 		}
 
 		bool seekpos_by_bit(int offset)
@@ -450,28 +558,27 @@ namespace rf{
 				if ((byte_pos_ >= size_)
 				||  (!check_offset_by_byte(size)))
 				{
-					ret_offset = size_ - prev_byte_pos;
-					return seekpos_by_byte(size_);
+					break;
 				}
 
+				// 一致
+				// 不一致は1バイト進める
 				buf_->sgetn(contents, size);
 				if (std::memcmp(contents, address, static_cast<size_t>(size)) == 0)
 				{
-					// 一致
-					ret_offset = byte_pos_ - prev_byte_pos;
-					if (!advance)
-						seekpos_by_byte(prev_byte_pos);
-					return true;
+					break;
 				}
 				else
 				{
-					// 不一致は1倍と進める
 					seekoff_by_byte(1);
 				}
 			}
 
-			sync();
-			return false;
+			ret_offset = byte_pos_ - prev_byte_pos;
+			if (!advance)
+				return seekpos_by_byte(prev_byte_pos);
+			else
+				return true;
 		}
 	};
 
@@ -548,21 +655,7 @@ namespace rf{
 			return true;
 		}
 
-		inline static uint16_t reverse_endian_16(uint16_t value)
-		{
-			return ((value >> 8) & 0xff) | ((value << 8) & 0xff00);
-		}
-
-		inline static uint32_t reverse_endian_32(uint32_t value)
-		{
-			return ((value >> 24) & 0xff) | ((value >> 8) & 0xff00)
-				| ((value << 8) & 0xff0000) | ((value << 24) & 0xff000000);
-		}
-
 	private:
-
-		// 暫定、出力ファイル名保存先
-		map<string, shared_ptr<ofstream> > ofs_map_;
 
 		Bitstream bs_;
 		bool printf_on_;
@@ -582,25 +675,6 @@ namespace rf{
 
 		virtual ~LuaGlueBitstream()
 		{
-			#ifdef _MSC_VER
-				for (auto c : ofs_map_)
-				{
-					c.second->close();
-					if (c.second->fail())
-					{
-						ERR << c.first << "close fail" << endl;
-					}
-				}
-			#else
-				for (auto it = ofs_map_.begin(); it != ofs_map_.end(); ++it)
-				{
-					it->second->close();
-					if (it->second->fail())
-					{
-						ERR << it->first << "close fail" << endl;
-					}
-				}
-			#endif
 		}
 
 		// ストリームサイズ取得
@@ -622,14 +696,17 @@ namespace rf{
 		bool seekoff_by_bit(int offset) {return bs_.seekoff_by_bit(offset);}
 
 		// 現在位置からファイルポインタ移動
-		bool seekoff_by_byte(int offset) { return seekoff_by_bit(8 * offset); }
+		bool seekoff_by_byte(int offset) { return bs_.seekoff_by_byte(offset); }
 
 		// 先頭からファイルポインタ移動
 		bool seekpos_by_bit(int byte) { return bs_.seekpos_by_bit(byte); }
 
 		// 先頭からファイルポインタ移動
 		bool seekpos_by_byte(int byte) { return bs_.seekpos_by_byte(byte); }
-		
+
+		// 先頭からファイルポインタ移動
+		bool seekpos(int byte, int bit) { return bs_.seekpos(byte, bit); }
+
 		// ビット単位で読み込み
 		// 32bit以上は0を返す
 		uint32_t read_by_bit(string name, int size) throw(...)
@@ -724,7 +801,7 @@ namespace rf{
 			uint32_t v;
 			int size;
 			if (FAILED("", bs_.read_by_expgolomb(v, size)))
-				throw LUA_RUNTIME_ERROR("read expgoomb");
+				throw LUA_RUNTIME_ERROR("read expgolomb");
 
 			if (printf_on_ || (name[0] == '#'))
 			{
@@ -796,9 +873,10 @@ namespace rf{
 
 			if (printf_on_)
 			{
-				printf(" adr=0x%08x(+0)| ofs=0x%08x(+0)| search '0x%02x' %s\n",
+				printf(" adr=0x%08x(+0)| ofs=0x%08x(+0)| search '0x%02x' %s at adr=0x%08x.\n",
 					bs_.byte_pos(), offset, static_cast<uint8_t>(c),
-					offset + prev_byte == this->size() ? "not found. [EOF]" : "found.");
+					offset + prev_byte == this->size() ? "not found [EOF]" : "found",
+					offset + prev_byte);
 			}
 
 			return offset;
@@ -827,9 +905,10 @@ namespace rf{
 				for (int i = 0; i < size; ++i)
 					printf("%02x ", static_cast<uint8_t>(address[i]));
 				
-				printf("] (\"%s\") %s.\n",
+				printf("] (\"%s\") %s at adr=0x%08x.\n",
 					s.c_str(),
-					offset + prev_byte == this->size() ? "not found. [EOF]" : "found.");
+					offset + prev_byte == this->size() ? "not found [EOF]" : "found",
+					offset + prev_byte);
 			}
 
 			return offset;
@@ -839,12 +918,12 @@ namespace rf{
 		// 現状オーバーヘッド多め
 		bool copy_to_file(string file_name, int size, bool advance = false)
 		{
-			if (FAILED("", bs_.check_offset_by_bit(size)))
+			if (FAILED("", bs_.check_offset_by_byte(size)))
 				throw LUA_RUNTIME_ERROR("overflow");
 
 			char* buf = new char[static_cast<unsigned int>(size)];
 			bs_.get_by_byte(buf, size);
-			output_to_file(file_name, buf, size);
+			FileManager::getInstance().output_to_file(file_name, buf, size);
 
 			if (advance)
 			{
@@ -855,44 +934,7 @@ namespace rf{
 
 			return true;
 		}
-
-		// 指定したバイト列をファイルに出力
-		bool output_to_file(string file_name, const char* address, int size)
-		{
-			if (FAILED("check ptr", valid_ptr(address)))
-				return false;
-
-			// ファイル名に応じて読み込んだデータを出力して
-			// 暫定で毎回ファイルを開く
-			shared_ptr<ofstream> ofs;
-			auto it = ofs_map_.find(file_name);
-			if (it == ofs_map_.end())
-			{
-				ofs = make_shared<ofstream>();
-				ofs_map_.insert(std::make_pair(file_name, ofs));
-
-				std::ios::openmode mode = std::ios::binary | std::ios::out;
-				ofs->open(file_name, mode);
-				if (FAILED("file open", !(!ofs)))
-				{
-					return false;
-				}
-			}
-			else
-			{
-				ofs = it->second;
-			}
-
-			ofs->write(address, size);
-			if (FAILED("file write", !ofs->fail()))
-			{
-				ERR << "file write " << file_name << endl;
-				return false;
-			}
-			return true;
-		}
-
-
+		
 		// 部分ストリーム(LuaGlueBitstream)を作成
 		// 現状オーバーヘッド多め
 		bool sub_stream(string name, LuaGlueBitstream &stream, int size, bool advance = false)
@@ -1029,63 +1071,64 @@ shared_ptr<LuaBinder> init_lua()
 	auto lua = make_shared<LuaBinder>();
 
 	// 関数バインド
-	lua->def("stdout_to_file", stdout_to_file);                                  // コンソール出力の出力先切り替え
-	lua->def("reverse_16",           LuaGlueBitstream::reverse_endian_16);       // 16ビットエンディアン変換
-	lua->def("reverse_32",           LuaGlueBitstream::reverse_endian_32);       // 32ビットエンディアン変換
+	lua->def("stdout_to_file",       FileManager::stdout_to_file); // コンソール出力の出力先切り替え
+	lua->def("output_to_file",       FileManager::output_to_file); // 指定したバイト列をファイルに出力
+	lua->def("reverse_16",           reverse_endian_16);           // 16ビットエンディアン変換
+	lua->def("reverse_32",           reverse_endian_32);           // 32ビットエンディアン変換
 
 	// ファイル読み込みクラス
 	lua->def_class<LuaGlueFileBitstream>("FileBitstream")->
-		def("open",                  &LuaGlueFileBitstream::open).               // 解析ファイルオープン
-		def("file_size",             &LuaGlueFileBitstream::size).               // 解析ファイルサイズ取得
-		def("enable_print",          &LuaGlueFileBitstream::enable_print).       // コンソール出力ON/OFF
-		def("little_endian",         &LuaGlueFileBitstream::little_endian).      // ２バイト/４バイトの読み込み時はエンディアンを変換する
-		def("seekpos_bit",           &LuaGlueFileBitstream::seekpos_by_bit).     // 先頭からファイルポインタ移動
-		def("seekpos_byte",          &LuaGlueFileBitstream::seekpos_by_byte).    // 先頭からファイルポインタ移動
-		def("seekoff_bit",           &LuaGlueFileBitstream::seekoff_by_bit).     // 現在位置からファイルポインタ移動
-		def("seekoff_byte",          &LuaGlueFileBitstream::seekoff_by_byte).    // 現在位置からファイルポインタ移動
-		def("bit_pos",               &LuaGlueFileBitstream::bit_pos).            // 現在のビットオフセットを取得
-		def("byte_pos",              &LuaGlueFileBitstream::byte_pos).           // 現在のバイトオフセットを取得
-		def("read_bit",              &LuaGlueFileBitstream::read_by_bit).        // ビット単位で読み込み
-		def("read_byte",             &LuaGlueFileBitstream::read_by_byte).       // バイト単位で読み込み
-		def("read_string",           &LuaGlueFileBitstream::read_by_string).     // バイト単位で文字列として読み込み
-		def("read_expgolomb",        &LuaGlueFileBitstream::read_by_expgolomb).  // 指数ごロムとしてビットを読む
-		def("get_byte",              &LuaGlueFileBitstream::get_by_byte).        // ポインタを進めないで値を取得、4byteまで
-		def("comp_bit",              &LuaGlueFileBitstream::compare_by_bit).     // ビット単位で比較
-		def("comp_byte",             &LuaGlueFileBitstream::compare_by_byte).    // バイト単位で比較
-		def("comp_string",           &LuaGlueFileBitstream::compare_by_string).  // バイト単位で文字列として比較
-		def("find_byte",             &LuaGlueFileBitstream::find_byte).          // １バイトの一致を検索
-		def("find_byte_string",      &LuaGlueFileBitstream::find_byte_string).   // 数バイト分の一致を検索
-		def("copy_byte",             &LuaGlueFileBitstream::copy_to_file).       // ストリームからファイルに出力
-		def("output_to_file",        &LuaGlueFileBitstream::output_to_file).     // 指定したバイト列をファイルに出力
-		def("sub_stream",            &LuaGlueFileBitstream::sub_stream).         // 部分ストリーム(Bitstream)を作成
+		def("open",             &LuaGlueFileBitstream::open).                  // 解析ファイルオープン
+		def("size",             &LuaGlueFileBitstream::size).                  // 解析ファイルサイズ取得
+		def("enable_print",     &LuaGlueFileBitstream::enable_print).          // コンソール出力ON/OFF
+		def("little_endian",    &LuaGlueFileBitstream::little_endian).         // ２バイト/４バイトの読み込み時はエンディアンを変換する
+		def("seekpos_bit",      &LuaGlueFileBitstream::seekpos_by_bit).        // 先頭からファイルポインタ移動
+		def("seekpos_byte",     &LuaGlueFileBitstream::seekpos_by_byte).       // 先頭からファイルポインタ移動
+		def("seekpos",          &LuaGlueFileBitstream::seekpos).               // 先頭からファイルポインタ移動
+		def("seekoff_bit",      &LuaGlueFileBitstream::seekoff_by_bit).        // 現在位置からファイルポインタ移動
+		def("seekoff_byte",     &LuaGlueFileBitstream::seekoff_by_byte).       // 現在位置からファイルポインタ移動
+		def("bit_pos",          &LuaGlueFileBitstream::bit_pos).               // 現在のビットオフセットを取得
+		def("byte_pos",         &LuaGlueFileBitstream::byte_pos).              // 現在のバイトオフセットを取得
+		def("read_bit",         &LuaGlueFileBitstream::read_by_bit).           // ビット単位で読み込み
+		def("read_byte",        &LuaGlueFileBitstream::read_by_byte).          // バイト単位で読み込み
+		def("read_string",      &LuaGlueFileBitstream::read_by_string).        // バイト単位で文字列として読み込み
+		def("read_expgolomb",   &LuaGlueFileBitstream::read_by_expgolomb).     // 指数ごロムとしてビットを読む
+		def("get_byte",         &LuaGlueFileBitstream::get_by_byte).           // ポインタを進めないで値を取得、4byteまで
+		def("comp_bit",         &LuaGlueFileBitstream::compare_by_bit).        // ビット単位で比較
+		def("comp_byte",        &LuaGlueFileBitstream::compare_by_byte).       // バイト単位で比較
+		def("comp_string",      &LuaGlueFileBitstream::compare_by_string).     // バイト単位で文字列として比較
+		def("find_byte",        &LuaGlueFileBitstream::find_byte).             // １バイトの一致を検索
+		def("find_byte_string", &LuaGlueFileBitstream::find_byte_string).      // 数バイト分の一致を検索
+		def("copy_byte",        &LuaGlueFileBitstream::copy_to_file).          // ストリームからファイルに出力
+		def("sub_stream",       &LuaGlueFileBitstream::sub_stream).            // 部分ストリーム(Bitstream)を作成
 		def("dump",
-			(bool(LuaGlueFileBitstream::*)(int)) &LuaGlueFileBitstream::dump);   // 現在位置からバイト表示
+			(bool(LuaGlueFileBitstream::*)(int)) &LuaGlueFileBitstream::dump); // 現在位置からバイト表示
 			
 	// 部分ストリームクラス（FileBitstream:sub_streamで取得する）
 	lua->def_class<LuaGlueBitstream>("Bitstream")->
-		def("file_size",             &LuaGlueBitstream::size).                   // 解析ファイルサイズ取得
-		def("enable_print",          &LuaGlueBitstream::enable_print).           // コンソール出力ON/OFF
-		def("little_endian",         &LuaGlueBitstream::little_endian).          // ２バイト/４バイトの読み込み時はエンディアンを変換する
-		def("seekpos_bit",           &LuaGlueBitstream::seekpos_by_bit).         // 先頭からファイルポインタ移動
-		def("seekpos_byte",          &LuaGlueBitstream::seekpos_by_byte).        // 先頭からファイルポインタ移動
-		def("seekoff_bit",           &LuaGlueBitstream::seekoff_by_bit).         // 現在位置からファイルポインタ移動
-		def("seekoff_byte",          &LuaGlueBitstream::seekoff_by_byte).        // 現在位置からファイルポインタ移動
-		def("bit_pos",               &LuaGlueBitstream::bit_pos).                // 現在のビットオフセットを取得
-		def("byte_pos",              &LuaGlueBitstream::byte_pos).               // 現在のバイトオフセットを取得
-		def("read_bit",              &LuaGlueBitstream::read_by_bit).            // ビット単位で読み込み
-		def("read_byte",             &LuaGlueBitstream::read_by_byte).           // バイト単位で読み込み
-		def("read_string",           &LuaGlueBitstream::read_by_string).         // バイト単位で文字列として読み込み
-		def("read_expgolomb",        &LuaGlueBitstream::read_by_expgolomb).      // 指数ごロムとしてビットを読む
-		def("get_byte",              &LuaGlueBitstream::get_by_byte).            // ポインタを進めないで値を取得、4byteまで
-		def("comp_bit",              &LuaGlueBitstream::compare_by_bit).         // ビット単位で比較
-		def("comp_byte",             &LuaGlueBitstream::compare_by_byte).        // バイト単位で比較
-		def("comp_string",           &LuaGlueBitstream::compare_by_string).      // バイト単位で文字列として比較
-		def("find_byte",             &LuaGlueBitstream::find_byte).              // １バイトの一致を検索
-		def("find_byte_string",      &LuaGlueBitstream::find_byte_string).       // 数バイト分の一致を検索
-		def("copy_byte",             &LuaGlueBitstream::copy_to_file).           // ストリームからファイルに出力
-		def("output_to_file",        &LuaGlueBitstream::output_to_file).         // 指定したバイト列をファイルに出力
+		def("size",             &LuaGlueBitstream::size).              // 解析ファイルサイズ取得
+		def("enable_print",     &LuaGlueBitstream::enable_print).      // コンソール出力ON/OFF
+		def("little_endian",    &LuaGlueBitstream::little_endian).     // ２バイト/４バイトの読み込み時はエンディアンを変換する
+		def("seekpos_bit",      &LuaGlueBitstream::seekpos_by_bit).    // 先頭からファイルポインタ移動
+		def("seekpos_byte",     &LuaGlueBitstream::seekpos_by_byte).   // 先頭からファイルポインタ移動
+		def("seekpos",          &LuaGlueBitstream::seekpos).           // 先頭からファイルポインタ移動
+		def("seekoff_bit",      &LuaGlueBitstream::seekoff_by_bit).    // 現在位置からファイルポインタ移動
+		def("seekoff_byte",     &LuaGlueBitstream::seekoff_by_byte).   // 現在位置からファイルポインタ移動
+		def("bit_pos",          &LuaGlueBitstream::bit_pos).           // 現在のビットオフセットを取得
+		def("byte_pos",         &LuaGlueBitstream::byte_pos).          // 現在のバイトオフセットを取得
+		def("read_bit",         &LuaGlueBitstream::read_by_bit).       // ビット単位で読み込み
+		def("read_byte",        &LuaGlueBitstream::read_by_byte).      // バイト単位で読み込み
+		def("read_string",      &LuaGlueBitstream::read_by_string).    // バイト単位で文字列として読み込み
+		def("read_expgolomb",   &LuaGlueBitstream::read_by_expgolomb). // 指数ごロムとしてビットを読む
+		def("get_byte",         &LuaGlueBitstream::get_by_byte).       // ポインタを進めないで値を取得、4byteまで
+		def("comp_bit",         &LuaGlueBitstream::compare_by_bit).    // ビット単位で比較
+		def("comp_byte",        &LuaGlueBitstream::compare_by_byte).   // バイト単位で比較
+		def("comp_string",      &LuaGlueBitstream::compare_by_string). // バイト単位で文字列として比較
+		def("find_byte",        &LuaGlueBitstream::find_byte).         // １バイトの一致を検索
+		def("find_byte_string", &LuaGlueBitstream::find_byte_string).  // 数バイト分の一致を検索
+		def("copy_byte",        &LuaGlueBitstream::copy_to_file).      // ストリームからファイルに出力
 		def("dump",															     
-			(bool(LuaGlueBitstream::*)(int)) &LuaGlueBitstream::dump);           // 現在位置からバイト表示
+			(bool(LuaGlueBitstream::*)(int)) &LuaGlueBitstream::dump); // 現在位置からバイト表示
 	
 	if (FAILED("check", lua->dostring("_G.argv = {}")))
 	{
@@ -1240,6 +1283,5 @@ int main(int argc, char** argv)
 		getchar();
 	}
 
-	stdout_to_file(false);	// 一応
 	return 0;
 }

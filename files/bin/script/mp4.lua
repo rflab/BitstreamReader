@@ -577,9 +577,8 @@ function convert_and_store_timestamp(trak)
 end
 
 open(__stream_path__)
-enable_print(false)
+enable_print(true)
 stdout_to_file(false)
-
 mp4(file_size())
 
 print_status()

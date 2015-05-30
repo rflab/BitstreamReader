@@ -9,93 +9,6 @@ local pid_array = {0}
 local pid_infos = {"pat"}
 local pid_files = {"out/pat.pat"}
 
-
-function ts(size)
-	local total = 0
-	local begin
-	
-	-- 初期TSパケット長
-	if __stream_ext__ == ".tts"
-	or __stream_ext__ == ".m2ts" then
-		ts_packet_size = 192
-	else
-		ts_packet_size = 188
-	end
-
-	while total < size do
-			
-		progress:check()
-		
-		begin = cur()
-	
-		if ts_packet_size == 192 then
-			rbyte("ATS",                                    4)
-			-- printf("  ATS = %x(%fsec)", get("ATS"), get("ATS")/90000)
-		end
-		
-		local ofs = fbyte(0x47)
-		rbit("syncbyte",                                    8)
-		if ofs ~= 0 then
-			print("# discontinuous syncbyte", ts_packet_size, ofs, hex2str(cur()))
-			if ofs < 20 then -- 適当 208バイト
-				ts_packet_size = ts_packet_size + ofs
-			else
-				ts_packet_size = 188
-			end
-		end
-
-		rbit("transport_error_indicator",                   1)
-		rbit("payload_unit_start_indicator",                1)
-		rbit("transport_priority",                          1)
-		rbit("PID",                                         13)
-		rbit("transport_scrambling_control",                2)
-		-- adaptation_field_control
-	    rbit("adaptation_field_present",                    1)
-	    rbit("data_byte_present",                           1)
-		rbit("continuity_counter",                          4)
-
-		if get("adaptation_field_present") == 1 then
-			adaptation_field()
-		end
-		
-		if get("data_byte_present") == 1 then
-			if psi_check then
-				if get("PID") == 0 then
-					if get("payload_unit_start_indicator")==1 then
-						rbit("pointer_field", 8)
-						pat()
-						rbyte("stuffing", ts_packet_size - (cur() - begin))
-					else
-						assert(false, "# unsupported yet")
-					end
-				elseif find(pid_array, get("PID")) ~= false then
-					if get("payload_unit_start_indicator")==1 then
-						rbit("pointer_field", 8)
-						pmt()
-						rbyte("stuffing", ts_packet_size - (cur() - begin))
-						
-						-- とりあえずPMTが見つかったら解析中止
-						return
-					else
-						assert(false, "# unsupported yet")
-					end
-				else
-					rbyte("data_byte", ts_packet_size - (cur() - begin))
-				end
-			else
-				local result = find(pid_array, get("PID"))
-				if result == false then
-					rbyte("unknown data", ts_packet_size - (cur() - begin))
-				else		
-					wbyte(pid_files[result], ts_packet_size - (cur() - begin))
-				end
-			end
-		end
-		
-		total = total + (cur()-begin)
-	end
-end
-
 function adaptation_field()
 --print("adaptation_field")
 	local begin = cur()
@@ -262,22 +175,108 @@ function pmt()
 	return cur() - begin
 end
 
-open(__stream_path__)
-enable_print(false)
-stdout_to_file(false)
+function ts(size)
+	local total = 0
+	local begin
+	
+	-- 初期TSパケット長
+	if __stream_ext__ == ".tts"
+	or __stream_ext__ == ".m2ts" then
+		ts_packet_size = 192
+	else
+		ts_packet_size = 188
+	end
+
+	while total < size do
+		begin = cur()
+		progress:check()
+	
+		if ts_packet_size == 192 then
+			rbyte("ATS",                                    4)
+			-- printf("  ATS = %x(%fsec)", get("ATS"), get("ATS")/90000)
+		end
+		
+		local ofs = fbyte(0x47, true)
+		rbit("syncbyte",                                    8)
+		if ofs ~= 0 then
+			print("# discontinuous syncbyte", ts_packet_size, ofs, hex2str(cur()))
+			if ofs < 20 then -- 適当 208バイト
+				ts_packet_size = ts_packet_size + ofs
+			else
+				ts_packet_size = 188
+			end
+		end
+
+		rbit("transport_error_indicator",                   1)
+		rbit("payload_unit_start_indicator",                1)
+		rbit("transport_priority",                          1)
+		rbit("PID",                                         13)
+		rbit("transport_scrambling_control",                2)
+		rbit("adaptation_field_control",                    2)
+		rbit("continuity_counter",                          4)
+
+		if get("adaptation_field_control") & 2 == 2 then
+			adaptation_field()
+		end
+		
+		if get("adaptation_field_control") & 1 == 1 then
+			if psi_check then
+				if get("PID") == 0 then
+					if get("payload_unit_start_indicator")==1 then
+						rbit("pointer_field", 8)
+						pat()
+						rbyte("stuffing", ts_packet_size - (cur() - begin))
+					else
+						assert(false, "# unsupported yet")
+					end
+				elseif find(pid_array, get("PID")) ~= false then
+					if get("payload_unit_start_indicator")==1 then
+						rbit("pointer_field", 8)
+						pmt()
+						rbyte("stuffing", ts_packet_size - (cur() - begin))
+						
+						-- とりあえずPMTが見つかったら解析中止
+						return
+					else
+						assert(false, "# unsupported yet")
+					end
+				else
+					rbyte("data_byte", ts_packet_size - (cur() - begin))
+				end
+			else
+				local result = find(pid_array, get("PID"))
+				if result == false then
+					rbyte("unknown data", ts_packet_size - (cur() - begin))
+				else
+					wbyte(pid_files[result], ts_packet_size - (cur() - begin))
+				end
+			end
+		end
+		
+		total = total + (cur()-begin)
+	end
+end
 
 
 -- PAT/PMT解析
 psi_check = true
-ts(1024*1024)
+open(__stream_path__)
+enable_print(false)
+stdout_to_file(false)
+analyse(ts, 1024*1024)
+
+-- PMT結果表示
 for i=1, #pid_infos do
 	print(hex2str(pid_array[i]), pid_infos[i], pid_files[i])
 end
 
 -- PESファイル抽出
 psi_check = false
-seekpos(0)
-ts(file_size() - 200) -- 解析開始、後半は200byte捨てる
+seek(0)
+enable_print(false)
+stdout_to_file(false)
+analyse(ts, file_size())
+
 save_as_csv("out/ts.csv")
 
 -- PES解析 1, 2はPAT/PMTなので無視

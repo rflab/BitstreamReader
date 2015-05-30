@@ -125,6 +125,7 @@ function pat2str(pattern)
 	end
 	return str
 end
+
 --------------------------------------------
 -- ストリーム解析用関数群
 --------------------------------------------
@@ -171,15 +172,12 @@ end
 
 -- これまでに読み込んだ値を取得する
 function get(name)
---perf:enter("get")
-	local ret = gs_stream:get(name)
---perf:leave("get")
-	return ret
+	return gs_stream:get(name)
 end
 
 -- 現在のバイトオフセット、ビットオフセットを取得
-function seek(pos)
-	return gs_stream:seekpos(pos)
+function seek(byte, bit)
+	return gs_stream:seek(byte, bit)
 end
 
 -- 現在のバイトオフセット、ビットオフセットを取得
@@ -194,18 +192,12 @@ end
 
 -- ビット単位読み込み
 function rbit(name, size)
---perf:enter("rbit")
-	local val = gs_stream:rbit(name, size)
---perf:leave("rbit")
-	return name, val
+	return name, gs_stream:rbit(name, size)
 end
 
 -- バイト単位読み込み
 function rbyte(name, size)
---perf:enter("rbyte")
-	local val = gs_stream:rbyte(name, size)
---perf:leave("rbyte")
-	return name, val
+	return name, gs_stream:rbyte(name, size)
 end
 
 -- 文字列として読み込み
@@ -267,13 +259,36 @@ end
 -- 引数はcbyte()等の戻り値に合わせてあるのでstore(cbyte())という書き方も可能
 -- valueにはテーブル等を指定することも可
 function store(key, value)
---perf:enter("store")
 	gs_csv:insert(key, value)
---perf:leave("store")
 end
 
 -- store()した値をcsvに書き出す
 function save_as_csv(file_name)
 	return gs_csv:save(file_name)
+end
+
+
+--------------------------------------------
+-- 内部関数
+--------------------------------------------
+function analyse(func, ...)
+	cret, fret = coroutine.resume(coroutine.create(func), file_size(), ...) 
+	if cret == false then
+		print(fret)
+	else
+		return fret
+	end
+end
+
+function check(result, msg)
+	if result == false or result == nil then
+		print_table(_self.tbl)
+		_self:offset(-127)
+		_self:dump()
+		_self:offset(127)
+		
+		-- コルーチンであることを期待してyieldする
+		coroutine.yield()
+	end
 end
 

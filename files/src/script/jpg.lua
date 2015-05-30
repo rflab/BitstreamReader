@@ -221,9 +221,9 @@ function ifd(offset, indent)
 		local sz, ty = get_type(get("Type"))
 		
 		if get("Count") * sz > 4 then
-			info.exif:seek_byte(get("ValueOffset"))
+			info.exif:seekpos_byte(get("ValueOffset"))
 		else
-			info.exif:seek_byte(cur() - info.exif_begin - 4)
+			info.exif:seekpos_byte(cur() - info.exif_begin - 4)
 		end
 		
 		if ty == "byte" then
@@ -307,7 +307,7 @@ function jpg()
 			sof0()
 		elseif get("Markar") == 0xffda then
 			sos()
-			sstr("ff d9", true)
+			fstr("ff d9", true)
 		elseif get("Markar") == 0xffd0
 		or     get("Markar") == 0xffd1
 		or     get("Markar") == 0xffd2

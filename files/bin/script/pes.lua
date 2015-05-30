@@ -189,7 +189,6 @@ function pes()
 			seek(cur()+4)
 			local ofs = fstr(val2str(start_code), false)
 			seek(cur()-4)
-			
 	        wbyte("out/PES_packet_data_byte_"..hex2str(__pid__)..".dat", ofs + 4)
         else
 	        wbyte("out/PES_packet_data_byte_"..hex2str(__pid__)..".dat", N)
@@ -222,16 +221,10 @@ function pes_stream(size)
 end
 
 -- ファイルオープン＆初期化＆解析
+__pid__ = __pid__ or 0
+
 open(__stream_path__)
 enable_print(false)
 stdout_to_file(false)
-__pid__ = __pid__ or 0
-
-pes_stream(file_size() - 1024*500) -- 解析開始、後半は500kb捨てる
-
-if __pid__ then
-	save_as_csv(__stream_dir__.."out/pid"..hex2str(__pid__)..".csv")
-else
-	save_as_csv(__stream_path__..".csv")
-end
+analyse(pes_stream, file_size())
 

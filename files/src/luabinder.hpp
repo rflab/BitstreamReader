@@ -61,62 +61,66 @@ namespace rf
 			return true;
 		}
 		
-		void dump_stack()
+		static bool  dump_stack(lua_State *L)
 		{
-			int stack_size = lua_gettop(L_);
+			int stack_size = lua_gettop(L);
 			printf("------------------------------------------\n");
 			for (int i = 0; i < stack_size; i++)
 			{
-				int type = lua_type(L_, stack_size - i);
-				printf("Stack[%2d(%3d) %10s] : ", stack_size - i, -i - 1, lua_typename(L_, type));
+				int type = lua_type(L, stack_size - i);
+				printf("Stack[%2d(%3d) %10s] : ", stack_size - i, -i - 1, lua_typename(L, type));
 
 				switch (type)
 				{
 				case LUA_TNUMBER:
-					printf("%f\n", lua_tonumber(L_, stack_size - i));
+					printf("%f\n", lua_tonumber(L, stack_size - i));
 					break;
 				case LUA_TBOOLEAN:
-					if (lua_toboolean(L_, stack_size - i))
+					if (lua_toboolean(L, stack_size - i))
 						printf("true\n");
 					else
 						printf("false\n");
 					break;
 				case LUA_TSTRING:
-					printf("%s\n", lua_tostring(L_, stack_size - i));
+					printf("%s\n", lua_tostring(L, stack_size - i));
 					break;
 				case LUA_TNIL:
 					printf("\n");
 					break;
 				default:
-					printf("%s\n", lua_typename(L_, type));
+					printf("%s\n", lua_typename(L, type));
 					break;
 				}
 			}
 			printf("------------------------------------------\n");
+			return true;
+		}
+
+		bool dump_stack()
+		{
+			return dump_stack(L_);
 		}
 
 		bool luaresult(int lua_ret)
-		{
-			stringstream ss;
-			ss.str("");
-			ss.clear();
-			
+		{			
 			if (lua_ret != LUA_OK)
 			{
-				ss << lua_tostring(L_, -1);
-				cout << ss.str() << endl;
+				cout << lua_tostring(L_, -1) << endl;
 				return false;
 			}
 
 			return true;
 		}
 
-		static int traceback_func(lua_State* L)
+		static int traceback(lua_State* L)
 		{
+			dump_stack(L);
 			const char* msg = lua_tostring(L, -1);
 			if (msg)
 			{
 				luaL_traceback(L, L, msg, 1);
+				cout << lua_tostring(L, -1) << endl;
+				lua_pop(L, 1);
 			}
 			return 1;
 		}
@@ -318,10 +322,16 @@ namespace rf
 				}
 				catch (const std::exception &e)
 				{
+					push_stack(L, e.what());
+					traceback(L);
+					lua_pop(L, 1);
 					return luaL_error(L, e.what()); // longjmp
 				}
 				catch (...)
 				{
+					push_stack(L, "unknown error.");
+					traceback(L);
+					lua_pop(L, 1);
 					return luaL_error(L, "unknown exception");
 				}
 
@@ -353,10 +363,16 @@ namespace rf
 				}
 				catch (const std::exception &e)
 				{
+					push_stack(L, e.what());
+					traceback(L);
+					lua_pop(L, 1);
 					return luaL_error(L, e.what()); // longjmp
 				}
 				catch (...)
 				{
+					push_stack(L, "unknown error.");
+					traceback(L);
+					lua_pop(L, 1);
 					return luaL_error(L, "unknown exception");
 				}
 
@@ -420,13 +436,19 @@ namespace rf
 				}
 				catch (const std::exception &e)
 				{
+					push_stack(L, e.what());
+					traceback(L);
+					lua_pop(L, 1);
 					return luaL_error(L, e.what()); // longjmp
 				}
 				catch (...)
 				{
+					push_stack(L, "unknown error.");
+					traceback(L);
+					lua_pop(L, 1);
 					return luaL_error(L, "unknown exception");
 				}
-
+			
 				return 1;
 			}
 		};
@@ -464,10 +486,16 @@ namespace rf
 				}
 				catch (const std::exception &e)
 				{
+					push_stack(L, e.what());
+					traceback(L);
+					lua_pop(L, 1);
 					return luaL_error(L, e.what()); // longjmp
 				}
 				catch (...)
 				{
+					push_stack(L, "unknown error.");
+					traceback(L);
+					lua_pop(L, 1);
 					return luaL_error(L, "unknown exception");
 				}
 
@@ -546,7 +574,7 @@ namespace rf
 		bool dofile(const string& filename)
 		{
 			int top = lua_gettop(L_);
-			lua_pushcfunction(L_, traceback_func);
+			lua_pushcfunction(L_, traceback);
 			lua_insert(L_, top);
 			int func = lua_gettop(L_);
 
@@ -565,7 +593,7 @@ namespace rf
 		bool dostring(const string& str)
 		{
 			int top = lua_gettop(L_);
-			lua_pushcfunction(L_, traceback_func);
+			lua_pushcfunction(L_, traceback);
 			lua_insert(L_, top);
 			int func = lua_gettop(L_);
 

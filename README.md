@@ -33,7 +33,6 @@ TS/MP4は主にタイムスタンプを解析します、bmp、wav、jpgは各�
 （Luaの文法は http://milkpot.sakura.ne.jp/lua/lua52_manual_ja.html あたり参照のこと。）
 
 通常はfiles/bin/script/module/util.luaに書いた関数を利用したほうが簡単です。
-（files/bin/script/wav.luaあたり参照のこと。）
 
     --test.lua--
     
@@ -41,7 +40,7 @@ TS/MP4は主にタイムスタンプを解析します、bmp、wav、jpgは各�
     dofile("script/util.lua")    -- Luaに関数登録ロード
     open("test.dat")             -- ファイルオープン＆初期化
     
-    -- 読み込み
+    -- 基本的な読み込み
     dump()                       -- 現在行から数バイト表示してみる
     rstr ("tag",   4)            -- 4バイトを文字列として読み込み
     rbyte("dataA", 1)            -- 1バイトを読み込み
@@ -52,9 +51,11 @@ TS/MP4は主にタイムスタンプを解析します、bmp、wav、jpgは各�
     print(get("flagC"))          -- 取得済みのデータを参照する
 
     -- その他
-    store(rbyte("size_audio_data", 4))  -- csvファイルに書き出すデータ１
-    store("data", get("flafA"))         -- csvファイルに書き出すデータ２
-    save_as_csv(result.csv)             -- csvファイルに書き出す
+    local ofs = fstr("00 00 03", false)  -- 00 00 03のバイナリ列を検索、リードポインタは進めない
+    local s = sub_stream("payload", ofs) -- 00 00 03までを部分ストリームにする                
+    store(rbyte("size_audio_data", 4))   -- csvファイルに書き出すデータ１
+    store("data", get("flafA"))          -- csvファイルに書き出すデータ２
+    save_as_csv(result.csv)              -- csvファイルに書き出す
 
 C++側からは以下のような関数・クラスがバインドされています。
 （関数・クラスの仕様はfiles/src/streamreader.cpp参照のこと。）

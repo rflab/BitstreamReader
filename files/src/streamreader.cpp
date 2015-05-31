@@ -227,17 +227,25 @@ namespace rf{
 		int byte_pos() const { return byte_pos_; }
 		int bit_pos() const { return bit_pos_; }
 
-		bool assign(shared_ptr<streambuf> buf, int size)
+		bool assign(shared_ptr<streambuf> buf)
+		{
+			buf_ = buf;
+			byte_pos_ = 0;
+			bit_pos_ = 0;
+			size_ = static_cast<int>(buf->pubseekoff(0, std::ios::end));
+			buf->pubseekoff(0, std::ios::beg);
+
+			return sync();
+		}
+
+		bool write(const char *buf, int size)
 		{
 			if (FAILED("check size", size >= 0))
 				return false;
 
-			buf_ = buf;
-			size_ = size;
-			byte_pos_ = 0;
-			bit_pos_ = 0;
+			buf_->sputn(buf, size);
 
-			return sync();
+			return true;
 		}
 
 		// 終端バイトはtrue
@@ -672,9 +680,9 @@ namespace rf{
 
 	protected:
 
-		bool set_stream(shared_ptr<streambuf> b, int size)
+		bool assign(shared_ptr<streambuf> b)
 		{
-			return bs_.assign(b, size);
+			return bs_.assign(b);
 		}
 
 	public:
@@ -925,6 +933,43 @@ namespace rf{
 			return offset;
 		}
 
+		// ストリームに追記
+		bool write(const char *buf, int size)
+		{
+			if (FAILED("check buf", valid_ptr(buf)))
+				return false;
+
+			if (FAILED("check", size >= 0))
+				return false;
+
+			bs_.write(buf, size);
+
+			return true;
+		}
+		
+		// 部分ストリーム(LuaGlueBitstream)を作成
+		// 現状オーバーヘッド多め
+		bool sub_stream(string name, LuaGlueBitstream &stream, int size, bool advance = false)
+		{
+			if (FAILED("", bs_.check_offset_by_bit(size)))
+				return false;
+
+			char* buf = new char[static_cast<unsigned int>(size)];
+			bs_.get_by_buf(buf, size);
+			
+			if (FAILED("write", stream.write(buf, size)))
+				return false;
+
+			if (advance)
+			{
+				stringstream ss;
+				ss << " >> sub_stream: " << name;
+				read_by_byte(ss.str(), size);
+			}
+
+			return true;
+		}
+
 		// ストリームからファイルに転送
 		// 現状オーバーヘッド多め
 		bool copy_to_file(string file_name, int size, bool advance = false)
@@ -945,32 +990,6 @@ namespace rf{
 
 			return true;
 		}
-		
-		// 部分ストリーム(LuaGlueBitstream)を作成
-		// 現状オーバーヘッド多め
-		bool sub_stream(string name, LuaGlueBitstream &stream, int size, bool advance = false)
-		{
-			if (FAILED("", bs_.check_offset_by_bit(size)))
-				return false;
-
-			char* buf = new char[static_cast<unsigned int>(size)];
-			bs_.get_by_buf(buf, size);
-
-			auto s = make_shared<stringbuf>();
-			s->sputn(buf, size);
-
-			stream.set_stream(s, size);
-
-			if (advance)
-			{
-				stringstream ss;
-				ss << " >> sub_stream: " << name;
-				read_by_byte(ss.str(), size);
-			}
-
-			return true;
-		}
-
 	public:
 
 		// 現在位置からバイト表示
@@ -1011,8 +1030,6 @@ namespace rf{
 
 			return dump(buf, byte_pos(), dump_len);
 		}
-
-
 	};
 
 	class LuaGlueBufBitstream final : public LuaGlueBitstream
@@ -1026,19 +1043,6 @@ namespace rf{
 		LuaGlueBufBitstream() :LuaGlueBitstream(){}
 
 		virtual ~LuaGlueBufBitstream(){}
-
-		bool assign(shared_ptr<char> buf, int size)
-		{
-			if (FAILED("check buf", valid_ptr(buf)))
-				return false;
-
-			if (FAILED("check", size >= 0))
-				return false;
-
-			sb_->sputn(buf.get(), size);
-
-			return this->set_stream(sb_, size);
-		}
 	};
 
 	class LuaGlueFileBitstream final : public LuaGlueBitstream
@@ -1064,10 +1068,8 @@ namespace rf{
 
 			fb_ = make_shared<filebuf>();
 			fb_->open(file_name, std::ios::in | std::ios::binary);
-			int size = static_cast<int>(fb_->pubseekoff(0, std::ios::end));
-			fb_->pubseekoff(0, std::ios::beg);
 
-			return this->set_stream(fb_, size);
+			return assign(fb_);
 		}
 	};
 }
@@ -1108,9 +1110,9 @@ shared_ptr<LuaBinder> init_lua()
 		def("comp_bit",         &LuaGlueFileBitstream::compare_by_bit).        // ビット単位で比較
 		def("comp_byte",        &LuaGlueFileBitstream::compare_by_byte).       // バイト単位で比較
 		def("comp_string",      &LuaGlueFileBitstream::compare_by_string).     // バイト単位で文字列として比較
+		def("copy_byte",        &LuaGlueFileBitstream::copy_to_file).          // ストリームからファイルに出力
 		def("find_byte",        &LuaGlueFileBitstream::find_byte).             // １バイトの一致を検索
 		def("find_byte_string", &LuaGlueFileBitstream::find_byte_string).      // 数バイト分の一致を検索
-		def("copy_byte",        &LuaGlueFileBitstream::copy_to_file).          // ストリームからファイルに出力
 		def("sub_stream",       &LuaGlueFileBitstream::sub_stream).            // 部分ストリーム(Bitstream)を作成
 		def("dump",
 			(bool(LuaGlueFileBitstream::*)(int)) &LuaGlueFileBitstream::dump); // 現在位置からバイト表示
@@ -1136,9 +1138,11 @@ shared_ptr<LuaBinder> init_lua()
 		def("comp_bit",         &LuaGlueBitstream::compare_by_bit).    // ビット単位で比較
 		def("comp_byte",        &LuaGlueBitstream::compare_by_byte).   // バイト単位で比較
 		def("comp_string",      &LuaGlueBitstream::compare_by_string). // バイト単位で文字列として比較
+		def("copy_byte",        &LuaGlueBitstream::copy_to_file).      // ストリームからファイルに出力
 		def("find_byte",        &LuaGlueBitstream::find_byte).         // １バイトの一致を検索
 		def("find_byte_string", &LuaGlueBitstream::find_byte_string).  // 数バイト分の一致を検索
-		def("copy_byte",        &LuaGlueBitstream::copy_to_file).      // ストリームからファイルに出力
+		def("write",            &LuaGlueBitstream::write).             // ビットストリームの終端に書き込む
+		def("sub_stream",       &LuaGlueBitstream::sub_stream).        // 部分ストリーム(Bitstream)を作成
 		def("dump",															     
 			(bool(LuaGlueBitstream::*)(int)) &LuaGlueBitstream::dump); // 現在位置からバイト表示
 	

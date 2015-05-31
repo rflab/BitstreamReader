@@ -13,6 +13,15 @@ function byte_aligned()
 	return select(2, cur()) == 0
 end
 
+function align_byte()
+	if byte_aligned() == false then
+		cbit("bit_equal_to_one",  1, 1)-- f(1)
+	end
+	while byte_aligned() == false do
+		cbit("bit_equal_to_zero",  1, 0)-- f(1)
+	end
+end
+
 function nal_unit_header_svc_extension()
 	assert("false")
 end
@@ -314,10 +323,11 @@ end
 
 function sei_payload(payloadType, payloadSize)
 print("sei tyep, size = ", payloadType, payloadSize)
+dump()
 	local begin = cur()
 
 	if payloadType == 0 then
-		print("buffering_period( payloadSize ) 5")
+		buffering_period(payloadSize)
 	elseif payloadType == 1 then
 		print("pic_timing( payloadSize ) 5")
 	elseif payloadType == 2 then
@@ -432,12 +442,22 @@ print("sei tyep, size = ", payloadType, payloadSize)
 		rbyte("remained payload",  payloadSize - (cur() - begin))
 	end
 
-	if byte_aligned() == false then
-		cbit("bit_equal_to_one",  1, 1)-- f(1)
-	end
-	while byte_aligned() == false do
-		cbit("bit_equal_to_zero",  1, 0)-- f(1)
-	end
+	rbsp_trailing_bits()
+end
+
+function buffering_period(payloadSize)
+	rexp("seq_parameter_set_id")-- ue(v)
+--	if get("NalHrdBpPresentFlag") then
+--	Rec. ITU-T H.264 (04/2013) 329
+--	for( SchedSelIdx = 0; SchedSelIdx <= cpb_cnt_minus1; SchedSelIdx++ ) {
+--	initial_cpb_removal_delay[ SchedSelIdx ] 5 u(v)
+--	initial_cpb_removal_delay_offset[ SchedSelIdx ] 5 u(v)
+--	}
+--	if( VclHrdBpPresentFlag )
+--	for( SchedSelIdx = 0; SchedSelIdx <= cpb_cnt_minus1; SchedSelIdx++ ) {
+--	initial_cpb_removal_delay[ SchedSelIdx ] 5 u(v)
+--	initial_cpb_removal_delay_offset[ SchedSelIdx ] 5 u(v)
+--	end
 end
 
 function nal_unit(NumBytesInNALunit)

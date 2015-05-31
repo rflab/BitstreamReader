@@ -100,6 +100,16 @@ function cstr(name, size, comp)
 	return name, gs_stream:cstr(name, size, comp)
 end
 
+-- bit単位で読み込むがポインタは進めない
+function lbit(size)
+	return gs_stream:lbit(size)
+end
+
+-- バイト単位で読み込むがポインタは進めない
+function lbyte(size)
+	return gs_stream:lbyte(size)
+end
+
 -- １バイト検索
 function fbyte(char, advance)
 	return gs_stream:fbyte(char, advance)
@@ -111,23 +121,19 @@ function fstr(pattern, advance)
 end
 
 -- ストリームからファイルにデータを追記
-function wbyte(filename, size)
-	return gs_stream:wbyte(filename, size)
+function tbyte(file, size)
+	if type(file) == "string" then
+		print(">> "..file)
+		return transfer_to_file(file, gs_stream.stream, size, true)
+	else
+		return gs_stream.transfer_byte(tostring(file), file, size, true)
+	end
 end
 
 -- 文字列、もしくは"00 11 22"のようなバイナリ文字列をファイルに追記
 function write(filename, pattern)
-	return gs_stream:write("out/"..filename, pattern)
-end
-
--- bit単位で読み込むがポインタは進めない
-function gbit(size)
-	return gs_stream:gbit(size)
-end
-
--- バイト単位で読み込むがポインタは進めない
-function gbyte(size)
-	return gs_stream:gbyte(size)
+	local str = pat2str(pattern)
+	return write_to_file(filename, str, #str)
 end
 
 -- 現在位置からストリームを抜き出す

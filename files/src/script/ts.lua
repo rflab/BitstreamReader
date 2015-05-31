@@ -248,7 +248,7 @@ function ts(size)
 				if result == false then
 					rbyte("unknown data", ts_packet_size - (cur() - begin))
 				else
-					wbyte(pid_files[result], ts_packet_size - (cur() - begin))
+					tbyte(pid_files[result], ts_packet_size - (cur() - begin))
 				end
 			end
 		end
@@ -263,7 +263,7 @@ psi_check = true
 open(__stream_path__)
 enable_print(false)
 stdout_to_file(false)
-analyse(ts, 1024*1024)
+start_thread(ts, 1024*1024)
 
 -- PMT結果表示
 for i=1, #pid_infos do
@@ -275,7 +275,7 @@ psi_check = false
 seek(0)
 enable_print(false)
 stdout_to_file(false)
-analyse(ts, file_size())
+start_thread(ts, file_size())
 
 save_as_csv("out/ts.csv")
 

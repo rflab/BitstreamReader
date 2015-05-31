@@ -189,9 +189,9 @@ function pes()
 			seek(cur()+4)
 			local ofs = fstr(val2str(start_code), false)
 			seek(cur()-4)
-	        wbyte("out/PES_packet_data_byte_"..hex2str(__pid__)..".dat", ofs + 4)
+	        tbyte("out/PES_packet_data_byte_"..hex2str(__pid__)..".dat", ofs + 4)
         else
-	        wbyte("out/PES_packet_data_byte_"..hex2str(__pid__)..".dat", N)
+	        tbyte("out/PES_packet_data_byte_"..hex2str(__pid__)..".dat", N)
         end
         
 	elseif get("stream_id") == program_stream_map
@@ -201,7 +201,7 @@ function pes()
 	or     get("stream_id") == program_stream_directory
 	or     get("stream_id") == ITU_T_Rec_H_222_0_ISO_IEC_13818_1_Annex_B_or_ISO_IEC_13818_6_DSMCC_stream
 	or     get("stream_id") == ITU_T_Rec_H_222_1_type_E then
-	    wbyte("PES_packet_data_byte.es",                               get("PES_packet_length"))
+	    tbyte("PES_packet_data_byte.es",                               get("PES_packet_length"))
 	elseif ( stream_id == padding_stream) then
         rbyte("padding_byte",                                        get("PES_packet_length"))
 	end
@@ -212,7 +212,7 @@ end
 
 function pes_stream(size)
     fstr("00 00 01", false)
-    start_code = gbyte(4)
+    start_code = lbyte(4)
 
 	local total_size = 0;
 	while total_size < size do

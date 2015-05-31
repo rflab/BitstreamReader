@@ -1,6 +1,6 @@
 -- H264解析
 function more_rbsp_data()
-	return gbit(1) ~= 1
+	return lbit(1) ~= 1
 end
 
 function rbsp_trailing_bits()
@@ -303,7 +303,7 @@ end
 
 function sei_message()
 	local payloadType = 0
-	while gbyte(1) == 0xff do
+	while lbyte(1) == 0xff do
 		cbit("ff_byte",                  5) -- f(8)
 		payloadType = payloadType + 255
 	end
@@ -311,7 +311,7 @@ function sei_message()
 	payloadType = payloadType + get("last_payload_type_byte")
 
 	payloadSize = 0
-	while gbyte(1) == 0xff do
+	while lbyte(1) == 0xff do
 		cbit("ff_byte",                  5) -- f(8)
 		payloadSize = payloadSize + 255
 	end
@@ -487,13 +487,13 @@ print("nal_unit")
 		-- 本来03の除去はここで行うべき
 		-- このスクリプトでは事前に000003を抜いているのでおかしくなるストリームもあるかも
 		--if i + 2 < NumBytesInNALunit
-		-- and gbyte(3) == 0x000003 then 
-		-- 	wbyte("rbsp_byte",                              2)
+		-- and lbyte(3) == 0x000003 then 
+		-- 	tbyte("rbsp_byte",                              2)
 		-- 	rbit("emulation_prevention_three_byte",         8)
 		-- 	NumBytesInRBSP = NumBytesInRBSP + 2
 		-- 	i = i + 2
 		-- else
-		--	wbyte("rbsp_byte",                              1)
+		--	tbyte("rbsp_byte",                              1)
 		--end
 		local begin = cur()
 	
@@ -524,20 +524,20 @@ end
 function byte_stream_nal_unit(NumBytesInNALunit)
 	local begin = cur()
 	
-	while gbyte(3) ~= 0x000001
-	and gbyte(4) ~= 0x00000001 do
+	while lbyte(3) ~= 0x000001
+	and lbyte(4) ~= 0x00000001 do
 		cbyte("leading_zero_8bits",                     1, 0)
 	end
 	
-	if gbyte(3) ~= 0x000001 then
+	if lbyte(3) ~= 0x000001 then
 		cbyte("zero_byte",                              1, 0)
 	end
 	cbyte("start_code_prefix_one_3bytes",               3, 0x000001)
 	nal_unit(NumBytesInNALunit)
 	
 	while NumBytesInNALunit > begin - cur()
-	and gbyte(3) ~= 0x000001
-	and gbyte(4) ~= 0x00000001 do
+	and lbyte(3) ~= 0x000001
+	and lbyte(4) ~= 0x00000001 do
 		cbit("trailing_zero_8bits",                     8, 0)
 	end
 	
@@ -548,7 +548,7 @@ function h264_byte_stream(max_length)
 	local total_size = 0;
 	while total_size < max_length do
 		total_size = total_size + byte_stream_nal_unit(max_length-total_size)
-		-- if gbyte(3) == 0x000001 then
+		-- if lbyte(3) == 0x000001 then
 		-- 	break
 		-- end
 	end
@@ -564,11 +564,11 @@ function remove_dummy(max_length, path)
 
 		ofs = fstr("00 00 03", false)
 		if cur() + ofs >= max_length then 
-			wbyte(path, ofs)
+			tbyte(path, ofs)
 			break
 		end
 
-		wbyte(path, ofs+2)
+		tbyte(path, ofs+2)
 		rbyte("dummy", 1)
 	end
 end

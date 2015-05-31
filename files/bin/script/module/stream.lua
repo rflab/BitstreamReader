@@ -37,20 +37,21 @@ end
 ------------------------------------------------
 
 function _m:new(file_name)
-	if file_name then
-	else
-	end
-
-	print("open("..file_name..")")
 	obj = {tbl={}}
 	--_v[obj] = {}
 	setmetatable(obj, _meta )
 
-	obj.stream = FileBitstream.new()
-	assert(obj.stream:open(file_name))
-	obj.stream:little_endian(false)
+	if file_name then
+		print("open stream ("..file_name..")")
+		obj.stream = FileBitstream.new()
+		obj.file_name = file_name
+		assert(obj.stream:open(file_name, "r"))
+	else
+		print("create stream ()")
+		obj.stream = Bitstream.new()
+	end
 
-	obj.file_name = file_name
+	obj.stream:little_endian(false)
 	obj.is_little_endian = false
 	return obj
 end
@@ -112,18 +113,6 @@ function _m:rexp(name)
 	return val
 end
 
-function _m:gbyte(size)	
- 	local val = self.stream:get_byte(size)
-	check(self, val, "gbyte:")
-	return val
-end
-
-function _m:gbit(size)	
- 	local val = self.stream:get_bit(size)
-	check(self, val, "gbit:")
-	return val
-end
-
 function _m:cbit(name, size, comp)	
 	local val = self.stream:comp_bit(name, size, comp)
 	check(self, val, "cbit:"..name)
@@ -142,6 +131,18 @@ function _m:cstr(name, size, comp)
  	local val = self.stream:comp_string(name, size, comp)
 	check(self, val, "cstr:"..name)
 	self.tbl[name] = val
+	return val
+end
+
+function _m:lbyte(size)	
+ 	local val = self.stream:look_byte(size)
+	check(self, val, "lbyte:")
+	return val
+end
+
+function _m:lbit(size)	
+ 	local val = self.stream:look_bit(size)
+	check(self, val, "lbit:")
 	return val
 end
 
@@ -167,25 +168,18 @@ function _m:seekoff(byte, bit)
 	self.stream:seekoff_bit(bit)
 end
 
-
-function _m:wbyte(filename, size)
--- print(hex2str(cur()), hex2str(size))
-	local ret = self.stream:copy_byte(filename, size, true)
-	check(self, ret, "wbyte:"..filename)
-end
-
-function _m:write(filename, pattern)
-	local str = ""
-	if string.match(pattern, "[0-9][0-9] ") ~= nil then
-		for hex in string.gmatch(pattern, "%w+") do
-			str = str .. string.char(tonumber(hex, 16))
-		end
-	else
-		str = pattern
-	end
-	local ret = self.stream:output_to_file(filename, str, #str)
-	check(self, ret, "write:"..filename)
-end
+--function _m:write(filename, pattern)
+--	local str = ""
+--	if string.match(pattern, "[0-9][0-9] ") ~= nil then
+--		for hex in string.gmatch(pattern, "%w+") do
+--			str = str .. string.char(tonumber(hex, 16))
+--		end
+--	else
+--		str = pattern
+--	end
+--	local ret = self.stream:output_to_file(filename, str, #str)
+--	check(self, ret, "write:"..filename)
+--end
 
 function _m:enable_print(b)	
 	return self.stream:enable_print(b)
@@ -207,7 +201,7 @@ end
 function _m:sub_stream(name, size)	
 	local b = Bitstream:new()
 	print(size)
-	self.stream:sub_stream("Exif", b, size, false)
+	self.stream:sub_stream(name, b, size, false)
 	return b
 end
 

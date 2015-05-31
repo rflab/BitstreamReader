@@ -9,11 +9,11 @@ rbyte("C", 1)
 rbyte("D", 1)
 
 -- 検索テスト
-fbyte(0x10)
+fbyte(0x10, true)
 fstr("hoge", true)
-fstr("10 11 12 13 14", true)
+fstr("00 01", true)
 
 -- ファイル書き出しテスト
 write("out.dat", "00 00 00 01")
-wbyte("out.dat", 7)
+tbyte("out.dat", 7)
 print_status()

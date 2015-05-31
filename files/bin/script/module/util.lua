@@ -2,7 +2,158 @@ local gs_stream
 local gs_csv
 
 --------------------------------------------
--- 雑関数郡、
+-- ストリーム解析用関数
+--------------------------------------------
+-- ストリームファイルを開く
+function open(file_name)
+	gs_stream = stream:new(file_name)
+	gs_csv = csv:new()
+	return gs_stream
+end
+
+-- ストリーム状態表示
+function print_status()
+	return gs_stream:print()
+end
+
+function print_status_all()
+	return gs_stream:print_table()
+end
+
+-- ストリームファイルサイズ取得
+function file_size()
+	return gs_stream:size()
+end
+
+-- ストリームを最大256バイト出力
+function dump()
+	return gs_stream:dump()
+end
+
+-- 解析結果表示のON/OFF
+function enable_print(b)
+	return gs_stream:enable_print(b)
+end
+
+-- ２バイト/４バイトの読み込みでエンディアンを変換する
+function little_endian(enable)
+	return gs_stream:little_endian(enable)
+end
+
+-- 現在のバイトオフセット、ビットオフセットを取得
+function cur()
+	return gs_stream:cur()
+end
+
+-- これまでに読み込んだ値を取得する
+function get(name)
+	return gs_stream:get(name)
+end
+
+-- 絶対位置シーク
+function seek(byte, bit)
+	return gs_stream:seek(byte, bit)
+end
+
+-- 相対位置シーク
+function seekoff(byte, bit)
+	return gs_stream:seekoff(byte, bit)
+end
+
+-- 指定したアドレス前後の読み込み結果を表示し、assert(false)する
+function set_exit(address)
+	return gs_stream:set_exit(address)
+end
+
+-- ビット単位読み込み
+function rbit(name, size)
+	return name, gs_stream:rbit(name, size)
+end
+
+-- バイト単位読み込み
+function rbyte(name, size)
+	return name, gs_stream:rbyte(name, size)
+end
+
+-- 文字列として読み込み
+function rstr(name, size)
+	return name, gs_stream:rstr(name, size)
+end
+
+-- 指数ゴロムとして読み込み
+function rexp(name)
+	return name, gs_stream:rexp(name)
+end
+
+-- ビット単位で読み込み、compとの一致を確認
+function cbit(name, size, comp)
+	return name, gs_stream:cbit(name, size, comp)
+end
+
+-- バイト単位で読み込み、compとの一致を確認
+function cbyte(name, size, comp)
+	return name, gs_stream:cbyte(name, size, comp)
+end
+
+-- 文字列として読み込み、compとの一致を確認
+function cstr(name, size, comp)
+	return name, gs_stream:cstr(name, size, comp)
+end
+
+-- １バイト検索
+function fbyte(char, advance)
+	return gs_stream:fbyte(char, advance)
+end
+
+-- 文字列を検索、もしくは"00 11 22"のようなバイナリ文字列で検索
+function fstr(pattern, advance)
+	return gs_stream:fstr(pattern, advance)
+end
+
+-- ストリームからファイルにデータを追記
+function wbyte(filename, size)
+	return gs_stream:wbyte(filename, size)
+end
+
+-- 文字列、もしくは"00 11 22"のようなバイナリ文字列をファイルに追記
+function write(filename, pattern)
+	return gs_stream:write("out/"..filename, pattern)
+end
+
+-- bit単位で読み込むがポインタは進めない
+function gbit(size)
+	return gs_stream:gbit(size)
+end
+
+-- バイト単位で読み込むがポインタは進めない
+function gbyte(size)
+	return gs_stream:gbyte(size)
+end
+
+-- 現在位置からストリームを抜き出す
+function sub_stream(name, size)
+	return gs_stream:sub_stream(name, size)
+end
+
+
+--------------------------------------
+-- ストリーム解析用ユーティリティ
+--------------------------------------
+-- csv保存用に値を記憶
+-- 引数はcbyte()等の戻り値に合わせてあるのでstore(cbyte())という書き方も可能
+-- valueにはテーブル等を指定することも可
+function store(key, value)
+	gs_csv:insert(key, value)
+end
+
+-- store()した値をcsvに書き出す
+function save_as_csv(file_name)
+	return gs_csv:save(file_name)
+end
+
+
+--------------------------------------------
+-- その他ユーティリティ
 --------------------------------------------
 -- 性能計測用
 perf = profiler:new()
@@ -21,8 +172,8 @@ progress = {
 	end
 }
 
--- グローバル変数を設定する
--- とりあえずファイルパスだけ
+-- ファイルパスを path = dir..name..ext に分解して
+-- path, dir, name, extの順に返す
 function split_file_name(path)
 	local dir  = string.gsub(path, "(.*/).*%..*$", "%1")
 	if dir == path then dir = "" end
@@ -126,160 +277,21 @@ function pat2str(pattern)
 	return str
 end
 
---------------------------------------------
--- ストリーム解析用関数群
---------------------------------------------
--- ストリームファイルを開く
-function open(file_name)
-	gs_stream = stream:new(file_name)
-	gs_csv = csv:new()
-	return gs_stream
-end
-
--- ストリーム状態表示
-function print_status()
-	return gs_stream:print()
-end
-
-function print_status_all()
-	return gs_stream:print_table()
-end
-
--- ストリームファイルサイズ取得
-function file_size()
-	return gs_stream:size()
-end
-
--- ストリームを最大256バイト出力
-function dump()
-	return gs_stream:dump()
-end
-
--- 解析結果表示のON/OFF
-function enable_print(b)
-	return gs_stream:enable_print(b)
-end
-
--- ２バイト/４バイトの読み込みでエンディアンを変換する
-function little_endian(enable)
-	return gs_stream:little_endian(enable)
-end
-
--- 現在のバイトオフセット、ビットオフセットを取得
-function cur()
-	return gs_stream:cur()
-end
-
--- これまでに読み込んだ値を取得する
-function get(name)
-	return gs_stream:get(name)
-end
-
--- 現在のバイトオフセット、ビットオフセットを取得
-function seek(byte, bit)
-	return gs_stream:seek(byte, bit)
-end
-
--- 現在のバイトオフセット、ビットオフセットを取得
-function offset_by_bit(size)
-	return gs_stream:offset_by_bit(size)
-end
-
--- 指定したアドレス前後の読み込み結果を表示し、assert(false)する
-function set_exit(address)
-	return gs_stream:set_exit(address)
-end
-
--- ビット単位読み込み
-function rbit(name, size)
-	return name, gs_stream:rbit(name, size)
-end
-
--- バイト単位読み込み
-function rbyte(name, size)
-	return name, gs_stream:rbyte(name, size)
-end
-
--- 文字列として読み込み
-function rstr(name, size)
-	return name, gs_stream:rstr(name, size)
-end
-
--- 指数ゴロムとして読み込み
-function rexp(name)
-	return name, gs_stream:rexp(name)
-end
-
--- ビット単位で読み込み、compとの一致を確認
-function cbit(name, size, comp)
-	return name, gs_stream:cbit(name, size, comp)
-end
-
--- バイト単位で読み込み、compとの一致を確認
-function cbyte(name, size, comp)
-	return name, gs_stream:cbyte(name, size, comp)
-end
-
--- 文字列として読み込み、compとの一致を確認
-function cstr(name, size, comp)
-	return name, gs_stream:cstr(name, size, comp)
-end
-
--- １バイト検索
-function fbyte(char, advance)
-	return gs_stream:fbyte(char, advance)
-end
-
--- 文字列を検索、もしくは"00 11 22"のようなバイナリ文字列で検索
-function fstr(pattern, advance)
-	return gs_stream:fstr(pattern, advance)
-end
-
--- ストリームからファイルにデータを追記
-function wbyte(filename, size)
-	return gs_stream:wbyte(filename, size)
-end
-
--- 文字列、もしくは"00 11 22"のようなバイナリ文字列をファイルに追記
-function write(filename, pattern)
-	return gs_stream:write("out/"..filename, pattern)
-end
-
--- バイト単位で読み込むがポインタは進めない
-function gbyte(size)
-	return gs_stream:gbyte(size)
-end
-
--- 現在位置からストリームを抜き出す
-function sub_stream(name, size)
-	return gs_stream:sub_stream(name, size)
-end
-
--- csv保存用に値を記憶
--- 引数はcbyte()等の戻り値に合わせてあるのでstore(cbyte())という書き方も可能
--- valueにはテーブル等を指定することも可
-function store(key, value)
-	gs_csv:insert(key, value)
-end
-
--- store()した値をcsvに書き出す
-function save_as_csv(file_name)
-	return gs_csv:save(file_name)
-end
-
-
---------------------------------------------
--- 内部関数
---------------------------------------------
-function analyse(func, ...)
-	cret, fret = coroutine.resume(coroutine.create(func), file_size(), ...) 
+-- coroutine起動
+function start_thread(func, ...)
+	cret, fret = coroutine.resume(coroutine.create(func), ...) 
 	if cret == false then
 		print(fret)
+		io.write("coroutine resume failed. enter key to continue.")
+		io.read()
 	else
-		return fret
+		return fret, ...
 	end
 end
 
+--------------------------------------
+-- 内部関数、通常使わない
+--------------------------------------
 function check(result, msg)
 	if result == false or result == nil then
 		print_table(_self.tbl)

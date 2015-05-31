@@ -37,7 +37,10 @@ end
 ------------------------------------------------
 
 function _m:new(file_name)
-	assert(type(file_name)=="string")
+	if file_name then
+	else
+	end
+
 	print("open("..file_name..")")
 	obj = {tbl={}}
 	--_v[obj] = {}
@@ -53,10 +56,10 @@ function _m:new(file_name)
 end
 
 function _m:print()	
-	printf("file_name : %s", self.file_name)
-	printf("file_size : 0x%08x", self:size())
-	printf("cursor    : 0x%08x(%d)", self:cur(), self:cur())
-	printf("remain    : 0x%08x", self:size() - self:cur())
+	printf("name    : %s", self.file_name)
+	printf("size    : 0x%08x", self:size())
+	printf("cursor  : 0x%08x(%d)", self:cur(), self:cur())
+	printf("remain  : 0x%08x", self:size() - self:cur())
 	perf:print()
 end
 
@@ -115,6 +118,12 @@ function _m:gbyte(size)
 	return val
 end
 
+function _m:gbit(size)	
+ 	local val = self.stream:get_bit(size)
+	check(self, val, "gbit:")
+	return val
+end
+
 function _m:cbit(name, size, comp)	
 	local val = self.stream:comp_bit(name, size, comp)
 	check(self, val, "cbit:"..name)
@@ -152,6 +161,12 @@ end
 function _m:seek(byte, bit)
 	self.stream:seekpos(byte, bit or 0)
 end
+
+function _m:seekoff(byte, bit)
+	self.stream:seekoff_byte(byte)
+	self.stream:seekoff_bit(bit)
+end
+
 
 function _m:wbyte(filename, size)
 -- print(hex2str(cur()), hex2str(size))

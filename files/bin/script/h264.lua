@@ -1,9 +1,16 @@
--- H264���
+-- H264解析
+function more_rbsp_data()
+	return gbit(1) ~= 1
+end
 
 function rbsp_trailing_bits()
 	local byte, bit = cur()
 	cbit("rbsp_stop_one_bit",                          1,       1)
 	cbit("rbsp_alignment_zero_bit",                    8-1-bit, 0) 
+end
+
+function byte_aligned()
+	return select(2, cur()) == 0
 end
 
 function nal_unit_header_svc_extension()
@@ -49,7 +56,12 @@ function access_unit_delimiter_rbsp()
 	rbsp_trailing_bits()
 end
 
+function scaling_list()
+	assert(false)
+end
+
 function seq_parameter_set_rbsp()
+print("seq_parameter_set_rbsp")
 	rbit("profile_idc",                                    8)
 	rbit("constraint_set0_flag",                           1)
 	rbit("constraint_set1_flag",                           1)
@@ -85,10 +97,12 @@ function seq_parameter_set_rbsp()
 			for i = 0, num do
 				rbit("seq_scaling_list_present_flag",          1)
 				if get("seq_scaling_list_present_flag") then
-					if i < 6 then
-						scaling_list(ScalingList4x4[i], 16, UseDefaultScalingMatrix4x4Flag[i])
+					if i <= 6 then
+						scaling_list(get("ScalingList4x4["..i.."]"), 16,
+							get("UseDefaultScalingMatrix4x4Flag["..i.."]"))
 					else
-						scaling_list(ScalingList8x8[i-6], 64, UseDefaultScalingMatrix8x8Flag[i-6])
+						scaling_list(get("ScalingList8x8["..(i-6).."]"), 64,
+							get("UseDefaultScalingMatrix8x8Flag["..(i-6).."]"))
 					end
 				end
 			end	
@@ -169,7 +183,6 @@ print("vui_parameters")
 		rexp("chroma_sample_loc_type_bottom_field"            )
 	end
 
-dump()
 	rbit("timing_info_present_flag",                          1)
 	if get("timing_info_present_flag") == 1 then  
 		rbit("num_units_in_tick",                             32)
@@ -190,8 +203,9 @@ dump()
 	if get("nal_hrd_parameters_present_flag") == 1
 	or get("vcl_hrd_parameters_present_flag") == 1 then 
 		rbit("low_delay_hrd_flag",                            1)
-		rbit("pic_struct_present_flag",                       1)
 	end
+
+	rbit("pic_struct_present_flag",                           1)
 
 	rbit("bitstream_restriction_flag",                        1)
 	if get("bitstream_restriction_flag") == 1 then  
@@ -205,7 +219,229 @@ dump()
 	end
 end
 
+function pic_parameter_set_rbsp()
+print("pic_parameter_set_rbsp")
+	rexp("pic_parameter_set_id"                                   )  -- ue(v)
+	rexp("seq_parameter_set_id"                                   )  -- ue(v)
+	rbit("entropy_coding_mode_flag",                              1) -- u(1)
+	rbit("bottom_field_pic_order_in_frame_present_flag",          1) -- u(1)
+	rexp("num_slice_groups_minus1"                                )  -- ue(v)
+	if get("num_slice_groups_minus1") > 0 then
+		rexp("slice_group_map_type"                               )  -- ue(v)
+		if get("slice_group_map_type") == 0 then
+			for iGroup = 1, num_slice_groups_minus1 do
+				rexp("run_length_minus1["..iGroup.."]"            )  -- ue(v)
+			end
+		elseif get("slice_group_map_type") == 2 then
+			for iGroup = 1, num_slice_groups_minus1 do
+				rexp("top_left["..iGroup.."]"                     )  -- ue(v)
+				rexp("bottom_right["..iGroup.."]"                 )  -- ue(v)
+			end
+		elseif get("slice_group_map_type") == 3
+		or     get("slice_group_map_type") == 4
+		or     get("slice_group_map_type") == 5 then
+			rbit("slice_group_change_direction_flag",             1) -- u(1)
+			rexp("slice_group_change_rate_minus1"                 )  -- ue(v)
+		elseif get("slice_group_map_type") == 6 then
+			rexp("pic_size_in_map_units_minus1"                   )  -- ue(v)
+			for i = 1, pic_size_in_map_units_minus1 do
+				rbit("slice_group_id["..i.."]",                   1) -- u(v)
+			end
+		end
+	end
+	rexp("num_ref_idx_l0_default_active_minus1"                   )  -- ue(v)
+	rexp("num_ref_idx_l1_default_active_minus1"                   )  -- ue(v)
+	rbit("weighted_pred_flag",                                    1) -- u(1)
+	rbit("weighted_bipred_idc",                                   2) -- u(2)
+	rexp("pic_init_qp_minus26"                                    )  -- se(v)
+	rexp("pic_init_qs_minus26"                                    )  -- se(v)
+	rexp("chroma_qp_index_offset"                                 )  -- se(v)
+	rbit("deblocking_filter_control_present_flag",                1) -- u(1)
+	rbit("constrained_intra_pred_flag",                           1) -- u(1)
+	rbit("redundant_pic_cnt_present_flag",                        1) -- u(1)
+	if more_rbsp_data() then
+		rbit("transform_8x8_mode_flag",                           1) -- u(1)
+		rbit("pic_scaling_matrix_present_flag",                   1) -- u(1)
+		if pic_scaling_matrix_present_flag then
+			for i = 1, 6 + (get("chroma_format_idc") ~= 3 and 2 or 6) * get("transform_8x8_mode_flag") do
+				rbit("pic_scaling_list_present_flag["..i.."]",    1) -- u(1)
+				if get("pic_scaling_list_present_flag["..i.."]") then
+					if i <= 6 then
+						scaling_list(
+							get("ScalingList4x4["..i.."]"),
+							16,
+							get("UseDefaultScalingMatrix4x4Flag["..i.."]"))
+					else
+						scaling_list(
+							get("ScalingList8x8["..(i-6).."]"),
+							64,
+							get("UseDefaultScalingMatrix8x8Flag["..(i-6).."]"))
+					end
+				end
+			end
+		end
+		rexp("second_chroma_qp_index_offset",                    1) -- se(v)
+	end
+	rbsp_trailing_bits()
+end
+
+function sei_rbsp()
+	repeat
+		sei_message()
+	until more_rbsp_data() == false
+	rbsp_trailing_bits()
+end
+
+function sei_message()
+	local payloadType = 0
+	while gbyte(1) == 0xff do
+		cbit("ff_byte",                  5) -- f(8)
+		payloadType = payloadType + 255
+	end
+	rbit("last_payload_type_byte",       5) -- u(8)
+	payloadType = payloadType + get("last_payload_type_byte")
+
+	payloadSize = 0
+	while gbyte(1) == 0xff do
+		cbit("ff_byte",                  5) -- f(8)
+		payloadSize = payloadSize + 255
+	end
+	rbit("last_payload_size_byte",       5) -- u(8)
+	payloadSize = payloadSize + get("last_payload_size_byte")
+
+	sei_payload(payloadType, payloadSize)
+end
+
+function sei_payload(payloadType, payloadSize)
+print("sei tyep, size = ", payloadType, payloadSize)
+	local begin = cur()
+
+	if payloadType == 0 then
+		print("buffering_period( payloadSize ) 5")
+	elseif payloadType == 1 then
+		print("pic_timing( payloadSize ) 5")
+	elseif payloadType == 2 then
+		print("pan_scan_rect( payloadSize ) 5")
+	elseif payloadType == 3 then
+		print("filler_payload( payloadSize ) 5")
+	elseif payloadType == 4 then
+		print("user_data_registered_itu_t_t35( payloadSize ) 5")
+	elseif payloadType == 5 then
+		print("user_data_unregistered( payloadSize ) 5")
+	elseif payloadType == 6 then
+		print("recovery_point( payloadSize ) 5")
+	elseif payloadType == 7 then
+		print("dec_ref_pic_marking_repetition( payloadSize ) 5")
+	elseif payloadType == 8 then
+		print("spare_pic( payloadSize ) 5")
+	elseif payloadType == 9 then
+		print("scene_info( payloadSize ) 5")
+	elseif payloadType == 10 then
+		print("sub_seq_info( payloadSize ) 5")
+	elseif payloadType == 11 then
+		print("sub_seq_layer_characteristics( payloadSize ) 5")
+	elseif payloadType == 12 then
+		print("sub_seq_characteristics( payloadSize ) 5")
+	elseif payloadType == 13 then
+		print("full_frame_freeze( payloadSize ) 5")
+	elseif payloadType == 14 then
+		print("full_frame_freeze_release( payloadSize ) 5")
+	elseif payloadType == 15 then
+		print("full_frame_snapshot( payloadSize ) 5")
+	elseif payloadType == 16 then
+		print("progressive_refinement_segment_start( payloadSize ) 5")
+	elseif payloadType == 17 then
+		print("progressive_refinement_segment_end( payloadSize ) 5")
+	elseif payloadType == 18 then
+		print("motion_constrained_slice_group_set( payloadSize ) 5")
+	elseif payloadType == 19 then
+		print("film_grain_characteristics( payloadSize ) 5")
+	elseif payloadType == 20 then
+		print("deblocking_filter_display_preference( payloadSize ) 5")
+	elseif payloadType == 21 then
+		print("stereo_video_info( payloadSize ) 5")
+	elseif payloadType == 22 then
+		print("post_filter_hint( payloadSize ) 5")
+	elseif payloadType == 23 then
+		print("tone_mapping_info( payloadSize ) 5")
+	elseif payloadType == 24 then
+		print("scalability_info( payloadSize )  5")
+	elseif payloadType == 25 then
+		print("sub_pic_scalable_layer( payloadSize )  5")
+	elseif payloadType == 26 then
+		print("non_required_layer_rep( payloadSize )  5")
+	elseif payloadType == 27 then
+		print("priority_layer_info( payloadSize )  5")
+	elseif payloadType == 28 then
+		print("layers_not_present( payloadSize )  5")
+	elseif payloadType == 29 then
+		print("layer_dependency_change( payloadSize )  5")
+	elseif payloadType == 30 then
+		print("scalable_nesting( payloadSize )  5")
+	elseif payloadType == 31 then
+		print("base_layer_temporal_hrd( payloadSize )  5")
+	elseif payloadType == 32 then
+		print("quality_layer_integrity_check( payloadSize )  5")
+	elseif payloadType == 33 then
+		print("redundant_pic_property( payloadSize )  5")
+	elseif payloadType == 34 then
+		print("tl0_dep_rep_index( payloadSize )  5")
+	elseif payloadType == 35 then
+		print("tl_switching_point( payloadSize )  5")
+	elseif payloadType == 36 then
+		print("parallel_decoding_info( payloadSize )  5")
+	elseif payloadType == 37 then
+		print("mvc_scalable_nesting( payloadSize )  5")
+	elseif payloadType == 38 then
+		print("view_scalability_info( payloadSize )  5")
+	elseif payloadType == 39 then
+		print("multiview_scene_info( payloadSize )  5")
+	elseif payloadType == 40 then
+		print("multiview_acquisition_info( payloadSize )  5")
+	elseif payloadType == 41 then
+		print("non_required_view_component( payloadSize )  5")
+	elseif payloadType == 42 then
+		print("view_dependency_change( payloadSize )  5")
+	elseif payloadType == 43 then
+		print("operation_points_not_present( payloadSize )  5")
+	elseif payloadType == 44 then
+		print("base_view_temporal_hrd( payloadSize )  5")
+	elseif payloadType == 45 then
+		print("frame_packing_arrangement( payloadSize ) 5")
+	elseif payloadType == 46 then
+		print("multiview_view_position( payloadSize )  5")
+	elseif payloadType == 47 then
+		print("display_orientation( payloadSize ) 5")
+	elseif payloadType == 48 then
+		print("mvcd_scalable_nesting( payloadSize )  5")
+	elseif payloadType == 49 then
+		print("mvcd_view_scalability_info( payloadSize )  5")
+	elseif payloadType == 50 then
+		print("depth_representation_info( payloadSize )  5")
+	elseif payloadType == 51 then
+		print("three_dimensional_reference_displays_info( payloadSize ) 5")
+	elseif payloadType == 52 then
+		print("depth_timing( payloadSize )  5")
+	elseif payloadType == 53 then
+		print("depth_sampling_info( payloadSize )  5")
+	else
+		print("reserved_sei_message( payloadSize )")
+	end
+	
+	if cur()-begin ~= payloadSize then
+		rbyte("remained payload",  payloadSize - (cur() - begin))
+	end
+
+	if byte_aligned() == false then
+		cbit("bit_equal_to_one",  1, 1)-- f(1)
+	end
+	while byte_aligned() == false do
+		cbit("bit_equal_to_zero",  1, 0)-- f(1)
+	end
+end
+
 function nal_unit(NumBytesInNALunit)
+print("nal_unit")
 	rbit("forbidden_zero_bit",                          1)
 	rbit("nal_ref_idc",                                 2)
     rbit("nal_unit_type",                               5)
@@ -224,25 +460,45 @@ function nal_unit(NumBytesInNALunit)
 		nalUnitHeaderBytes = nalUnitHeaderBytes + 3
 	end
 
-	for i=1, nalUnitHeaderBytes do
-		if get("nal_unit_type") == 7 then
+-- バイト数の計算が面倒くさそうなのでとりあえずすぐにreturnする
+--	local total = nalUnitHeaderBytes
+--	while total < NumBytesInNALunit do
+
+		-- 本来03の除去はここで行うべき
+		-- このスクリプトでは事前に000003を抜いているのでおかしくなるストリームもあるかも
+		--if i + 2 < NumBytesInNALunit
+		-- and gbyte(3) == 0x000003 then 
+		-- 	wbyte("rbsp_byte",                              2)
+		-- 	rbit("emulation_prevention_three_byte",         8)
+		-- 	NumBytesInRBSP = NumBytesInRBSP + 2
+		-- 	i = i + 2
+		-- else
+		--	wbyte("rbsp_byte",                              1)
+		--end
+		local begin = cur()
+	
+		if get("nal_unit_type") == 0 then
+			print("Unspecified RBSP")
+		elseif get("nal_unit_type") == 6 then
+			sei_rbsp()
+		elseif get("nal_unit_type") == 7 then
 			seq_parameter_set_rbsp()
 		elseif get("nal_unit_type") == 8 then
-			pic_parameter_set_rbsp( )
+			pic_parameter_set_rbsp()
 		elseif get("nal_unit_type") == 9 then
 			access_unit_delimiter_rbsp()
+			
+			
+			
+			
 		else
-			if i + 2 < NumBytesInNALunit
-			and gbyte(3) == 0x000003 then 
-				wbyte("rbsp_byte",                              2)
-				rbit("emulation_prevention_three_byte",         8)
-				NumBytesInRBSP = NumBytesInRBSP + 2
-				i = i + 2
-			else
-				wbyte("rbsp_byte",                              1)
-			end
+			seekoff(1, 0)
+			print("seek")
+			--rbyte("rbsp_byte",                              1)
 		end
-	end
+		
+--		total = total + cur() - begin
+--	end
 end
 
 function byte_stream_nal_unit(NumBytesInNALunit)
@@ -272,16 +528,15 @@ function h264_byte_stream(max_length)
 	local total_size = 0;
 	while total_size < max_length do
 		total_size = total_size + byte_stream_nal_unit(max_length-total_size)
-		if gbyte(3) == 0x000001 then
-			break
-		end
+		-- if gbyte(3) == 0x000001 then
+		-- 	break
+		-- end
 	end
 end
 
-function remove_dummy(max_length)
+function remove_dummy(max_length, path)
 	print("replace 00 00 03 -> 00 00")
 	local ofs = 0
-	local path = __stream_dir__.."removed03.h264"
 	while true do
 		if cur() >= max_length then
 			break
@@ -296,23 +551,21 @@ function remove_dummy(max_length)
 		wbyte(path, ofs+2)
 		rbyte("dummy", 1)
 	end
-	
-	return path
 end
 
--- ���
-open(__stream_path__)
+-- 解析
+if __stream_path__ ~= __stream_dir__.."removed03.h264" then
+	open(__stream_path__)
+	print_status()
+	enable_print(true)
+	stdout_to_file(false)
+	start_thread(remove_dummy, file_size(), __stream_dir__.."removed03.h264")
+end
+
+open(__stream_dir__.."removed03.h264")
 print_status()
 enable_print(true)
 stdout_to_file(false)
-local removed_path = analyse(remove_dummy, file_size())
-
-print(removed_path)
-
-open(removed_path)
-print_status()
-enable_print(true)
-stdout_to_file(false)
-analyse(h264_byte_stream, file_size())
+start_thread(h264_byte_stream, file_size())
 
 

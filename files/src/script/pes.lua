@@ -226,5 +226,5 @@ __pid__ = __pid__ or 0
 open(__stream_path__)
 enable_print(false)
 stdout_to_file(false)
-analyse(pes_stream, file_size())
+start_thread(pes_stream, file_size())
 

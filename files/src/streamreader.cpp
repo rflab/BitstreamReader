@@ -330,7 +330,7 @@ namespace rf{
 
 		bool seekoff_by_bit(int offset)
 		{
-			if (FAILED("check offset", check_by_bit(offset)))
+			if (FAILED("check offset", check_offset_by_bit(offset)))
 				return false;
 
 			byte_pos_ += (bit_pos_ + offset )/ 8;
@@ -344,33 +344,14 @@ namespace rf{
 
 		bool seekoff_by_byte(int offset)
 		{
-			if (FAILED("check offset", check_by_byte(offset)))
+			if (FAILED("check offset", check_offset_by_byte(offset)))
 				return false;
 
 			byte_pos_ += offset;
-			if (offset < 0)
-				--byte_pos_;
 
 			return sync();
 		}
-
-		bool get_by_byte(char* buf, int size)
-		{
-			#if 0
-				if (FAILED("check offset", check_offset_by_byte(size)))
-					return false;
-				if (FAILED("check remained bit", bit_pos_ == 0))
-					return false;
-			#else
-				if (FAILED("check offset", check_offset_by_bit(size*8 + bit_pos_)))
-					return false;
-			#endif
-			
-			buf_->sgetn(buf, size);
-
-			return sync();
-		}
-
+		
 		bool read_by_bit(int size, uint32_t &ret_value)
 		{
 			if (FAILED("check size", size >= 0 && 32 >= size))
@@ -428,7 +409,7 @@ namespace rf{
 
 		bool read_by_byte(int size, uint32_t &ret_value)
 		{
-			return read_by_bit(size, ret_value);
+			return read_by_bit(size*8, ret_value);
 		}
 
 		// 高オーバーヘッド
@@ -501,6 +482,34 @@ namespace rf{
 			ret_str = ss.str();
 			
 			return seekoff_by_byte(ofs);
+		}
+
+		bool get_by_bit(int size, uint32_t &ret_val)
+		{
+			if (FAILED("check offset", check_offset_by_bit(size)))
+				return false;
+
+			read_by_bit(size, ret_val);
+
+			return seekoff_by_bit(-size);
+		}
+		
+		bool get_by_byte(int size, uint32_t &ret_val)
+		{
+			if (FAILED("check offset", check_offset_by_byte(size)))
+				return false;
+
+			read_by_byte(size, ret_val);
+			return seekoff_by_byte(-size);
+		}
+
+		bool get_by_buf(char* address, int size)
+		{
+			if (FAILED("check offset", check_offset_by_byte(size)))
+				return false;
+
+			buf_->sgetn(address, size);
+			return true;
 		}
 
 		// 見つからなければファイル終端を返す
@@ -721,7 +730,7 @@ namespace rf{
 			{
 				char buf[16];
 				int dump_size = min<int>(16, size);
-				bs_.get_by_byte(buf, dump_size);
+				bs_.get_by_buf(buf, dump_size);
 
 				seekoff_by_bit(size);
 
@@ -813,18 +822,20 @@ namespace rf{
 			return v;
 		}
 
-		// バイト単位で先読み
+		uint32_t get_by_bit(int size) throw(...)
+		{
+			uint32_t val;
+			if (FAILED("get_by_bit", bs_.get_by_bit(size, val)))
+				throw LUA_RUNTIME_ERROR("get_by_bit");
+			return val;
+		}
+		
 		uint32_t get_by_byte(int size) throw(...)
 		{
-			char buf[4];
-			bs_.get_by_byte(buf, size);
-			uint32_t ret = 0;
-			for (int i = 0; i < size; ++i)
-			{
-				ret <<= 8;
-				ret |= static_cast<uint8_t>(buf[i]);
-			}
-			return ret;
+			uint32_t val;
+			if (FAILED("get_by_byte", bs_.get_by_byte(size, val)))
+				throw LUA_RUNTIME_ERROR("get_by_byte");
+			return val;
 		}
 
 		// ビット単位で比較
@@ -922,7 +933,7 @@ namespace rf{
 				throw LUA_RUNTIME_ERROR("overflow");
 
 			char* buf = new char[static_cast<unsigned int>(size)];
-			bs_.get_by_byte(buf, size);
+			bs_.get_by_buf(buf, size);
 			FileManager::getInstance().output_to_file(file_name, buf, size);
 
 			if (advance)
@@ -943,7 +954,7 @@ namespace rf{
 				return false;
 
 			char* buf = new char[static_cast<unsigned int>(size)];
-			bs_.get_by_byte(buf, size);
+			bs_.get_by_buf(buf, size);
 
 			auto s = make_shared<stringbuf>();
 			s->sputn(buf, size);
@@ -970,7 +981,7 @@ namespace rf{
 			int dump_len = std::min<int>(bs_.size() - bs_.byte_pos(), max_size);
 			dump_len = std::min<int>(dump_len, sizeof(buf));
 
-			bs_.get_by_byte(buf, dump_len);
+			bs_.get_by_buf(buf, dump_len);
 
 			return dump_line(buf, 0, dump_len);
 		}
@@ -983,7 +994,7 @@ namespace rf{
 			int dump_len = std::min<int>(bs_.size() - bs_.byte_pos(), max_size);
 			dump_len = std::min<int>(dump_len, sizeof(buf));
 
-			bs_.get_by_byte(buf, dump_len);
+			bs_.get_by_buf(buf, dump_len);
 
 			return dump_as_string(buf, 0, dump_len);
 		}
@@ -996,14 +1007,13 @@ namespace rf{
 			int dump_len = std::min<int>(bs_.size() - bs_.byte_pos(), max_size);
 			dump_len = std::min<int>(dump_len, sizeof(buf));
 
-			bs_.get_by_byte(buf, dump_len);
+			bs_.get_by_buf(buf, dump_len);
 
 			return dump(buf, byte_pos(), dump_len);
 		}
 
 
 	};
-
 
 	class LuaGlueBufBitstream final : public LuaGlueBitstream
 	{
@@ -1093,6 +1103,7 @@ shared_ptr<LuaBinder> init_lua()
 		def("read_byte",        &LuaGlueFileBitstream::read_by_byte).          // バイト単位で読み込み
 		def("read_string",      &LuaGlueFileBitstream::read_by_string).        // バイト単位で文字列として読み込み
 		def("read_expgolomb",   &LuaGlueFileBitstream::read_by_expgolomb).     // 指数ごロムとしてビットを読む
+		def("get_bit" ,         &LuaGlueFileBitstream::get_by_bit).            // ポインタを進めないで値を取得、4byteまで
 		def("get_byte",         &LuaGlueFileBitstream::get_by_byte).           // ポインタを進めないで値を取得、4byteまで
 		def("comp_bit",         &LuaGlueFileBitstream::compare_by_bit).        // ビット単位で比較
 		def("comp_byte",        &LuaGlueFileBitstream::compare_by_byte).       // バイト単位で比較
@@ -1120,6 +1131,7 @@ shared_ptr<LuaBinder> init_lua()
 		def("read_byte",        &LuaGlueBitstream::read_by_byte).      // バイト単位で読み込み
 		def("read_string",      &LuaGlueBitstream::read_by_string).    // バイト単位で文字列として読み込み
 		def("read_expgolomb",   &LuaGlueBitstream::read_by_expgolomb). // 指数ごロムとしてビットを読む
+		def("get_bit" ,         &LuaGlueBitstream::get_by_bit).            // ポインタを進めないで値を取得、4byteまで
 		def("get_byte",         &LuaGlueBitstream::get_by_byte).       // ポインタを進めないで値を取得、4byteまで
 		def("comp_bit",         &LuaGlueBitstream::compare_by_bit).    // ビット単位で比較
 		def("comp_byte",        &LuaGlueBitstream::compare_by_byte).   // バイト単位で比較

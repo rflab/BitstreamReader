@@ -6,6 +6,7 @@ little_endian(true)
 dump()
 
 cstr ("'RIFF'",                       4, "RIFF")
+--rbyte("'RIFF'",                       4)
 rbyte("file_size+muns8",              4)
 rbyte("'wave'",                       4)
 rbyte("'fmt_'",                       4)
@@ -18,7 +19,7 @@ rbyte("block_size(smaple_x_channel)", 2)
 rbyte("bit_depth",                    2)
 rbyte("'data'",                       4)
 rbyte("size_audio_data",              4)
-wbyte("pcm.dat",                      get("size_audio_data")) -- PCMを書き出す
+tbyte("pcm.dat",                      get("size_audio_data")) -- PCMを書き出す
 rbyte("tag",                          4)
 rbyte("size_data",                    4, data)
 rbyte("data",                         get("size_data"))

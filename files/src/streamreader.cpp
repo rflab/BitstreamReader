@@ -233,7 +233,6 @@ namespace rf{
 			byte_pos_ = 0;
 			bit_pos_ = 0;
 			size_ = static_cast<int>(buf->pubseekoff(0, std::ios::end));
-			buf->pubseekoff(0, std::ios::beg);
 
 			return sync();
 		}
@@ -461,32 +460,28 @@ namespace rf{
 		// NULL文字が見つからなかった場合は最大max_lengthの長さ文字列として終端にNULL文字を入れる
 		bool read_by_string(int max_length, string &ret_str)
 		{
-			if (FAILED("check length", check_offset_by_bit(8 * max_length)))
+			if (FAILED("check length", check_offset_by_byte(max_length)))
 				return false;
 
 			if (FAILED("check remained bit", bit_pos_ == 0))
 				return false;
 
-			int ofs;
-			char c;
+			int ofs = 0;
+			int c;
 			stringstream ss;
-			for (ofs = 0; ofs < max_length; ++ofs)
+			for (; ofs < max_length; ++ofs)
 			{
-				c = static_cast<char>(buf_->sbumpc());
-				ss << c;
-				if (c == '\0')
+				c = buf_->sbumpc();
+				ss << static_cast<char>(c);
+				if (static_cast<char>(c) == '\0')
 				{ 
 					break;
 				}
-				else if (FAILED("check over-run", c != EOF))
+				else if (c == EOF)
 				{ 
-					sync();
-					return false;
+					break;
 				}
 			}
-
-			if (ofs != max_length)
-				++ofs;
 
 			ret_str = ss.str();
 			
@@ -518,7 +513,7 @@ namespace rf{
 				return false;
 
 			buf_->sgetn(address, size);
-			return true;
+			return sync();
 		}
 
 		// 見つからなければファイル終端を返す
@@ -581,7 +576,7 @@ namespace rf{
 
 				// 一致
 				// 不一致は1バイト進める
-				buf_->sgetn(contents, size);
+				look_by_buf(contents, size);
 				if (std::memcmp(contents, address, static_cast<size_t>(size)) == 0)
 				{
 					break;
@@ -607,11 +602,11 @@ namespace rf{
 		// 指定アドレスをバイト列でダンプ
 		static bool dump_line(const char* buf, int offset, int size)
 		{
-			char c;
+			uint8_t c;
 			for (int i = 0; i < size; ++i)
 			{
 				c = buf[offset + i];
-				printf("%02x ", static_cast<uint8_t>(c));
+				printf("%02x ", (c));
 			}
 			return true;
 		}
@@ -619,7 +614,7 @@ namespace rf{
 		// 指定アドレスを文字列でダンプ
 		static bool dump_as_string(const char* buf, int offset, int size)
 		{
-			char c;
+			uint8_t c;
 			for (int i = 0; i < size; ++i)
 			{
 				c = buf[offset + i];

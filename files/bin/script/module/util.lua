@@ -301,9 +301,9 @@ end
 function check(result, msg)
 	if result == false or result == nil then
 		print_table(_self.tbl)
-		_self:offset(-127)
-		_self:dump()
-		_self:offset(127)
+		seekoff(-127, 0)
+		dump()
+		seekoff(127, 0)
 		
 		-- ƒRƒ‹[ƒ`ƒ“‚Å‚ ‚é‚±‚Æ‚ğŠú‘Ò‚µ‚Äyield‚·‚é
 		coroutine.yield()

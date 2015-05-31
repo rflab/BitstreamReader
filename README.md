@@ -47,14 +47,15 @@ TS/MP4は主にタイムスタンプを解析します、bmp、wav、jpgは各�
     rbit ("flagA", 1)            -- 1ビットを読み込み
     rbit ("flagB", 7)            -- 7ビットを読み込み
     rbit ("flagC", 80)           -- 80ビットを読み込み
-    wbyte("out.pcm", 16)         -- 16バイトをファイルに書き写す
+    tbyte("out.pcm", 16)         -- 16バイトをファイルに書き写す
     print(get("flagC"))          -- 取得済みのデータを参照する
 
     -- その他
+    local next16bit = lbit(16)           -- 16bit先読み、ポインタは進まない
     local ofs = fstr("00 00 03", false)  -- 00 00 03のバイナリ列を検索、リードポインタは進めない
-    local s = sub_stream("payload", ofs) -- 00 00 03までを部分ストリームにする                
-    store(rbyte("size_audio_data", 4))   -- csvファイルに書き出すデータ１
-    store("data", get("flafA"))          -- csvファイルに書き出すデータ２
+    local s = sub_stream("payload", ofs) -- ↑で検索したところまでを部分ストリームにする                
+    store(rbyte("size_audio_data", 4))   -- csvファイル用データの記憶、書き方1
+    store("data", get("flafA"))          -- csvファイル用データの記憶、書き方2
     save_as_csv(result.csv)              -- csvファイルに書き出す
 
 C++側からは以下のような関数・クラスがバインドされています。

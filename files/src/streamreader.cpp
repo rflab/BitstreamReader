@@ -1301,7 +1301,7 @@ int main(int argc, char** argv)
 		}
 
 		// windowsのために入力待ちする
-		cout << "press any key.." << endl;
+		cout << "press enter key.." << endl;
 		getchar();
 	}
 

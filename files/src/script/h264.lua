@@ -271,7 +271,7 @@ print("pic_parameter_set_rbsp")
 	if more_rbsp_data() then
 		rbit("transform_8x8_mode_flag",                           1) -- u(1)
 		rbit("pic_scaling_matrix_present_flag",                   1) -- u(1)
-		if pic_scaling_matrix_present_flag then
+		if get("pic_scaling_matrix_present_flag") then
 			for i = 1, 6 + (get("chroma_format_idc") ~= 3 and 2 or 6) * get("transform_8x8_mode_flag") do
 				rbit("pic_scaling_list_present_flag["..i.."]",    1) -- u(1)
 				if get("pic_scaling_list_present_flag["..i.."]") then

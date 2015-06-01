@@ -67,46 +67,55 @@ end
 
 -- ビット単位読み込み
 function rbit(name, size)
+	check_yield(size)
 	return name, gs_stream:rbit(name, size)
 end
 
 -- バイト単位読み込み
 function rbyte(name, size)
+	check_yield(size)
 	return name, gs_stream:rbyte(name, size)
 end
 
 -- 文字列として読み込み
 function rstr(name, size)
+	check_yield(size)
 	return name, gs_stream:rstr(name, size)
 end
 
 -- 指数ゴロムとして読み込み
 function rexp(name)
+	check_yield(size)
 	return name, gs_stream:rexp(name)
 end
 
 -- ビット単位で読み込み、compとの一致を確認
 function cbit(name, size, comp)
+	check_yield(size)
 	return name, gs_stream:cbit(name, size, comp)
 end
 
 -- バイト単位で読み込み、compとの一致を確認
 function cbyte(name, size, comp)
+	check_yield(size)
 	return name, gs_stream:cbyte(name, size, comp)
 end
 
 -- 文字列として読み込み、compとの一致を確認
 function cstr(name, size, comp)
+	check_yield(size)
 	return name, gs_stream:cstr(name, size, comp)
 end
 
 -- bit単位で読み込むがポインタは進めない
 function lbit(size)
+	check_yield(size)
 	return gs_stream:lbit(size)
 end
 
 -- バイト単位で読み込むがポインタは進めない
 function lbyte(size)
+	check_yield(size)
 	return gs_stream:lbyte(size)
 end
 
@@ -122,8 +131,8 @@ end
 
 -- ストリームからファイルにデータを追記
 function tbyte(file, size)
+	check_yield(size)
 	if type(file) == "string" then
-		print(">> "..file)
 		return transfer_to_file(file, gs_stream.stream, size, true)
 	else
 		return gs_stream.transfer_byte(tostring(file), file, size, true)
@@ -298,14 +307,10 @@ end
 --------------------------------------
 -- 内部関数、通常使わない
 --------------------------------------
-function check(result, msg)
-	if result == false or result == nil then
-		print_table(_self.tbl)
-		seekoff(-127, 0)
-		dump()
-		seekoff(127, 0)
-		
-		-- コルーチンであることを期待してyieldする
+function check_yield(size)
+	if size + cur() > file_size() then
+		io.write("size over. enter key to continue.")
+		io.read()
 		coroutine.yield()
 	end
 end

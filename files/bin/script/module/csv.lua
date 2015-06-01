@@ -121,6 +121,7 @@ function _m:new ()
 	return obj
 end
 
+-- table[name]に値を保存二度目以降はテーブルになる、最初からテーブルを追記も可
 function _m:insert(name, value)
 	assert(name ~= nil, "nil name specified")
 	assert(value ~= nil, "nil value specified")

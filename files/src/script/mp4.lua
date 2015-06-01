@@ -9,7 +9,7 @@ function boxheader()
 end
 
 function ftyp(size)
-	rbyte("MajorBrand",                   4)
+	rstr ("MajorBrand",                   4)
 	rbyte("MinorVersion",                 4)
 	rstr ("CompatibleBrands",             size - 8)
 end
@@ -95,7 +95,7 @@ function trak(size, header)
 		total_size = total_size + box_size
 	end
 	
-	convert_and_store_timestamp(cur_trak)
+	analyse_samples(cur_trak)
 end
 
 function tkhd(size)
@@ -230,50 +230,51 @@ function stbl(size)
 end
 
 function VisualSampleEntryBox(header, size)
-	store(rbyte("Reserved",                    6))
-	store(rbyte("DataReferenceIndex",          2))
-	store(rbyte("Predefined",                  2))
-	store(rbyte("Reserved",                    2))
-	store(rbyte("Predefined",                  4))
+	      rbyte("Reserved",                    6)
+	      rbyte("DataReferenceIndex",          2)
+	      rbyte("Predefined",                  2)
+	      rbyte("Reserved",                    2)
+	      rbyte("Predefined",                  4)
 	store(rbyte("Width",                       2))
 	store(rbyte("Height",                      2))
 	store(rbyte("HorizResolution",             4))
 	store(rbyte("VertResolution",              4))
-	store(rbyte("Reserved",                    4))
+	      rbyte("Reserved",                    4)
 	store(rbyte("FrameCount",                  2))
-	store(rstr ("CompressorName",              32))
+	      rstr ("CompressorName",              32)
 	store(rbyte("Depth",                       2))
-	store(rbyte("Predefined",                  2))
+	      rbyte("Predefined",                  2)
 end
 
-function DESCRIPTIONRECORD(count)
-	for i=1, count do
-		local begin = cur()
-		local box_size, header = boxheader()
-		
-		cur_trak.descriptor = header
-		
-		if header == "avc1"
-		or header == "avcC"
-		or header == "m4ds"
-		or header == "btrt" then
-			VisualSampleEntryBox(header, box_size-8)
-		elseif header == "mp4a" then
-		    --
-		else
-			print("# unknown box", header)
-			VisualSampleEntryBox(box_size-8)
-		end
-
-		rbyte("some data", box_size - (cur()-begin))
+function DESCRIPTIONRECORD()
+	local begin = cur()
+	local box_size, header = boxheader()
+	
+	cur_trak.descriptor = header
+	
+	if header == "m4ds"
+	or header == "btrt" then
+		VisualSampleEntryBox(header, box_size-8)
+	elseif header == "avc1"
+	or     header == "avcC" then
+		--	
+	elseif header == "mp4a" then
+	    --
+	else
+		print("# unknown box", header)
+		VisualSampleEntryBox(box_size-8)
 	end
+
+	rbyte("some data", box_size - (cur()-begin))
 end
 
 function stsd(size)
 	rbyte("Version",      1)
 	rbyte("Flags",        3)
 	rbyte("Count",        4)
-	DESCRIPTIONRECORD(get("Count"))
+	for i=1, get("Count") do
+		DESCRIPTIONRECORD()
+	end
 end
 
 function rtmp(size)
@@ -355,7 +356,7 @@ end
 function stts(size)
 	rbyte("Version",                                        1)
 	rbyte("Flags",                                          3)
-	rbyte("Count",                                          4)
+	store_to_table(cur_trak, rbyte("Count",                 4))
 	
 	for i=1, get("Count") do
 		store_to_table(cur_trak, rbyte("SttsSampleCount",   4))
@@ -373,8 +374,19 @@ function ctts(size)
 	end
 end
 
+function STSCRECORD()
+	store_to_table(cur_trak, rbyte("FirstChunk",            4))
+	store_to_table(cur_trak, rbyte("SamplesPerChunk",       4))
+	store_to_table(cur_trak, rbyte("SampleDescIndex",       4))
+end
+
 function stsc(size)
-	rbyte("stsc", size)
+	rbyte("Version",                                        1)
+	rbyte("Flags",                                          3)
+	rbyte("Count",                                          4)
+	for i=1, get("Count") do
+		STSCRECORD()
+	end
 end
 
 function stsz(size)
@@ -397,6 +409,7 @@ function stco(size)
 end
 
 function co64(size)
+	assert("unsupported size")
 	rbyte("Version",                                        4)
 	rbyte("Flags",                                          4)
 	rbyte("OffsetCount",                                    4)
@@ -407,6 +420,12 @@ end
 
 function stss(size)
 	rbyte("stss", size)
+	rbyte("Version",                                        1)
+	rbyte("Flags",                                          3)
+	rbyte("SyncCount",                                      4)
+	for i=1, get("SyncCount") do
+		store_to_table(cur_trak, rbyte("SyncTable",         4))
+	end
 end
 
 function sdtp(size)
@@ -482,7 +501,13 @@ function ilst(size)
 end
 
 function free(size)
-	rbyte("free", size)
+	local total_size = 0
+	while total_size < size do
+		local box_size, header = boxheader()
+		rbyte("payload", box_size-8)
+		total_size = total_size + box_size
+	end
+	return size, header
 end
 
 function skip(size)
@@ -526,10 +551,55 @@ end
 -- 解析用util
 ----------------------------------------
 
-function convert_and_store_timestamp(trak)	
+function analyse_samples(trak)	
 	local time_scale = get("TimeScale")
 
-	-- tick単位のDTS
+	-- samples
+	local chunk_no = 1
+	local sample_in_chunk = 1
+	local stsc_no = 1
+	local samples_per_chunk = trak.SamplesPerChunk.tbl[stsc_no]
+	local next_stsc = trak.FirstChunk.tbl[stsc_no]
+	local sample_size = 0
+	local size_in_chunk = 0
+	local No = {}
+	local Size = {}
+	local Chunk = {}
+	local Offset = {}
+	for sample_no = 1, get("SizeCount") do
+	
+		-- sample to chunk更新
+		if chunk_no == next_stsc then
+			samples_per_chunk = trak.SamplesPerChunk.tbl[stsc_no] or samples_per_chunk
+			next_stsc = trak.FirstChunk.tbl[stsc_no + 1] or get("SizeCount") -- とりあえず
+			stsc_no = stsc_no + 1
+		end
+
+		-- サンプルサイズ
+		sample_size = trak.SizeTable.tbl[sample_no]
+		
+		-- 各種値を保存
+		table.insert(No, sample_no)
+		table.insert(Size, sample_size)
+		table.insert(Chunk, chunk_no)
+		table.insert(Offset, trak.StcoOffsets.tbl[chunk_no] + size_in_chunk)
+		
+		-- chunk or sampleのカウントアップ
+		if sample_in_chunk == samples_per_chunk then
+			sample_in_chunk = 1
+			chunk_no = chunk_no + 1 
+			size_in_chunk = 0
+		else
+			sample_in_chunk = sample_in_chunk + 1
+			size_in_chunk = size_in_chunk + sample_size
+		end
+	end
+	store(trak.descriptor.."No.", No)
+	store(trak.descriptor.."Size", Size)
+	store(trak.descriptor.."Chunk", Chunk)
+	store(trak.descriptor.."Offset", Offset)
+	
+	-- DTS
 	local DTS_in_tick = {}
 	local total_tick = 0
 	for i=1, #(trak.SttsSampleCount.tbl) do
@@ -540,18 +610,14 @@ function convert_and_store_timestamp(trak)
 			total_tick = total_tick + delta
 		end
 	end
-
-	-- 秒単位に変換保管
 	local DTS = {}
 	for i=1, #DTS_in_tick do
 		table.insert(DTS, DTS_in_tick[i]/time_scale)
 	end
-	
-	-- 記録
 	store(trak.descriptor.."DTS", DTS)
 
+	-- PTS
 	if trak.CttsSampleCount and next(trak.CttsSampleCount.tbl) then
-		-- tick単位のPTS
 		local PTS_in_tick = {}
 		local ix = 1
 		for i=1, #(trak.CttsSampleCount.tbl) do
@@ -562,22 +628,32 @@ function convert_and_store_timestamp(trak)
 				ix = ix + 1
 			end
 		end
-		
 		local PTS = {}
 		for i=1, #PTS_in_tick do
 			table.insert(PTS, PTS_in_tick[i]/time_scale)
 		end
-		
-		-- 記録		
 		store(trak.descriptor.."PTS", PTS)
-
 	else
 		print("no PTS in ", descriptor)
 	end
+	
+	-- ES書き出し
+	prev = cur()
+	print(descriptor)
+	for i = 1, #Offset do
+		print(Offset[i], Size[i])
+		seek(Offset[i])
+		tbyte(__stream_dir__.."/out/"..trak.descriptor..".dat", Size[i])
+	end
+	seek(prev)
+end
+
+function extract_es()
+	
 end
 
 open(__stream_path__)
-enable_print(true)
+enable_print(false)
 stdout_to_file(false)
 mp4(file_size())
 

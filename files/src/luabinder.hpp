@@ -247,7 +247,7 @@ namespace rf
 		//}
 
 		template<typename T>
-		static T get_stack(lua_State* L, int index, typename enable_if<!is_basic_type<T>::value>::type* = 0)
+		static T& get_stack(lua_State* L, int index, typename enable_if<!is_basic_type<T>::value>::type* = 0)
 		{
 			if (lua_type(L, index) != LUA_TUSERDATA)
 				throw LUA_ARGUMENT_ERROR(string("not a userdata arg:") + std::to_string(index));

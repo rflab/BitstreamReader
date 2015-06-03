@@ -1,11 +1,16 @@
 -- mp4解析
 local cur_trak = nil
 
-function boxheader()
+function BOXHEADER()
 	rbyte("boxsize",                     4)
-	rstr ("boxheader",                   4)
-	printf("0x%08x      %s", get("boxsize"), get("boxheader"))
-	return get("boxsize"), get("boxheader")
+	rstr ("BOXHEADER",                   4)
+	if get("boxsize") == 1 then
+		rbyte("boxsize_upper32bit",      4)
+		rbyte("boxsize",                 4)
+	end
+	
+	printf("0x%08x      %s", get("boxsize"), get("BOXHEADER"))
+	return get("boxsize"), get("BOXHEADER")
 end
 
 function ftyp(size)
@@ -37,7 +42,7 @@ end
 function moov(size)
 	local total_size = 0;
 	while total_size < size do
-		local box_size, header = boxheader()
+		local box_size, header = BOXHEADER()
 		
 		if header == "mvhd" then
 			mvhd(box_size-8)
@@ -81,7 +86,7 @@ function trak(size, header)
 
 	local total_size = 0;
 	while total_size < size do
-		local box_size, header = boxheader()
+		local box_size, header = BOXHEADER()
 		
 		if header == "mdia" then
 			mdia(box_size-8)
@@ -103,7 +108,7 @@ function tkhd(size)
 end
 
 function edts(size)
-	local box_size, header = boxheader()
+	local box_size, header = BOXHEADER()
 	elst(box_size)
 end
 
@@ -116,7 +121,7 @@ function elst(size)
 	-- ELSTRECORD
 	for i=1, get("EntryCount") do
 		rbyte("SegmentDuration",              4 * x)
-		store(rbyte("MediaTime",              4 * x))
+		store(rbyte("#MediaTime",              4 * x))
 		rbyte("MediaRateInteger",             2)
 		rbyte("MediaRateFraction",            2)
 		
@@ -126,7 +131,7 @@ end
 function mdia(size)
 	local total_size = 0;
 	while total_size < size do
-		local box_size, header = boxheader()
+		local box_size, header = BOXHEADER()
 		
 		if header == "mdhd" then
 			mdhd(box_size-8)
@@ -162,7 +167,7 @@ end
 function minf(size)
 	local total_size = 0;
 	while total_size < size do
-		local box_size, header = boxheader()
+		local box_size, header = BOXHEADER()
 		
 		if header == "stbl" then
 			stbl(box_size-8)
@@ -206,7 +211,7 @@ end
 function stbl(size)
 	local total_size = 0;
 	while total_size < size do
-		local box_size, header = boxheader()
+		local box_size, header = BOXHEADER()
 		
 		if header == "stsd" then
 			stsd(box_size-8)
@@ -218,6 +223,8 @@ function stbl(size)
 			stsz(box_size-8)
 		elseif header == "stco" then
 			stco(box_size-8)
+		elseif header == "stss" then
+			stss(box_size-8)
 		elseif header == "ctts" then
 			ctts(box_size-8)
 		else
@@ -248,7 +255,7 @@ end
 
 function DESCRIPTIONRECORD()
 	local begin = cur()
-	local box_size, header = boxheader()
+	local box_size, header = BOXHEADER()
 	
 	cur_trak.descriptor = header
 	
@@ -419,7 +426,6 @@ function co64(size)
 end
 
 function stss(size)
-	rbyte("stss", size)
 	rbyte("Version",                                        1)
 	rbyte("Flags",                                          3)
 	rbyte("SyncCount",                                      4)
@@ -469,7 +475,21 @@ function uuid(size)
 end
 
 function moof(size)
-	rbyte("moof", size)
+	local total_size = 0;
+	while total_size < size do
+		local box_size, header = BOXHEADER()
+		
+		if header == "mfhd" then
+			mfhd(box_size-8)
+		elseif header == "traf" then
+			traf(box_size-8)
+		else
+			print("# unknown box", header)
+			rbyte("payload", box_size-8)
+		end
+		
+		total_size = total_size + box_size
+	end
 end
 
 function mfhd(size)
@@ -477,15 +497,88 @@ function mfhd(size)
 end
 
 function traf(size)
-	rbyte("traf", size)
+	local total_size = 0;
+	while total_size < size do
+		local box_size, header = BOXHEADER()
+		
+		if header == "mfhd" then
+			mfhd(box_size-8)
+		elseif header == "traf" then
+			traf(box_size-8)
+		else
+			print("# unknown box", header)
+			rbyte("payload", box_size-8)
+		end
+		
+		total_size = total_size + box_size
+	end
+end
+
+function SAMPLEFLAGS()
+	rbit("Reserved",                  6)
+	rbit("SampleDependsOn",           2)
+	rbit("SampleIsDependedOn",        2)
+	rbit("SampleHasRedundancy",       2)
+	rbit("SamplePaddingValue",        3)
+	rbit("SampleIsDifferenceSample",  1)
+	rbit("SampleDegradationPriority", 16)
 end
 
 function tfhd(size)
-	rbyte("tfhd", size)
+	rbyte("Version",                      1)
+	rbyte("Flags",                        3)
+	rbyte("TrackID",                      4)
+	if get("Flags") & 0x000001 then
+		rbyte("BaseDataOffset",           8)
+	end
+	if get("Flags") & 0x000002 then
+		rbyte("SampleDescriptionIndex",   4)
+	end
+	if get("Flags") & 0x000008 then
+		rbyte("DefaultSampleDuration",    4)
+	end
+	if get("Flags") & 0x000010 then
+		rbyte("DefaultSampleSize",        4)
+	end
+	if get("Flags") & 0x000020 then
+		-- DefaultSampleFlags
+		SAMPLEFLAGS()
+	end
+end
+
+function SampleInformationStructure(Flags)
+	-- SampleInformation
+	if Flags & 0x000100 then
+		rbyte("SampleDuration",               4)
+	end
+	if Flags & 0x000200 then
+		rbyte("SampleSize",                   4)
+	end
+	if Flags & 0x000400 then
+		-- SampleFlags
+		SAMPLEFLAGS()
+	end
+	if Flags & 0x000800 then
+		rbyte("SampleCompositionTimeOffset",  4)
+	end
 end
 
 function trun(size)
-	rbyte("trun", size)
+	rbyte("Version",                              1)
+	rbyte("Flags",                                3)
+	rbyte("SampleCount",                          4)
+	if get("Flags") & 0x000001 then
+		rbyte("DataOffset",                       4)
+	end
+	if get("Flags") & 0x000004 then
+		-- SampleFlags
+		SAMPLEFLAGS()
+	end
+	local Flags = get("Flags")
+	for i=1, get("SampleCount") do
+		-- SampleInformation
+		SampleInformationStructure(Flags)
+	end
 end
 
 function mdat(size)
@@ -503,7 +596,7 @@ end
 function free(size)
 	local total_size = 0
 	while total_size < size do
-		local box_size, header = boxheader()
+		local box_size, header = BOXHEADER()
 		rbyte("payload", box_size-8)
 		total_size = total_size + box_size
 	end
@@ -529,12 +622,16 @@ end
 function mp4(size)
 	local total_size = 0
 	while total_size < size do
-		local box_size, header = boxheader()
+		local box_size, header = BOXHEADER()
 
 		if header == "ftyp" then
 			ftyp(box_size-8)
+		elseif header == "free" then
+			free(box_size-8)
 		elseif header == "moov" then
 			moov(box_size-8)
+		elseif header == "moof" then
+			moof(box_size-8)
 		elseif header == "mdat" then
 			mdat(box_size-8)
 		else
@@ -634,14 +731,14 @@ function analyse_samples(trak)
 		end
 		store(trak.descriptor.."PTS", PTS)
 	else
-		print("no PTS in ", descriptor)
+		print("no PTS in ", cur_trak.descriptor)
 	end
 	
 	-- ES書き出し
 	prev = cur()
-	print(descriptor)
+	print(cur_trak.descriptor)
 	for i = 1, #Offset do
-		print(Offset[i], Size[i])
+		--print(Offset[i], Size[i])
 		seek(Offset[i])
 		tbyte(__stream_dir__.."/out/"..trak.descriptor..".dat", Size[i])
 	end

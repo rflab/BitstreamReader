@@ -6,7 +6,7 @@ local gs_csv
 --------------------------------------------
 -- ストリームファイルを開く
 function open(file_name)
-	gs_stream = stream:new(file_name)
+	gs_stream = stream:new(file_name, "r")
 	gs_csv = csv:new()
 	return gs_stream
 end
@@ -130,12 +130,12 @@ function fstr(pattern, advance)
 end
 
 -- ストリームからファイルにデータを追記
-function tbyte(file, size)
+function tbyte(target, size)
 	check_yield(size)
-	if type(file) == "string" then
-		return transfer_to_file(file, gs_stream.stream, size, true)
+	if type(target) == "string" then
+		return transfer_to_file(target, gs_stream.stream, size, true)
 	else
-		return gs_stream.transfer_byte(tostring(file), file, size, true)
+		return gs_stream:tbyte(tostring(target), target, size, true)
 	end
 end
 

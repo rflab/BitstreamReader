@@ -323,7 +323,6 @@ function jpg()
 	end
 end
 
-
 open(__stream_path__)
 little_endian(false)
 enable_print(true)

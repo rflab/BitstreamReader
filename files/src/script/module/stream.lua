@@ -1,3 +1,11 @@
+-- ストリームクラス
+-- newの引数に応じてファイル、バッファ、FIFOが切り替わる
+-- ファイル、バッファはほぼすべてのメソッドを使用可能だが、
+-- FIFOはシークが必要な処理がバインドされておらずエラーになる
+
+------------------------------------------------
+-- class
+------------------------------------------------
 local name = ...           -- 第一引数がモジュール名
 local _m = {}              -- メンバ関数を補樹威するテーブル
 local _meta = {__index=_m} 
@@ -36,19 +44,23 @@ end
 -- public
 ------------------------------------------------
 
-function _m:new(file_name)
+function _m:new(param, mode)
 	obj = {tbl={}}
 	--_v[obj] = {}
 	setmetatable(obj, _meta )
 
-	if file_name then
-		print("open stream ("..file_name..")")
+	if type(param) == "string" then
+		print("open stream ("..param..")")
 		obj.stream = FileBitstream.new()
-		obj.file_name = file_name
-		assert(obj.stream:open(file_name, "r"))
+		obj.file_name = param
+		assert(obj.stream:open(param, mode))
+	elseif type(param) == "number" then
+		print("create fifo stream", param)
+		obj.stream = Fifo.new()
+		obj.stream:reserve(param)
 	else
 		print("create stream ()")
-		obj.stream = Bitstream.new()
+		obj.stream = Buffer.new()
 	end
 
 	obj.stream:little_endian(false)
@@ -155,7 +167,20 @@ end
 function _m:fstr(pattern, advance)
 	local str = pat2str(pattern)
 	local ofs = self.stream:find_byte_string(str, #str, advance)
-	check(self, ofs, "sstr:"..pattern)
+	check(self, ofs, "fstr:"..pattern)
+	return ofs	
+end
+
+function _m:nbyte(char)	
+	local ofs = self.stream:next_byte(char)
+	check(self, ofs, "nbyte:"..char)
+	return ofs
+end
+
+function _m:nstr(pattern)
+	local str = pat2str(pattern)
+	local ofs = self.stream:next_byte_string(str, #str)
+	check(self, ofs, "nstr:"..pattern)
 	return ofs	
 end
 
@@ -168,18 +193,32 @@ function _m:seekoff(byte, bit)
 	self.stream:seekoff_bit(bit)
 end
 
---function _m:write(filename, pattern)
---	local str = ""
---	if string.match(pattern, "[0-9][0-9] ") ~= nil then
---		for hex in string.gmatch(pattern, "%w+") do
---			str = str .. string.char(tonumber(hex, 16))
---		end
---	else
---		str = pattern
---	end
---	local ret = self.stream:output_to_file(filename, str, #str)
---	check(self, ret, "write:"..filename)
---end
+function _m:putc(c)
+	self.stream:put_char(c)
+end
+
+function _m:write(pattern)
+	local str = ""
+	if string.match(pattern, "[0-9][0-9] ") ~= nil then
+		for hex in string.gmatch(pattern, "%w+") do
+			str = str .. string.char(tonumber(hex, 16))
+		end
+	else
+		str = pattern
+	end
+	self.stream:write(str, #str)
+end
+
+function _m:tbyte(name, target, size, advance)	
+	self.stream:transfer_byte(name, target.stream, size, advance or true)
+end
+
+function _m:sub_stream(name, size, advance)	
+	local b = Buffer:new()
+	print(size)
+	self.stream:transfer_byte(name, b, size, advance or true)
+	return b
+end
 
 function _m:enable_print(b)	
 	return self.stream:enable_print(b)
@@ -198,13 +237,6 @@ function _m:little_endian(enable)
 	end
 end
 
-function _m:sub_stream(name, size)	
-	local b = Bitstream:new()
-	print(size)
-	self.stream:sub_stream(name, b, size, false)
-	return b
-end
-
 --function progress()
 --	local p = math.modf(cur()/file_size() * 100)
 --	if math.modf(p % 10) == 0 and progress <= p then
@@ -213,4 +245,3 @@ end
 --		profiler:print()
 --	end
 --end
-

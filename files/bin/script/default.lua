@@ -57,6 +57,9 @@ elseif ext == ".dat" then
 elseif string.match(argv[1], "[0-9a-f][0-9a-f]") ~= nil then
 	dofile(__exec_dir__.."script/string.lua")
 
+elseif ext == ".test" then
+	dofile(__exec_dir__.."script/test.lua")
+
 else
 	print("not found extension")
 end

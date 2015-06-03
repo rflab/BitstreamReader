@@ -70,7 +70,7 @@ C++側からは以下のような関数・クラスがバインドされてい�
     lua->def("reverse_16",       reverse_endian_16);                  // 16ビットエンディアン変換
     lua->def("reverse_32",       reverse_endian_32);                  // 32ビットエンディアン変換
 
-    // ファイルバッファによるビットストリームクラス
+    // std::filebufによるビットストリームクラス
     lua->def_class<LuaGlueFileBitstream>("FileBitstream")->
     	def("open",             &LuaGlueFileBitstream::open).                  // ファイルオープン
     	def("size",             &LuaGlueFileBitstream::size).                  // ファイルサイズ取得
@@ -100,7 +100,7 @@ C++側からは以下のような関数・クラスがバインドされてい�
     	def("dump",             
     		(bool(LuaGlueFileBitstream::*)(int)) &LuaGlueFileBitstream::dump); // 現在位置からバイト表示
 
-    // メモリによるビットストリームクラス
+    // std::stringbufによるビットストリームクラス
     lua->def_class<LuaGlueBufBitstream>("Buffer")->
     	def("size",             &LuaGlueBufBitstream::size).              // 解析ファイルサイズ取得
     	def("enable_print",     &LuaGlueBufBitstream::enable_print).      // コンソール出力ON/OFF

@@ -74,7 +74,7 @@ C++側からは以下のような関数・クラスがバインドされてい�
     lua->def_class<LuaGlueFileBitstream>("FileBitstream")->
     	def("open",             &LuaGlueFileBitstream::open).                  // ファイルオープン
     	def("size",             &LuaGlueFileBitstream::size).                  // ファイルサイズ取得
-    	def("enable_print",     &LuaGlueFileBitstream::enable_print).          // コンソール出力ON/OFF
+    	def("enable_print",     &LuaGlueFileBitstream::enable_print).          // 解析ログのON/OFF
     	def("little_endian",    &LuaGlueFileBitstream::little_endian).         // ２バイト/４バイトの読み込み時はエンディアンを変換する
     	def("seekpos_bit",      &LuaGlueFileBitstream::seekpos_by_bit).        // 先頭からファイルポインタ移動
     	def("seekpos_byte",     &LuaGlueFileBitstream::seekpos_by_byte).       // 先頭からファイルポインタ移動
@@ -102,8 +102,8 @@ C++側からは以下のような関数・クラスがバインドされてい�
 
     // std::stringbufによるビットストリームクラス
     lua->def_class<LuaGlueBufBitstream>("Buffer")->
-    	def("size",             &LuaGlueBufBitstream::size).              // 解析ファイルサイズ取得
-    	def("enable_print",     &LuaGlueBufBitstream::enable_print).      // コンソール出力ON/OFF
+    	def("size",             &LuaGlueBufBitstream::size).              // バッファサイズ取得
+    	def("enable_print",     &LuaGlueBufBitstream::enable_print).      // 解析ログのON/OFF
     	def("little_endian",    &LuaGlueBufBitstream::little_endian).     // ２バイト/４バイトの読み込み時はエンディアンを変換する
     	def("seekpos_bit",      &LuaGlueBufBitstream::seekpos_by_bit).    // 先頭からファイルポインタ移動
     	def("seekpos_byte",     &LuaGlueBufBitstream::seekpos_by_byte).   // 先頭からファイルポインタ移動
@@ -133,8 +133,8 @@ C++側からは以下のような関数・クラスがバインドされてい�
     // シーク/ダンプ系の処理はできず、ヘッド/テールの監視もないので
     // メモリに余裕がある処理なら"Buffer"クラスを使ったほうが良い
     lua->def_class<LuaGlueFifoBitstream>("Fifo")->
-    	def("size",             &LuaGlueFifoBitstream::size).              // 解析ファイルサイズ取得
-    	def("reserve",          &LuaGlueFifoBitstream::reserve).           // 解析ファイルサイズ取得
+    	def("size",             &LuaGlueFifoBitstream::size).              // 書き込み済みサイズ取得
+    	def("reserve",          &LuaGlueFifoBitstream::reserve).           // バッファサイズ設定、使う前に必須
     	def("enable_print",     &LuaGlueFifoBitstream::enable_print).      // コンソール出力ON/OFF
     	def("little_endian",    &LuaGlueFifoBitstream::little_endian).     // ２バイト/４バイトの読み込み時はエンディアンを変換する
     	def("bit_pos",          &LuaGlueFifoBitstream::bit_pos).           // 現在のビットオフセットを取得

@@ -1,5 +1,7 @@
 -- mp4解析
 local cur_trak = nil
+local trak_no = 0
+local trak_data = {}
 
 function BOXHEADER()
 	rbyte("boxsize",                     4)
@@ -100,7 +102,7 @@ function trak(size, header)
 		total_size = total_size + box_size
 	end
 	
-	analyse_samples(cur_trak)
+	analyse_trak(cur_trak)
 end
 
 function tkhd(size)
@@ -648,7 +650,9 @@ end
 -- 解析用util
 ----------------------------------------
 
-function analyse_samples(trak)	
+function analyse_trak(trak)	
+	local result = {}
+
 	local time_scale = get("TimeScale")
 
 	-- samples
@@ -697,6 +701,7 @@ function analyse_samples(trak)
 	store(trak.descriptor.."Offset", Offset)
 	
 	-- DTS
+	local DTS = {}
 	local DTS_in_tick = {}
 	local total_tick = 0
 	for i=1, #(trak.SttsSampleCount.tbl) do
@@ -707,13 +712,13 @@ function analyse_samples(trak)
 			total_tick = total_tick + delta
 		end
 	end
-	local DTS = {}
 	for i=1, #DTS_in_tick do
 		table.insert(DTS, DTS_in_tick[i]/time_scale)
 	end
 	store(trak.descriptor.."DTS", DTS)
 
 	-- PTS
+	local PTS = {}
 	if trak.CttsSampleCount and next(trak.CttsSampleCount.tbl) then
 		local PTS_in_tick = {}
 		local ix = 1
@@ -725,7 +730,6 @@ function analyse_samples(trak)
 				ix = ix + 1
 			end
 		end
-		local PTS = {}
 		for i=1, #PTS_in_tick do
 			table.insert(PTS, PTS_in_tick[i]/time_scale)
 		end
@@ -743,10 +747,62 @@ function analyse_samples(trak)
 		tbyte(__stream_dir__.."/out/"..trak.descriptor..".dat", Size[i])
 	end
 	seek(prev)
+	
+	-- タイムスタンプ書き出し用
+	trak_no = trak_no + 1
+	trak_data[trak_no] = {}
+	trak_data[trak_no].i = 1
+	trak_data[trak_no].descriptor = cur_trak.descriptor
+	trak_data[trak_no].PTS = PTS
+	trak_data[trak_no].DTS = DTS
+	trak_data[trak_no].Offset = Offset
+	table.insert(trak_data[trak_no].Offset, false) -- 番兵
 end
 
-function extract_es()
-	
+function analyse_mp4()
+	local c = csv:new()
+	local min_ofs = 0x7fffffff
+	local min_i
+	local end_count = 0
+	while true do
+		min_i = 1
+		min_ofs = 0x7fffffff
+		end_count = 0
+
+	    -- Offsetの一番近いtrakを調べる、出力済みならカウントアップ
+		for i, v in ipairs(trak_data) do
+			if v.Offset[v.i] == false then
+				end_count = end_count+1
+			else
+				if v.Offset[v.i] < min_ofs then
+					min_ofs = v.Offset[v.i]
+					min_i = i
+				end
+			end
+		end
+
+	    -- 全部出力済みで終了
+		if end_count == #trak_data then
+			c:save(__stream_dir__.."out/timestamp.csv")
+			break
+		end
+		
+	    -- CSVに保存、offsetがまだのtrakはfalseを書き込みcsv上で空欄にする
+		c:insert("Offset", min_ofs)
+		for i, v in ipairs(trak_data) do
+			
+			if v.Offset[v.i] ~= false then
+				if min_i == i then
+					c:insert(v.descriptor.." DTS", v.DTS[v.i])
+					v.i = v.i + 1
+				else
+					c:insert(v.descriptor.." DTS", "")
+				end
+			else
+				c:insert(v.descriptor.." DTS", "")
+			end
+		end
+	end
 end
 
 open(__stream_path__)
@@ -756,4 +812,7 @@ mp4(file_size())
 
 print_status()
 save_as_csv(__stream_dir__.."out/mp4.csv")
+
+analyse_mp4()
+
 

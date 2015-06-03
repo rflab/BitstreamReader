@@ -31,6 +31,8 @@ save_as_csv_recursive_ipairs = function (fp, tbl)
 	for i, v in ipairs(tbl) do
 		if type(v) == "table" then
 			save_as_csv_recursive(fp, v)
+		elseif v == false then
+			fp:write(", ")
 		else
 			fp:write(tostring(v)..", ")
 		end
@@ -39,8 +41,9 @@ save_as_csv_recursive_ipairs = function (fp, tbl)
 end
 
 -- CSV出力用に2次元配列に変換する
--- 配列中にテーブルが出てきた場合は再起して出力する
--- テーブルと値が混ざっている場合は順番は保証されない
+-- rootに数値インデックスのテーブルが入っていた場合は"[1]"のような名前をつける
+-- rootのテーブル中にテーブルが入っていた場合は再起して次の列に出力する
+--   →ただしこの場合テーブルと値が混ざっている場合は順番は保証されない
 local normalize_table_ipairs
 local function normalize_table(tbl, dest, name)
 	dest = dest or {}
@@ -122,6 +125,7 @@ function _m:new ()
 end
 
 -- table[name]に値を保存二度目以降はテーブルになる、最初からテーブルを追記も可
+-- falseを書いた欄はcsv上では空欄になる
 function _m:insert(name, value)
 	assert(name ~= nil, "nil name specified")
 	assert(value ~= nil, "nil value specified")
@@ -141,7 +145,6 @@ function _m:save(file_name, ...)
 	assert(fp, "fileopen error save_as_csv("..file_name..")")
 	save_as_csv_recursive(
 		fp,
-		transpose_table(select_table(normalize_table(self.tbl),
-		... or "all")))
+		transpose_table(select_table(normalize_table(self.tbl),	... or "all")))
 end
 

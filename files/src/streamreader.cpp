@@ -1261,11 +1261,11 @@ shared_ptr<LuaBinder> init_lua()
 	lua->def("reverse_16",       reverse_endian_16);                  // 16ビットエンディアン変換
 	lua->def("reverse_32",       reverse_endian_32);                  // 32ビットエンディアン変換
 
-	// ファイルストリームクラス
+	// std::filebufによるビットストリームクラス
 	lua->def_class<LuaGlueFileBitstream>("FileBitstream")->
 		def("open",             &LuaGlueFileBitstream::open).                  // ファイルオープン
 		def("size",             &LuaGlueFileBitstream::size).                  // ファイルサイズ取得
-		def("enable_print",     &LuaGlueFileBitstream::enable_print).          // コンソール出力ON/OFF
+		def("enable_print",     &LuaGlueFileBitstream::enable_print).          // 解析ログのON/OFF
 		def("little_endian",    &LuaGlueFileBitstream::little_endian).         // ２バイト/４バイトの読み込み時はエンディアンを変換する
 		def("seekpos_bit",      &LuaGlueFileBitstream::seekpos_by_bit).        // 先頭からファイルポインタ移動
 		def("seekpos_byte",     &LuaGlueFileBitstream::seekpos_by_byte).       // 先頭からファイルポインタ移動
@@ -1291,10 +1291,10 @@ shared_ptr<LuaBinder> init_lua()
 		def("dump",             
 			(bool(LuaGlueFileBitstream::*)(int)) &LuaGlueFileBitstream::dump); // 現在位置からバイト表示
 
-	// 通常バッファクラス
+	// std::stringbufによるビットストリームクラス
 	lua->def_class<LuaGlueBufBitstream>("Buffer")->
-		def("size",             &LuaGlueBufBitstream::size).              // 解析ファイルサイズ取得
-		def("enable_print",     &LuaGlueBufBitstream::enable_print).      // コンソール出力ON/OFF
+		def("size",             &LuaGlueBufBitstream::size).              // バッファサイズ取得
+		def("enable_print",     &LuaGlueBufBitstream::enable_print).      // 解析ログのON/OFF
 		def("little_endian",    &LuaGlueBufBitstream::little_endian).     // ２バイト/４バイトの読み込み時はエンディアンを変換する
 		def("seekpos_bit",      &LuaGlueBufBitstream::seekpos_by_bit).    // 先頭からファイルポインタ移動
 		def("seekpos_byte",     &LuaGlueBufBitstream::seekpos_by_byte).   // 先頭からファイルポインタ移動
@@ -1320,11 +1320,12 @@ shared_ptr<LuaBinder> init_lua()
 		def("dump",														         	     
 			(bool(LuaGlueBufBitstream::*)(int)) &LuaGlueBufBitstream::dump); // 現在位置からバイト表示
 
-	// リングバッファクラス
-	// シーク系の処理はできない
+	// FIFO（リングバッファ）によるビットストリームクラスクラス
+	// シーク/ダンプ系の処理はできず、ヘッド/テールの監視もないので
+	// メモリに余裕がある処理なら"Buffer"クラスを使ったほうが良い
 	lua->def_class<LuaGlueFifoBitstream>("Fifo")->
-		def("size",             &LuaGlueFifoBitstream::size).              // 解析ファイルサイズ取得
-		def("reserve",          &LuaGlueFifoBitstream::reserve).           // 解析ファイルサイズ取得
+		def("size",             &LuaGlueFifoBitstream::size).              // 書き込み済みサイズ取得
+		def("reserve",          &LuaGlueFifoBitstream::reserve).           // バッファサイズ設定、使う前に必須
 		def("enable_print",     &LuaGlueFifoBitstream::enable_print).      // コンソール出力ON/OFF
 		def("little_endian",    &LuaGlueFifoBitstream::little_endian).     // ２バイト/４バイトの読み込み時はエンディアンを変換する
 		def("bit_pos",          &LuaGlueFifoBitstream::bit_pos).           // 現在のビットオフセットを取得

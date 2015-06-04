@@ -18,7 +18,7 @@ local function save_as_csv_recursive(fp, tbl)
 	save_as_csv_recursive_ipairs(fp, tbl)
 	for k, v in pairs(tbl) do
 		if type(k) == "string" then
-			fp:write("["..k.."]"..", ")
+			fp:write("["..k.."]"..",")
 			if type(v) == "table" then
 				save_as_csv_recursive(fp, v)
 			else
@@ -32,9 +32,9 @@ save_as_csv_recursive_ipairs = function (fp, tbl)
 		if type(v) == "table" then
 			save_as_csv_recursive(fp, v)
 		elseif v == false then
-			fp:write(", ")
+			fp:write(",")
 		else
-			fp:write(tostring(v)..", ")
+			fp:write(tostring(v)..",")
 		end
 	end
 	fp:write("\n")

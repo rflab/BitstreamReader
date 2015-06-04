@@ -6,13 +6,16 @@ local trak_data = {}
 function BOXHEADER()
 	rbyte("boxsize",                     4)
 	rstr ("BOXHEADER",                   4)
+
 	if get("boxsize") == 1 then
 		rbyte("boxsize_upper32bit",      4)
 		rbyte("boxsize",                 4)
+		printf("0x%08x      %s", get("boxsize"), get("BOXHEADER"))
+		return get("BOXHEADER"), get("boxsize"), 16
+	else
+		printf("0x%08x      %s", get("boxsize"), get("BOXHEADER"))
+		return get("BOXHEADER"), get("boxsize"), 8
 	end
-	
-	printf("0x%08x      %s", get("boxsize"), get("BOXHEADER"))
-	return get("boxsize"), get("BOXHEADER")
 end
 
 function ftyp(size)
@@ -44,21 +47,21 @@ end
 function moov(size)
 	local total_size = 0;
 	while total_size < size do
-		local box_size, header = BOXHEADER()
+		local header, box_size, header_size = BOXHEADER()
 		
 		if header == "mvhd" then
-			mvhd(box_size-8)
+			mvhd(box_size-header_size)
 		elseif header == "trak" then
-			trak(box_size-8)
+			trak(box_size-header_size)
 		elseif header == "mvex" then
-			mvex(box_size-8)
+			mvex(box_size-header_size)
 		elseif header == "udta" then
-			udta(box_size-8)
+			udta(box_size-header_size)
 		elseif header == "auth" then
-			auth(box_size-8)
+			auth(box_size-header_size)
 		else
 			print("# unknown box", header)
-			rbyte("payload", box_size-8)
+			rbyte("payload", box_size-header_size)
 		end
 		
 		total_size = total_size + box_size
@@ -88,15 +91,15 @@ function trak(size, header)
 
 	local total_size = 0;
 	while total_size < size do
-		local box_size, header = BOXHEADER()
+		local header, box_size, header_size = BOXHEADER()
 		
 		if header == "mdia" then
-			mdia(box_size-8)
+			mdia(box_size-header_size)
 		elseif header == "edts" then
-			edts(box_size-8)
+			edts(box_size-header_size)
 		else
 			print("# unknown box", header)
-			rbyte("payload", box_size-8)
+			rbyte("payload", box_size-header_size)
 		end
 		
 		total_size = total_size + box_size
@@ -110,7 +113,7 @@ function tkhd(size)
 end
 
 function edts(size)
-	local box_size, header = BOXHEADER()
+	local header, box_size, header_size = BOXHEADER()
 	elst(box_size)
 end
 
@@ -133,15 +136,15 @@ end
 function mdia(size)
 	local total_size = 0;
 	while total_size < size do
-		local box_size, header = BOXHEADER()
+		local header, box_size, header_size = BOXHEADER()
 		
 		if header == "mdhd" then
-			mdhd(box_size-8)
+			mdhd(box_size-header_size)
 		elseif header == "minf" then
-			minf(box_size-8)
+			minf(box_size-header_size)
 		else
 			print("# unknown box", header)
-			rbyte("payload", box_size-8)
+			rbyte("payload", box_size-header_size)
 		end
 		
 		total_size = total_size + box_size
@@ -169,13 +172,13 @@ end
 function minf(size)
 	local total_size = 0;
 	while total_size < size do
-		local box_size, header = BOXHEADER()
+		local header, box_size, header_size = BOXHEADER()
 		
 		if header == "stbl" then
-			stbl(box_size-8)
+			stbl(box_size-header_size)
 		else
 			print("# unknown box", header)
-			rbyte("payload", box_size-8)
+			rbyte("payload", box_size-header_size)
 		end
 		
 		total_size = total_size + box_size
@@ -213,25 +216,25 @@ end
 function stbl(size)
 	local total_size = 0;
 	while total_size < size do
-		local box_size, header = BOXHEADER()
+		local header, box_size, header_size = BOXHEADER()
 		
 		if header == "stsd" then
-			stsd(box_size-8)
+			stsd(box_size-header_size)
 		elseif header == "stts" then
-			stts(box_size-8)
+			stts(box_size-header_size)
 		elseif header == "stsc" then
-			stsc(box_size-8)
+			stsc(box_size-header_size)
 		elseif header == "stsz" then
-			stsz(box_size-8)
+			stsz(box_size-header_size)
 		elseif header == "stco" then
-			stco(box_size-8)
+			stco(box_size-header_size)
 		elseif header == "stss" then
-			stss(box_size-8)
+			stss(box_size-header_size)
 		elseif header == "ctts" then
-			ctts(box_size-8)
+			ctts(box_size-header_size)
 		else
 			print("# unknown box", header)
-			rbyte("payload", box_size-8)
+			rbyte("payload", box_size-header_size)
 		end
 		
 		total_size = total_size + box_size
@@ -257,13 +260,13 @@ end
 
 function DESCRIPTIONRECORD()
 	local begin = cur()
-	local box_size, header = BOXHEADER()
+	local header, box_size, header_size = BOXHEADER()
 	
 	cur_trak.descriptor = header
 	
 	if header == "m4ds"
 	or header == "btrt" then
-		VisualSampleEntryBox(header, box_size-8)
+		VisualSampleEntryBox(header, box_size-header_size)
 	elseif header == "avc1"
 	or     header == "avcC" then
 		--	
@@ -271,7 +274,7 @@ function DESCRIPTIONRECORD()
 	    --
 	else
 		print("# unknown box", header)
-		VisualSampleEntryBox(box_size-8)
+		VisualSampleEntryBox(box_size-header_size)
 	end
 
 	rbyte("some data", box_size - (cur()-begin))
@@ -479,15 +482,15 @@ end
 function moof(size)
 	local total_size = 0;
 	while total_size < size do
-		local box_size, header = BOXHEADER()
+		local header, box_size, header_size = BOXHEADER()
 		
 		if header == "mfhd" then
-			mfhd(box_size-8)
+			mfhd(box_size-header_size)
 		elseif header == "traf" then
-			traf(box_size-8)
+			traf(box_size-header_size)
 		else
 			print("# unknown box", header)
-			rbyte("payload", box_size-8)
+			rbyte("payload", box_size-header_size)
 		end
 		
 		total_size = total_size + box_size
@@ -501,15 +504,15 @@ end
 function traf(size)
 	local total_size = 0;
 	while total_size < size do
-		local box_size, header = BOXHEADER()
+		local header, box_size, header_size = BOXHEADER()
 		
 		if header == "mfhd" then
-			mfhd(box_size-8)
+			mfhd(box_size-header_size)
 		elseif header == "traf" then
-			traf(box_size-8)
+			traf(box_size-header_size)
 		else
 			print("# unknown box", header)
-			rbyte("payload", box_size-8)
+			rbyte("payload", box_size-header_size)
 		end
 		
 		total_size = total_size + box_size
@@ -598,8 +601,8 @@ end
 function free(size)
 	local total_size = 0
 	while total_size < size do
-		local box_size, header = BOXHEADER()
-		rbyte("payload", box_size-8)
+		local header, box_size, header_size = BOXHEADER()
+		rbyte("payload", box_size-header_size)
 		total_size = total_size + box_size
 	end
 	return size, header
@@ -624,21 +627,21 @@ end
 function mp4(size)
 	local total_size = 0
 	while total_size < size do
-		local box_size, header = BOXHEADER()
+		local header, box_size, header_size = BOXHEADER()
 
 		if header == "ftyp" then
-			ftyp(box_size-8)
+			ftyp(box_size-header_size)
 		elseif header == "free" then
-			free(box_size-8)
+			free(box_size-header_size)
 		elseif header == "moov" then
-			moov(box_size-8)
+			moov(box_size-header_size)
 		elseif header == "moof" then
-			moof(box_size-8)
+			moof(box_size-header_size)
 		elseif header == "mdat" then
-			mdat(box_size-8)
+			mdat(box_size-header_size)
 		else
 			print("# unknown box", header)
-			rbyte("payload", box_size-8)
+			rbyte("payload", box_size-header_size)
 		end
 		
 		total_size = total_size + box_size

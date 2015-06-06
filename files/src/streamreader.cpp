@@ -889,7 +889,7 @@ namespace rf{
 					if (size == 32)
 						v = reverse_endian_32(v);
 					else if (size == 16)
-						v = reverse_endian_16(static_cast<uint8_t>(v));
+						v = reverse_endian_16(static_cast<uint16_t>(v));
 				}
 
 				if (printf_on_ || (name[0] == '#'))
@@ -1257,7 +1257,7 @@ shared_ptr<LuaBinder> init_lua()
 	// 関数バインド
 	lua->def("stdout_to_file",   FileManager::stdout_to_file);        // コンソール出力の出力先切り替え
 	lua->def("write_to_file",    FileManager::write_to_file);         // 指定したバイト列をファイルに出力
-	lua->def("transfer_to_file", LuaGlueBitstream::transfer_to_file); // 指定したバイト列をファイルに出力
+	lua->def("transfer_to_file", LuaGlueBitstream::transfer_to_file); // 指定したストリームををファイルに出力
 	lua->def("reverse_16",       reverse_endian_16);                  // 16ビットエンディアン変換
 	lua->def("reverse_32",       reverse_endian_32);                  // 32ビットエンディアン変換
 

@@ -103,9 +103,9 @@ function pat()
 		    
 		    -- 初めて見るPIDなら追加
 		    if find(pid_array, get("program_map_PID")) == false then
-			    table.insert(pid_infos, "PMT"..#pid_infos.."="..hex2str(get("program_map_PID")))
+			    table.insert(pid_infos, "PMT"..#pid_infos.."="..format_hex(get("program_map_PID")))
 				table.insert(pid_array, get("program_map_PID"))
-		  		table.insert(pid_files, __stream_dir__.."out/pid"..hex2str(get("program_map_PID"))..".pmt")
+		  		table.insert(pid_files, __stream_dir__.."out/pid"..format_hex(get("program_map_PID"))..".pmt")
 			end
 		end
 		total = total + 4 
@@ -162,10 +162,10 @@ function pmt()
 		
 		-- 初めて見るPIDなら追加
 	    if find(pid_array, get("elementary_PID")) == false then
-			table.insert(pid_infos, stream_type_to_string(get("stream_type")).."="..hex2str(get("elementary_PID")))
+			table.insert(pid_infos, stream_type_to_string(get("stream_type")).."="..format_hex(get("elementary_PID")))
 			
 		    table.insert(pid_array, get("elementary_PID"))
-		   	table.insert(pid_files, __stream_dir__.."out/pid"..hex2str(get("elementary_PID"))..".pes")
+		   	table.insert(pid_files, __stream_dir__.."out/pid"..format_hex(get("elementary_PID"))..".pes")
 		end
 
 		total = total + get("ES_info_length") + 5
@@ -199,7 +199,7 @@ function ts(size)
 		local ofs = fbyte(0x47, true)
 		rbit("syncbyte",                                    8)
 		if ofs ~= 0 then
-			print("# discontinuous syncbyte", ts_packet_size, ofs, hex2str(cur()))
+			print("# discontinuous syncbyte", ts_packet_size, ofs, format_hex(cur()))
 			if ofs < 20 then -- 適当 208バイト
 				ts_packet_size = ts_packet_size + ofs
 			else
@@ -443,11 +443,11 @@ function pes(fifo)
 	    local N = get("PES_packet_length") - (cur() - begin) + 6
         if no_packet_length then
 			seek(cur()+4)
-			local ofs = fstr(val2str(start_code), false)
+			local ofs = fstr(hex2str(start_code), false)
 			seek(cur()-4)
-	        tbyte(__stream_dir__.."out/PES_packet_data_byte_"..hex2str(__pid__)..".es", ofs + 4)
+	        tbyte(__stream_dir__.."out/PES_packet_data_byte_"..format_hex(__pid__)..".es", ofs + 4)
         else
-	        tbyte(__stream_dir__.."out/PES_packet_data_byte_"..hex2str(__pid__)..".es", N)
+	        tbyte(__stream_dir__.."out/PES_packet_data_byte_"..format_hex(__pid__)..".es", N)
         end
         
 	elseif get("stream_id") == program_stream_map
@@ -475,7 +475,7 @@ start_thread(ts, 1024*1024)
 
 -- PMT結果表示
 for i=1, #pid_infos do
-	print(hex2str(pid_array[i]), pid_infos[i], pid_files[i])
+	print(format_hex(pid_array[i]), pid_infos[i], pid_files[i])
 end
 
 -- PESファイル抽出

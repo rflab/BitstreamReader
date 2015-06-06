@@ -145,6 +145,10 @@ function write(filename, pattern)
 	return write_to_file(filename, str, #str)
 end
 
+function putchar(filename, char)
+	return write_to_file(filename, tostring(cahr), 1)
+end
+
 -- 現在位置からストリームを抜き出す
 function sub_stream(name, size)
 	return gs_stream:sub_stream(name, size)
@@ -208,7 +212,7 @@ function printf(format, ...)
 end
 
 -- 16進数をHHHH(DDDD)な感じの文字列にする
-function hex2str(value)
+function format_hex(value)
 	return string.format("0x%x(%d)", value, value)
 end
 
@@ -271,10 +275,20 @@ function str2val(buf_str, little_endian)
 end
 
 -- 数字に変える
-function val2str(val)
+function hex2str(val, size, le)
+	size = size or 4
+	assert(size <= 4)
 	local str = ""
-	for i=1, 4 do
-		str = str .. string.char((val >> (32-8*i)) & 0xff)
+	
+	if le == nil or le == false then
+		for i=0, size-1 do
+			str = string.char((val >> (8*i)) & 0xff) .. str
+		end
+	else
+		for i=0, size-1 do
+			str = str .. string.char((val >> (8*i)) & 0xff)
+			
+		end
 	end
 	return str
 end
@@ -282,7 +296,7 @@ end
 -- 00 01 ... のような文字列パターンをバッファに変換する
 function pat2str(pattern)
 	local str = ""
-	if string.match(pattern, "[0-9a-f][0-9a-f]") ~= nil then
+	if string.match(pattern, "^[0-9a-f][0-9a-f]") ~= nil then
 		for hex in string.gmatch(pattern, "%w+") do
 			str = str .. string.char(tonumber(hex, 16))
 		end

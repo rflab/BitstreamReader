@@ -32,6 +32,9 @@ if ext == ".wav" then
 elseif ext == ".bmp" then
 	dofile(__exec_dir__.."script/bmp.lua")
 	
+elseif ext == ".tobmp" then
+	dofile(__exec_dir__.."script/tobmp.lua")
+	
 elseif ext == ".jpg"
 or     ext == ".JPG" then
 	dofile(__exec_dir__.."script/jpg.lua")
@@ -39,6 +42,7 @@ or     ext == ".JPG" then
 elseif ext == ".ts"
 or     ext == ".tts"
 or     ext == ".m2ts"
+or     ext == ".MPG"
 or     ext == ".mpg" then
 	dofile(__exec_dir__.."script/ts.lua")
 	

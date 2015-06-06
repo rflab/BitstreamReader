@@ -187,11 +187,11 @@ function pes()
 	    local N = get("PES_packet_length") - (cur() - begin) + 6
         if no_packet_length then
 			seek(cur()+4)
-			local ofs = fstr(val2str(start_code), false)
+			local ofs = fstr(hex2str(start_code), false)
 			seek(cur()-4)
-	        tbyte(__stream_dir__.."out/PES_packet_data_byte_"..hex2str(__pid__)..".es", ofs + 4)
+	        tbyte(__stream_dir__.."out/PES_packet_data_byte_"..format_hex(__pid__)..".es", ofs + 4)
         else
-	        tbyte(__stream_dir__.."out/PES_packet_data_byte_"..hex2str(__pid__)..".es", N)
+	        tbyte(__stream_dir__.."out/PES_packet_data_byte_"..format_hex(__pid__)..".es", N)
         end
         
 	elseif get("stream_id") == program_stream_map

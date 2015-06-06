@@ -209,8 +209,12 @@ function _m:write(pattern)
 	self.stream:write(str, #str)
 end
 
-function _m:tbyte(name, target, size, advance)	
-	self.stream:transfer_byte(name, target.stream, size, advance or true)
+function _m:tbyte(name, target, size, advance)
+	if type(target) == "string" then
+		return transfer_to_file(target, self.stream, size, advance)
+	else
+		self.stream:transfer_byte(name, target.stream, size, advance)
+	end
 end
 
 function _m:sub_stream(name, size, advance)	

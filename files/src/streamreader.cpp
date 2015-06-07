@@ -1,7 +1,8 @@
-﻿// 定義ファイルに従ってストリームを読む
+﻿// ビットストリームクラスをバインドしてLuaを起動する
+// 引数がなければscript/default.luaを起動する
+// $> / a.out test.wav
 
 #include <stdint.h>
-
 #include <iostream>
 #include <iomanip>
 #include <vector>
@@ -19,7 +20,6 @@
 #include "luabinder.hpp"
 
 // config、デバッグ、環境依存
-
 #define FAILED(msg, ...) ::rf::failed((__VA_ARGS__), __LINE__, __FUNCTION__, msg, #__VA_ARGS__)
 #define ERR cerr << "# c++ error. L" << dec << __LINE__ << " " << __FUNCTION__ << ": "
 #ifdef _MSC_VER
@@ -1249,8 +1249,7 @@ namespace rf{
 using namespace std;
 using namespace rf;
 
-
-shared_ptr<LuaBinder> init_lua()
+shared_ptr<LuaBinder> init_lua(int argc, char** argv)
 {
 	auto lua = make_shared<LuaBinder>();
 
@@ -1343,11 +1342,7 @@ shared_ptr<LuaBinder> init_lua()
 		def("write",            &LuaGlueFifoBitstream::write_by_buf).      // ビットストリームの終端に書き込む
 		def("put_char",         &LuaGlueFifoBitstream::put_char);          // ビットストリームの終端に書き込む
 
-	if (FAILED("check", lua->dostring("_G.argv = {}")))
-	{
-		ERR << "lua.dostring err" << endl;
-	}
-
+	// Luaの環境を登録
 	#ifdef _MSC_VER
 		if (FAILED("check", lua->dostring("_G.windows = true")))
 		{
@@ -1355,63 +1350,100 @@ shared_ptr<LuaBinder> init_lua()
 		}
 	#endif
 
+	// Luaにmain関数の引数を継承
+	// argc
+	{
+		stringstream ss;
+		ss << "_G.argc=" << argc;
+		if (FAILED("check", lua->dostring(ss.str())))
+		{
+			ERR << "lua.dostring err" << endl;
+		}
+	}
+
+	// argv
+	{
+		if (FAILED("check", lua->dostring("_G.argv = {}")))
+		{
+			ERR << "lua.dostring err" << endl;
+		}
+
+		for (int i = 0; i < argc; ++i)
+		{
+			// windowsの場合はパス名中の'\'がエスケープと認識されるので/に置換
+			stringstream ss;
+			#ifdef _MSC_VER
+				string s = std::regex_replace(argv[i], std::regex(R"(\\)"), "/");
+				ss << "argv[" << i << "]=\"" << s << '\"';
+			#else
+				ss << "argv[" << i << "]=\"" << argv[i] << '\"';
+			#endif
+
+			if (FAILED("check", lua->dostring(ss.str())))
+			{
+				ERR << "lua.dostring err" << endl;
+			}
+		}
+	}
+
 	return lua;
 }
 
 void show_help()
 {
 	cout << "\n"
-		"a.out [--arg|-a args...] [--lua|-l filename] [--help|-h]\n"
+		"a.out [--lua|-l filename] [--help|-h]\n"
 		"\n"
 		"--lua  :start with file mode\n"
-		"--arg  :set argument of define file\n"
 		"--help :show this help" << endl;
 	return;
 }
 
 int main(int argc, char** argv)
 {
-	string lua_file_name = "script/default.lua";
 
-	// パス情報を取得する
-	string dir;
-	string path;
+	// lua初期化
+	auto lua = init_lua(argc, argv);
+	
+	// windowsのドラッグアンドドロップに対応するため、
+	// 実行ファイルのディレクトリ名を抽出する
+	// ついでに'\\'を'/'に変換しておく
+	string exe_path;
+	string exe_dir;
+	string lua_file_name = "script/default.lua";
 	if (argc>0)
 	{
 		#ifdef _MSC_VER
-			path = std::regex_replace(argv[0], std::regex(R"(\\)"), "/");
+			exe_path = std::regex_replace(argv[0], std::regex(R"(\\)"), "/");
 			std::smatch result;
-			std::regex_search(path, result, std::regex("(.*)/"));
-			dir = result.str();
+			std::regex_search(exe_path, result, std::regex("(.*)/"));
+			exe_dir = result.str();
 		#else
-			path = argv[0];
-			dir = "";
+			exe_path = argv[0];
+			exe_dir = "";
 		#endif
-		lua_file_name = dir + "script/default.lua";
+
+		lua_file_name = exe_dir + "script/default.lua";
+
+		stringstream ss;
+		ss << "_G.__exec_dir__=\"" << exe_dir << '\"';
+		if (FAILED("check", lua->dostring(ss.str())))
+		{
+			ERR << "lua.dostring err" << endl;
+		}
 	}
 
-	// lua初期化
-	auto lua = init_lua();
-
-	// 引数適用
+	// C++側で引数を適用
 	int flag = 0;
-	int lua_arg_count = 0;
 	for (int i = 0; i < argc; ++i)
 	{
-		// cout << "argv[" << i << "] = " << argv[i] << endl;
-
-		if ((string("--arg") == argv[i])
-			|| (string("-a") == argv[i]))
+		if ((string("--lua") == argv[i])
+		||  (string("-l") == argv[i]))
 		{
 			flag = 1;
 		}
-		else if ((string("--lua") == argv[i])
-			|| (string("-l") == argv[i]))
-		{
-			flag = 2;
-		}
 		else if ((string("--help") == argv[i])
-			|| (string("-h") == argv[i]))
+		||       (string("-h") == argv[i]))
 		{
 			show_help();
 			return 0;
@@ -1420,37 +1452,9 @@ int main(int argc, char** argv)
 		{
 			case 0:
 			{
-				// パス情報を設定して引き続き引数登録に移る
-				stringstream ss;
-				ss << "_G.__exec_dir__=\"" << dir << '\"';
-				if (FAILED("check", lua->dostring(ss.str())))
-				{
-					ERR << "lua.dostring err" << endl;
-				}
-
-				flag = 1;
-
-				// fall through
-			}
-			case 1:
-			{
-				// \を/に置換
-				stringstream ss;
-				#ifdef _MSC_VER
-					string s = std::regex_replace(argv[i], std::regex(R"(\\)"), "/");
-					ss << "argv[" << lua_arg_count << "]=\"" << s << "\"" << endl;
-				#else
-					ss << "argv[" << lua_arg_count << "]=\"" << argv[i] << "\"" << endl;
-				#endif
-
-				if (FAILED("check", lua->dostring(ss.str())))
-				{
-					ERR << "lua.dostring err" << endl;
-				}
-				lua_arg_count++;
 				break;
 			}
-			case 2:
+			case 1:
 			{
 				lua_file_name = argv[i];
 				break;
@@ -1464,8 +1468,8 @@ int main(int argc, char** argv)
 	}
 
 	// lua実行
-	// -インタプリタモード
-	// -ファイルモード(引数でファイル名を指定した場合)
+	//  - インタプリタモード(引数なしで実行した場合)
+	//  - ファイルモード(引数でファイル名を指定した場合)
 	if (argc == 1)
 	{
 		cout << "q:quit" << endl;
@@ -1485,13 +1489,11 @@ int main(int argc, char** argv)
 	}
 	else
 	{
-		cout << lua_file_name << endl;
 		if (FAILED("check", lua->dofile(lua_file_name)))
 		{
 			ERR << "lua.dofile err" << endl;
 		}
 
-		// windowsのために入力待ちする
 		cout << "press enter key.." << endl;
 		getchar();
 	}

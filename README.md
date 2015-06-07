@@ -6,7 +6,7 @@ MPEG-2 TS(PES)、MP4、JPEG(Exif)、bmp、wav、を解析するサンプルを�
 TS/MP4は主にタイムスタンプを解析します、bmp、wav、jpgは各種フラグを見ることができます。 
 
 ## ビルド・インストール
-とりあえずLua5.3.0＆VC++12＆gcc version 4.9.2 (Ubuntu 4.9.2-10ubuntu13) でビルド確認済み
+たまにLua5.3.0＆VC++12＆gcc version 4.9.2 (Ubuntu 4.9.2-10ubuntu13) でビルド確認しています。
 * gccの場合はfiles/srcでmake build
 * VisualStudio2013の場合は、files/visual_studio_solution/visual_studio_solution.slnを開いてF5
 * Windows用の実行ファイルはfiles/bin/streamreader.exe
@@ -19,13 +19,15 @@ TS/MP4は主にタイムスタンプを解析します、bmp、wav、jpgは各�
     // windowsの場合はbin/streamreader.exeにファイルをドロップとおなじ。
     S./a.out test.wav
     
-より詳しくは、起動時のオプション指定によります。
-引数がある場合、最初の'-'付きオプションより前のものはluaのテーブル'argv[]'に文字列として代入され、script/default.luaが起動されます。
-（現状のdefault.luaはarg[1]をファイル名とみなして拡張子を判定し、対応する解析スクリプトをコールするようにしています。）
+起動時のオプション指定も可能です。
 
     S./a.out --help
-    S./a.out --lua script/wav.lua --arg test.wav
+    S./a.out --lua script/wav.lua
     S./a.out "01 23 45 67 79" -l script/dat.lua
+
+* 起動時のオプションでluaファイルを指定しなかった場合はscript/default.luaが起動されます。
+* 現状のdefault.luaはarg[1]をファイル名とみなして拡張子による解析の切り分けを行っています。
+* 実行時引数はすべてluaでargc、argv[]としてアクセスできます。
 
 ## 定義ファイルの書き方
 

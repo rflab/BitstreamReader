@@ -1378,7 +1378,7 @@ int main(int argc, char** argv)
 	string path;
 	if (argc>0)
 	{
-		#ifdef r
+		#ifdef _MSC_VER
 			path = std::regex_replace(argv[0], std::regex(R"(\\)"), "/");
 			std::smatch result;
 			std::regex_search(path, result, std::regex("(.*)/"));

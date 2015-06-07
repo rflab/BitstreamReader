@@ -220,7 +220,7 @@ end
 function _m:sub_stream(name, size, advance)	
 	local b = Buffer:new()
 	print(size)
-	self.stream:transfer_byte(name, b, size, advance or true)
+	self.stream:transfer_byte(name, b, size, advance)
 	return b
 end
 

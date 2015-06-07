@@ -42,7 +42,9 @@ function test_fifo()
 end
 
 
+
 --test_fifo()
-dofile(__exec_dir__.."script/bmp.lua")
+--dofile(__exec_dir__.."script/bmp.lua")
+dofile(__exec_dir__.."script/jpg.lua")
 
 

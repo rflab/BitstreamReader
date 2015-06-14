@@ -84,8 +84,8 @@ function _m:size()
 	return self.stream:size()
 end
 
-function _m:dump()	
-	self.stream:dump(256)
+function _m:dump(size)	
+	self.stream:dump(size or 128)
 end
 
 function _m:cur()	
@@ -120,28 +120,28 @@ end
 
 function _m:rexp(name)
 	local val = self.stream:read_expgolomb(name)
-	check(self, val, "rbyte:"..name)
+	check(self, val, "rexp:"..name)
 	self.tbl[name] = val
 	return val
 end
 
 function _m:cbit(name, size, comp)	
 	local val = self.stream:comp_bit(name, size, comp)
-	check(self, val, "cbit:"..name)
+	--check(self, val, "cbit:"..name)
 	self.tbl[name] = val
 	return val
 end
 
 function _m:cbyte(name, size, comp)	
 	local val = self.stream:comp_byte(name, size, comp)
-	check(self, val, "cbyte:"..name)
+	--check(self, val, "cbyte:"..name)
 	self.tbl[name] = val
 	return val
 end
 
 function _m:cstr(name, size, comp)
  	local val = self.stream:comp_string(name, size, comp)
-	check(self, val, "cstr:"..name)
+	--check(self, val, "cstr:"..name)
 	self.tbl[name] = val
 	return val
 end

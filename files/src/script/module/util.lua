@@ -6,7 +6,7 @@ local gs_csv
 --------------------------------------------
 -- ストリームファイルを開く
 function open(file_name)
-	gs_stream = stream:new(file_name, "r")
+	gs_stream = stream:new(file_name, "rb")
 	gs_csv = csv:new()
 	return gs_stream
 end
@@ -26,8 +26,8 @@ function file_size()
 end
 
 -- ストリームを最大256バイト出力
-function dump()
-	return gs_stream:dump()
+function dump(size)
+	return gs_stream:dump(size or 128)
 end
 
 -- 解析結果表示のON/OFF

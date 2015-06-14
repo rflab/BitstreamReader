@@ -39,8 +39,9 @@ namespace rf
 	using std::stringstream;
 	using std::string;
 	using std::enable_if;
-	using std::make_shared;
+	using std::unique_ptr;
 	using std::tuple;
+	using std::make_unique;
 
 	class LuaBinder final
 	{
@@ -641,9 +642,9 @@ namespace rf
 		template<class T> class class_chain;
 
 		template<class T>
-		std::shared_ptr<class_chain<T> > def_class(const string& name)
+		unique_ptr<class_chain<T> > def_class(const string& name)
 		{
-			return make_shared<class_chain<T> >(L_, name);
+			return make_unique<class_chain<T> >(L_, name);
 		}
 
 		// メンバ関数登録用オブジェクト

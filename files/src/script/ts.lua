@@ -39,8 +39,9 @@ function adaptation_field()
 		rbit("splice_countdown",                            8)
 	end
 	if get("transport_private_data_flag") == 1 then
-		rbit("transport_private_data_length",               8)
-		rstr("private_data_byte",                           get("transport_private_data_length"))
+		rbit ("transport_private_data_length",               8)
+		dump()
+		rbyte("private_data_byte",                           get("transport_private_data_length"))
 	end
 	if get("adaptation_field_extension_flag") == 1 then
 		local begin = cur()
@@ -73,7 +74,7 @@ function adaptation_field()
 		rbyte("reserved", get("adaptation_field_extension_length") + 1 - (cur()-begin))
 	end
 
-	rbyte("stuffing_byte", get("adaptation_field_length") + 1 - (cur() - begin))
+	rbyte("a stuffing_byte", get("adaptation_field_length") + 1 - (cur() - begin))
 end
 
 function pat()
@@ -195,6 +196,7 @@ function ts(size)
 			rbyte("ATS",                                    4)
 			-- printf("  ATS = %x(%fsec)", get("ATS"), get("ATS")/90000)
 		end
+
 		
 		local ofs = fbyte(0x47, true)
 		rbit("syncbyte",                                    8)
@@ -214,7 +216,6 @@ function ts(size)
 		rbit("transport_scrambling_control",                2)
 		rbit("adaptation_field_control",                    2)
 		rbit("continuity_counter",                          4)
-
 		if get("adaptation_field_control") & 2 == 2 then
 			adaptation_field()
 		end
@@ -437,7 +438,7 @@ function pes(fifo)
 	    end
 	    
 	    --for i = 0; i < N1; i++) do
-	    --    rbit("stuffing_byte",                                     N1) -- 0xFFデータ、デコーダがすてるはずでここではパースしない
+	    --    rbit("b stuffing_byte",                                     N1) -- 0xFFデータ、デコーダがすてるはずでここではパースしない
 	    --end
 
 	    local N = get("PES_packet_length") - (cur() - begin) + 6
@@ -466,31 +467,35 @@ function pes(fifo)
 	return cur() - begin 
 end
 
--- PAT/PMT解析
-psi_check = true
+
+--以下、今度もうちょっと考える
+function analyze()
+	psi_check = true
+	seek(0)
+	enable_print(false)
+	stdout_to_file(false)
+	ts(1024*1024)
+	for i=1, #pid_infos do
+		print(format_hex(pid_array[i]), pid_infos[i], pid_files[i])
+	end
+
+	-- 再度先頭からPESファイル抽出
+	psi_check = false
+	seek(0)
+	enable_print(false)
+	stdout_to_file(false)
+	ts(file_size())
+
+	-- PES解析 1, 2はPAT/PMTなので無視
+	for i=3, #pid_files do	
+		__stream_path__ = pid_files[i];
+		__pid__ = pid_array[i]
+		
+		dofile(__exec_dir__.."script/pes.lua")
+	end
+end
+
 open(__stream_path__)
-enable_print(false)
-stdout_to_file(false)
-start_thread(ts, 1024*1024)
+start_thread(analyze)
 
--- PMT結果表示
-for i=1, #pid_infos do
-	print(format_hex(pid_array[i]), pid_infos[i], pid_files[i])
-end
 
--- PESファイル抽出
-psi_check = false
-seek(0)
-enable_print(false)
-stdout_to_file(false)
-start_thread(ts, file_size())
-
-save_as_csv("out/ts.csv")
-
--- PES解析 1, 2はPAT/PMTなので無視
-for i=3, #pid_files do	
-	__stream_path__ = pid_files[i];
-	__pid__ = pid_array[i]
-	
-	dofile(__exec_dir__.."script/pes.lua")
-end

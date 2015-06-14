@@ -10,6 +10,7 @@
 #include <stack>
 #include <map>
 #include <memory>
+#include <utility>
 #include <sstream>
 #include <fstream>
 #include <algorithm>
@@ -27,9 +28,12 @@
 	#define nullptr NULL
 	#define final
 	#define throw(x)
+	// #define make_unique make_shared
+	// #define unique_ptr make_unique
 #endif
 
-namespace rf{
+namespace rf
+{
 	using std::vector;
 	using std::stack;
 	using std::array;
@@ -37,7 +41,7 @@ namespace rf{
 	using std::pair;
 	using std::tuple;
 	using std::string;
-	using std::shared_ptr;
+	using std::unique_ptr;
 	using std::istringstream;
 	using std::stringstream;
 	using std::ifstream;
@@ -49,7 +53,7 @@ namespace rf{
 	using std::ios;
 	using std::to_string;
 	using std::stoi;
-	using std::make_shared;
+	using std::make_unique;
 	using std::make_tuple;
 	using std::tie;
 	using std::cout;
@@ -74,7 +78,7 @@ namespace rf{
 	}
 
 	template<class T>
-	inline static bool valid_ptr(const shared_ptr<T> p)
+	inline static bool valid_ptr(const unique_ptr<T> p)
 	{
 		return !(!p);
 	}
@@ -95,7 +99,7 @@ namespace rf{
 	private:
 
 		//  出力ファイル名から保存先
-		static map<string, shared_ptr<ofstream> > ofs_map_;
+		static map<string, ofstream> ofs_map_;
 
 		FileManager(){}
 		FileManager(const FileManager &){}
@@ -103,64 +107,59 @@ namespace rf{
 
 		~FileManager()
 		{
-			#ifdef _MSC_VER
+			#if 1
+				for (auto it = ofs_map_.begin(); it != ofs_map_.end(); ++it)
+				{
+					it->second.close();
+					if (it->second.fail())
+					{
+						ERR << it->first << "close fail" << endl;
+					}
+				}
+			#else
 				for (auto c : ofs_map_)
 				{
-					c.second->close();
-					if (c.second->fail())
+					c.second.close();
+					if (c.second.fail())
 					{
 						ERR << c.first << "close fail" << endl;
 					}
 				}
-			#else
-				for (auto it = ofs_map_.begin(); it != ofs_map_.end(); ++it)
-				{
-					it->second->close();
-					if (it->second->fail())
-					{
-						ERR << it->first << "close fail" << endl;
-					}
 			#endif
+
 
 			stdout_to_file(false);	// 一応
 		}
 
 	public:
+
 		static FileManager &getInstance()
 		{
 			static FileManager instance;
 			return instance;
 		}
 
-		// 指定したバイト列をファイルに出力
+		// 指定したバイト列を指定したファイル名に出力、二度目以降は追記
 		static bool write_to_file(string file_name, const char* address, int size)
 		{
 			if (FAILED("check ptr", valid_ptr(address)))
 				return false;
 
-			// ファイル名に応じて読み込んだデータを出力して
-			// 暫定で毎回ファイルを開く
-			shared_ptr<ofstream> ofs;
 			auto it = ofs_map_.find(file_name);
 			if (it == ofs_map_.end())
 			{
-				ofs = make_shared<ofstream>();
-				ofs_map_.insert(std::make_pair(file_name, ofs));
-
-				ios::openmode mode = ios::binary | ios::out;
-				ofs->open(file_name, mode);
+				ofstream ofs;
+				ofs.open(file_name, ios::binary | ios::out);
 				if (FAILED("file open", !(!ofs)))
 				{
 					return false;
 				}
-			}
-			else
-			{
-				ofs = it->second;
+
+				it = ofs_map_.insert(std::make_pair(file_name, std::move(ofs))).first;
 			}
 
-			ofs->write(address, size);
-			if (FAILED("file write", !ofs->fail()))
+			it->second.write(address, size);
+			if (FAILED("file write", !it->second.fail()))
 			{
 				ERR << "file write " << file_name << endl;
 				return false;
@@ -168,6 +167,7 @@ namespace rf{
 			return true;
 		}
 
+		// printfの出力先を変更する
 		static bool stdout_to_file(bool enable)
 		{
 			static FILE* fp = nullptr;
@@ -195,28 +195,20 @@ namespace rf{
 		}
 	};
 
-	map<string, shared_ptr<ofstream> > FileManager::ofs_map_;
+	map<string, ofstream> FileManager::ofs_map_;
 
 	class Bitstream
 	{
 	private:
 
-		shared_ptr<streambuf> buf_;
+		unique_ptr<streambuf> buf_;
 		int size_;
-		int byte_pos_;
 		int bit_pos_;
+		int byte_pos_;
 
 	protected:
 
-		void cut_bit()
-		{
-			if (bit_pos_ != 0)
-			{
-				++byte_pos_;
-				bit_pos_ = 0;
-			}
-		}
-
+		// メンバ変数にstreambufを同期する
 		bool sync()
 		{
 			return byte_pos_ == buf_->pubseekpos(byte_pos_);
@@ -224,25 +216,31 @@ namespace rf{
 
 	public:
 
-		Bitstream() : size_(0), byte_pos_(0), bit_pos_(0){}
-		~Bitstream(){}
+		Bitstream() : size_(0), bit_pos_(0), byte_pos_(0){}
 
-		shared_ptr<streambuf> buf() const { return buf_; }
+		// このBitstreamの現在サイズ
 		int size() const { return size_; }
-		int byte_pos() const { return byte_pos_; }
+
+		// 読み取りヘッダのビット位置
 		int bit_pos() const { return bit_pos_; }
 
-		bool assign(shared_ptr<streambuf> buf)
+		// 読み取りヘッダのバイト位置
+		int byte_pos() const { return byte_pos_; }
+
+		// 読み込み対象のstreambufを設定する
+		template<typename D>
+		bool assign(unique_ptr<streambuf, D>&& buf)
 		{
-			buf_ = buf;
+			buf_ = std::move(buf);
 			byte_pos_ = 0;
 			bit_pos_ = 0;
-			size_ = static_cast<int>(buf->pubseekoff(0, ios::end));
+			size_ = static_cast<int>(buf_->pubseekoff(0, ios::end));
 			size_ = size_ == EOF ? 0 : size_;
 
 			return sync();
 		}
 
+		// ストリームにデータを追記する
 		bool write_by_buf(const char *buf, int size)
 		{
 			if (FAILED("check size", size >= 0))
@@ -254,13 +252,14 @@ namespace rf{
 			return true;
 		}
 
+		// ストリームに１バイト追記する
 		bool put_char(char c)
 		{
 			++size_;
 			return c == buf_->sputc(c);
 		}
 
-		// 終端バイトはtrue
+		// ビット単位でストリーム内か判定
 		bool check_by_bit(int bit) const
 		{
 			if (FAILED("check range", (0 <= bit) && ((bit + 7) / 8 <= size_)))
@@ -272,6 +271,7 @@ namespace rf{
 			return true;
 		}
 
+		// バイト単位でストリーム内か判定
 		bool check_by_byte(int byte) const
 		{
 			if (FAILED("check range", (0 <= byte) && (byte <= size_)))
@@ -282,6 +282,7 @@ namespace rf{
 			return true;
 		}
 
+		// ビット単位で現在位置＋offsetがストリーム内か判定
 		bool check_offset_by_bit(int offset) const
 		{
 			if (FAILED("check range", check_by_bit(byte_pos_ * 8 + bit_pos_ + offset)))
@@ -291,16 +292,17 @@ namespace rf{
 			return true;
 		}
 
+		// バイト単位で現在位置＋offsetがストリーム内か判定
 		bool check_offset_by_byte(int offset) const
 		{
-			if (FAILED("check", check_by_bit((byte_pos_ + offset) * 8 + bit_pos_)))
+			if (FAILED("check", check_by_byte(byte_pos_ + offset)))
 			{
 				return false;
 			}
 			return true;
 		}
 
-
+		// 読み込みヘッダを移動
 		bool seekpos(int byte, int bit)
 		{
 			if (FAILED("check byte", check_by_byte(byte)))
@@ -314,7 +316,8 @@ namespace rf{
 
 			return sync();
 		}
-
+		
+		// ビット単位で読み込みヘッダを移動
 		bool seekpos_by_bit(int offset)
 		{
 			if (FAILED("check offset", check_by_bit(offset)))
@@ -326,34 +329,31 @@ namespace rf{
 			return sync();
 		}
 
+		// バイト単位で読み込みヘッダを移動
 		bool seekpos_by_byte(int offset)
 		{
-			if (FAILED("check offset", check_by_byte(offset)))
-				return false;
-
-			byte_pos_ = offset;
-			bit_pos_ = 0;
-
-			return sync();
+			return seekpos(offset, 0);
 		}
 
-		bool seek(int byte, int bit)
+		// 読み込みヘッダを移動
+		bool seekoff(int byte, int bit)
 		{
 			if (FAILED("check offset", check_by_bit(byte*8 + bit)))
 				return false;
 
-			byte_pos_ = byte;
-			bit_pos_ = bit;
+			byte_pos_ += byte;
+			bit_pos_ += bit;
 
 			return sync();
 		}
 
+		// ビット単位で読み込みヘッダを移動
 		bool seekoff_by_bit(int offset)
 		{
 			if (FAILED("check offset", check_offset_by_bit(offset)))
 				return false;
 
-			byte_pos_ += (bit_pos_ + offset )/ 8;
+			byte_pos_ += (bit_pos_ + offset) / 8;
 			if ((bit_pos_ + offset) < 0)
 				--byte_pos_;
 
@@ -362,8 +362,12 @@ namespace rf{
 			return sync();
 		}
 
+		// バイト単位で読み込みヘッダを移動
 		bool seekoff_by_byte(int offset)
 		{
+			if (FAILED("check offset", (bit_pos_&0x7) == 0))
+				return false;
+
 			if (FAILED("check offset", check_offset_by_byte(offset)))
 				return false;
 
@@ -371,7 +375,8 @@ namespace rf{
 
 			return sync();
 		}
-		
+
+		// ビット単位で読み込み
 		bool read_by_bit(int size, uint32_t &ret_value)
 		{
 			if (FAILED("check size", 0 <= size && size <= 32))
@@ -427,6 +432,7 @@ namespace rf{
 			return true;
 		}
 
+		// バイト単位で読み込み
 		bool read_by_byte(int size, uint32_t &ret_value)
 		{
 			if (FAILED("check size", 0 <= size && size <= 4))
@@ -441,7 +447,7 @@ namespace rf{
 			return read_by_bit(size*8, ret_value);
 		}
 
-		// 高オーバーヘッド
+		// 指数ゴロムとしてビット単位で読み込み
 		bool read_by_expgolomb(uint32_t &ret_value, int &ret_size)
 		{
 			uint32_t v = 0;
@@ -477,6 +483,7 @@ namespace rf{
 			}
 		}
 
+		// 文字列として読み込み
 		// NULL文字が先に見つかった場合はその分だけポインタを進める
 		// NULL文字が見つからなかった場合は最大max_lengthの長さ文字列として終端にNULL文字を入れる
 		bool read_by_string(int max_length, string &ret_str)
@@ -509,6 +516,7 @@ namespace rf{
 			return seekoff_by_byte(ofs);
 		}
 
+		// ビット単位で先読み
 		bool look_by_bit(int size, uint32_t &ret_val)
 		{
 			if (FAILED("check size", 0 <= size && size <= 32))
@@ -525,6 +533,7 @@ namespace rf{
 			return seekoff_by_bit(-size);
 		}
 		
+		// バイト単位で先読み
 		bool look_by_byte(int size, uint32_t &ret_val)
 		{
 			if (FAILED("check size", 0 <= size && size <= 4))
@@ -540,6 +549,7 @@ namespace rf{
 			return seekoff_by_byte(-size);
 		}
 
+		// 指定バッファの分だけ先読み
 		bool look_by_buf(char* address, int size)
 		{
 			if (FAILED("check size", 0 <= size))
@@ -552,8 +562,9 @@ namespace rf{
 			return sync();
 		}
 
+		// 特定の１バイトの値を検索
 		// 見つからなければファイル終端を返す
-		bool find_byte(char sc, int &ret_offset, bool advance = false)
+		bool find_byte(char sc, int &ret_offset, bool advance)
 		{
 			int ofs = 0;
 			int c;
@@ -573,14 +584,16 @@ namespace rf{
 			ret_offset = ofs;
 			if (advance)
 			{
-				cut_bit();
+				bit_pos_ = 0;
 				return seekoff_by_byte(ofs);
 			}
 			else
 				return sync();
 		}
 
-		bool find_byte_string(const char* address, int size, int &ret_offset, bool advance = false)
+		// 特定のバイト列を検索
+		// 見つからなければファイル終端を返す
+		bool find_byte_string(const char* address, int size, int &ret_offset, bool advance)
 		{
 			//char* contents = new char[size];
 			char contents[256];
@@ -636,7 +649,7 @@ namespace rf{
 
 	private:
 
-		shared_ptr<char> buf_;
+		unique_ptr<char> buf_;
 		int size_;
 
 	protected:
@@ -653,42 +666,46 @@ namespace rf{
 			return buf_.get()[0];
 		}
 
-		//ios::pos_type seekoff(ios::off_type off, ios::seekdir way, ios::openmode) override
-		//{
-		//	#if 0
-		//		return -1;
-		//	#else
-		//		char* pos;
-		//		switch (way)
-		//		{
-		//			case ios::beg: pos = eback() + off; break;
-		//			case ios::end: pos = egptr() + off - 1; break;
-		//			case ios::cur: default: pos = gptr() + off; break;
-		//		}
-		//
-		//		setg(buf_.get(), pos, buf_.get() + size_);
-		//		return -1;
-		//	#endif
-		//}
-		//
-		//ios::pos_type seekpos(ios::pos_type pos, ios::openmode which) override
-		//{
-		//	#if 0
-		//		return -1;
-		//	#else
-		//		return seekoff(pos, ios::beg, which);
-		//	#endif
-		//}
+		#if 0
+			ios::pos_type seekoff(ios::off_type off, ios::seekdir way, ios::openmode) override
+			{
+				#if 0
+					return -1;
+				#else
+					char* pos;
+					switch (way)
+					{
+						case ios::beg: pos = eback() + off; break;
+						case ios::end: pos = egptr() + off - 1; break;
+						case ios::cur: default: pos = gptr() + off; break;
+					}
+		
+					setg(buf_.get(), pos, buf_.get() + size_);
+					return -1;
+				#endif
+			}
+		
+			ios::pos_type seekpos(ios::pos_type pos, ios::openmode which) override
+			{
+				#if 0
+					return -1;
+				#else
+					return seekoff(pos, ios::beg, which);
+				#endif
+			}
+		#endif
 
 	public:
-		RingBuf() :size_(0), streambuf() {}
 
+		RingBuf() : size_(0), streambuf() {}
+
+		// リングバッファのサイズを指定する
 		bool reserve(int size)
 		{
 			if (FAILED("check size", 0 <= size))
 				return false;
 
-			buf_ = shared_ptr<char>(new char[size]);
+			buf_ = unique_ptr<char>(new char[size]);
 			size_ = size;
 			setp(buf_.get(), buf_.get() + size);
 			setg(buf_.get(), buf_.get(), buf_.get() + size);
@@ -773,7 +790,11 @@ namespace rf{
 		// 現状オーバーヘッド多め
 		static bool transfer_to_file(string file_name, LuaGlueBitstream &stream, int size, bool advance = false)
 		{
+			if (FAILED("size check", size >= 0))
+				return false;
+
 			char* buf = new char[static_cast<unsigned int>(size)];
+
 			if (FAILED("get data", stream.look_by_buf(buf, size)))
 				throw LUA_RUNTIME_ERROR("get data");
 
@@ -795,17 +816,22 @@ namespace rf{
 		Bitstream bs_;
 		bool printf_on_;
 		bool little_endian_;
+		enum { MAX_DUMP = 1024 };
 
 	protected:
 
 		LuaGlueBitstream()
 			:printf_on_(true), little_endian_(false){}
 
-		bool assign(shared_ptr<streambuf> b)
+		// streambufを設定
+		// template<template<typename T> class D >
+		// bool assign(unique_ptr<streambuf, D>&& b)
+		bool assign(unique_ptr<streambuf>&& b)
 		{
-			return bs_.assign(b);
+			return bs_.assign(std::move(b));
 		}
 
+		// 指定バッファ分だけデータを先読み
 		bool look_by_buf(char* address, int size)
 		{
 			return bs_.look_by_buf(address, size);
@@ -813,9 +839,8 @@ namespace rf{
 
 	public:
 
-		virtual ~LuaGlueBitstream()
-		{
-		}
+		// デストラクタ、このクラスは派生するので用意
+		virtual ~LuaGlueBitstream(){}
 
 		// ストリームサイズ取得
 		int  size() { return bs_.size(); }
@@ -936,6 +961,7 @@ namespace rf{
 			return str;
 		}
 
+		// 指数ゴロムとして読み込み
 		uint32_t read_by_expgolomb(string name) throw(...)
 		{
 			int prev_byte = bs_.byte_pos();
@@ -956,6 +982,7 @@ namespace rf{
 			return v;
 		}
 
+		// ビット単位で先読み
 		uint32_t look_by_bit(int size) throw(...)
 		{
 			if (FAILED("", bs_.check_offset_by_bit(size)))
@@ -967,6 +994,7 @@ namespace rf{
 			return val;
 		}
 		
+		// バイト単位で先読み
 		uint32_t look_by_byte(int size) throw(...)
 		{
 			if (FAILED("", bs_.check_offset_by_byte(size)))
@@ -1020,7 +1048,7 @@ namespace rf{
 		}
 
 		// １バイトの一致を検索
-		int find_byte(char c, bool advance = false) throw(...)
+		int find_byte(char c, bool advance) throw(...)
 		{
 			int prev_byte = bs_.byte_pos();
 			int offset;
@@ -1043,7 +1071,7 @@ namespace rf{
 		}
 
 		// 数バイト分の一致を検索
-		int find_byte_string(const char* address, int size, bool advance = false) throw(...)
+		int find_byte_string(const char* address, int size, bool advance) throw(...)
 		{
 			if (FAILED("check", valid_ptr(address)))
 				return false;
@@ -1093,7 +1121,7 @@ namespace rf{
 		
 		// 別のストリームに転送
 		// 現状オーバーヘッド多め
-		bool transfer_by_byte(string name, LuaGlueBitstream &stream, int size, bool advance = false)
+		bool transfer_by_byte(string name, LuaGlueBitstream &stream, int size, bool advance)
 		{
 			if (FAILED("", bs_.check_offset_by_byte(size)))
 				return false;
@@ -1117,7 +1145,7 @@ namespace rf{
 		// 現在位置からバイト表示
 		bool dump_line(int max_size)
 		{
-			char buf[128];
+			char buf[MAX_DUMP];
 
 			int dump_len = std::min<int>(bs_.size() - bs_.byte_pos(), max_size);
 			dump_len = std::min<int>(dump_len, sizeof(buf));
@@ -1130,7 +1158,7 @@ namespace rf{
 		// 現在位置からバイト表示
 		bool dump_as_string(int max_size)
 		{
-			char buf[128];
+			char buf[MAX_DUMP];
 
 			int dump_len = std::min<int>(bs_.size() - bs_.byte_pos(), max_size);
 			dump_len = std::min<int>(dump_len, sizeof(buf));
@@ -1143,7 +1171,7 @@ namespace rf{
 		// 現在位置からバイト表示
 		bool dump(int max_size)
 		{
-			char buf[128];
+			char buf[MAX_DUMP];
 
 			int dump_len = std::min<int>(bs_.size() - bs_.byte_pos(), max_size);
 			dump_len = std::min<int>(dump_len, sizeof(buf));
@@ -1156,50 +1184,41 @@ namespace rf{
 
 	class LuaGlueBufBitstream final : public LuaGlueBitstream
 	{
-	private:
-
-		shared_ptr<stringbuf> sb_;
-
 	public:
 
-		LuaGlueBufBitstream() :LuaGlueBitstream(){
-			sb_ = make_shared<stringbuf>();
-			assign(sb_);
+		LuaGlueBufBitstream() :LuaGlueBitstream()
+		{
+			assign(make_unique<stringbuf>());
 		}
-
-		virtual ~LuaGlueBufBitstream(){}
 	};
 
 	class LuaGlueFifoBitstream final : public LuaGlueBitstream
 	{
-	private:
-
-		shared_ptr<RingBuf> rb_;
-
 	public:
 
 		LuaGlueFifoBitstream() :LuaGlueBitstream(){}
 
-		virtual ~LuaGlueFifoBitstream(){}
-
+		// バッファを確保
 		bool reserve(int size)
 		{
-			rb_ = make_shared<RingBuf>();
-			rb_->reserve(size);
-			return assign(rb_);
+			auto rb = make_unique<RingBuf>();
+			rb->reserve(size);
+			return assign(std::move(rb));
 		}
 
+		// 指定の値が見つかるまで読み込み
 		int next_byte(char c)
 		{
 			return LuaGlueBitstream::find_byte(c, true);
 		}
 
+		// 指定バイト列が見つかるまで読み込み
 		int next_byte_string(const char* address, int size)
 		{
 			return LuaGlueBitstream::find_byte_string(address, size, true);
 		}
 
-		// 削除
+		// リングバッファではサポート不能
 		bool seekoff_by_bit(int offset) = delete;
 		bool seekoff_by_byte(int offset) = delete;
 		bool seekpos_by_bit(int byte) = delete;
@@ -1214,34 +1233,37 @@ namespace rf{
 
 	class LuaGlueFileBitstream final : public LuaGlueBitstream
 	{
-	private:
-		
-		shared_ptr<filebuf> fb_;
-
 	public:
 
 		LuaGlueFileBitstream() :LuaGlueBitstream(){}
 
-		virtual ~LuaGlueFileBitstream()
+		bool open(string file_name, string mode = "rb")
 		{
-			if (fb_)
-				fb_->close();
-		}
+			//auto del = [](filebuf* p){p->close(); delete p; };
+			//unique_ptr<filebuf, decltype(del)> fb(new filebuf, del);
 
-		bool open(string file_name, string openmode = "r")
-		{
-			if (fb_)
-				fb_->close();
+			auto fb = make_unique<filebuf>();
+			ios::openmode m;
 
-			fb_ = make_shared<filebuf>();
+			if (mode.find('r') != string::npos)
+				m = ios::in;
+			else if (mode.find('w') != string::npos)
+				m = ios::out | ios::trunc;
+			else if (mode.find('a') != string::npos)
+				m = (ios::out | ios::app);
+			else
+				ERR << "file open mode" << mode << endl;
 
-			// とりあえず
-			if (openmode == "w")
-				fb_->open(file_name, std::ios::out | std::ios::binary);
-			else // if (openmode == "r")
-				fb_->open(file_name, std::ios::in | std::ios::binary);
+			if (mode.find('+') != string::npos)
+				m |= (ios::in | ios::out);
 
-			return assign(fb_);
+			// テキストはほぼ処理しないのでbinary強制のほうがいいかも
+			if (mode.find('b') != string::npos)
+				m |= ios::binary;
+
+			fb->open(file_name, m);
+
+			return assign(std::move(fb));
 		}
 	};
 }
@@ -1249,9 +1271,11 @@ namespace rf{
 using namespace std;
 using namespace rf;
 
-shared_ptr<LuaBinder> init_lua(int argc, char** argv)
+// Luaを初期化する
+unique_ptr<LuaBinder> init_lua(int argc, char** argv)
 {
-	auto lua = make_shared<LuaBinder>();
+
+	auto lua = make_unique<LuaBinder>();
 
 	// 関数バインド
 	lua->def("stdout_to_file",   FileManager::stdout_to_file);        // コンソール出力の出力先切り替え
@@ -1401,7 +1425,6 @@ void show_help()
 
 int main(int argc, char** argv)
 {
-
 	// lua初期化
 	auto lua = init_lua(argc, argv);
 	

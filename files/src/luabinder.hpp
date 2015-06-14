@@ -29,6 +29,8 @@
 	#define LUA_RUNTIME_ERROR(x) std::runtime_error("c++ runtime exception.")
 	#define LUA_DOMEIN_ERROR(x) std::domain_error("c++ omein error exception.")
 	#define LUA_ARGUMENT_ERROR(x) std::invalid_argument("c++ invalid argument exception.")
+	#define make_unique make_shared
+	#define unique_ptr shared_ptr
 #endif
 
 namespace rf
@@ -38,9 +40,9 @@ namespace rf
 	using std::endl;
 	using std::stringstream;
 	using std::string;
+	using std::tuple;
 	using std::enable_if;
 	using std::unique_ptr;
-	using std::tuple;
 	using std::make_unique;
 
 	class LuaBinder final

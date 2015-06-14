@@ -28,8 +28,8 @@
 	#define nullptr NULL
 	#define final
 	#define throw(x)
-	// #define make_unique make_shared
-	// #define unique_ptr make_unique
+	#define make_unique make_shared
+	#define unique_ptr shared_ptr
 #endif
 
 namespace rf
@@ -99,19 +99,19 @@ namespace rf
 	private:
 
 		//  出力ファイル名から保存先
-		static map<string, ofstream> ofs_map_;
+		static map<string, unique_ptr<ofstream> > ofs_map_;
 
 		FileManager(){}
 		FileManager(const FileManager &){}
-		FileManager &operator=(const FileManager &){}
+		FileManager &operator=(const FileManager &){return *this;}
 
 		~FileManager()
 		{
 			#if 1
 				for (auto it = ofs_map_.begin(); it != ofs_map_.end(); ++it)
 				{
-					it->second.close();
-					if (it->second.fail())
+					it->second->close();
+					if (it->second->fail())
 					{
 						ERR << it->first << "close fail" << endl;
 					}
@@ -119,8 +119,8 @@ namespace rf
 			#else
 				for (auto c : ofs_map_)
 				{
-					c.second.close();
-					if (c.second.fail())
+					c.second->close();
+					if (c.second->fail())
 					{
 						ERR << c.first << "close fail" << endl;
 					}
@@ -148,18 +148,20 @@ namespace rf
 			auto it = ofs_map_.find(file_name);
 			if (it == ofs_map_.end())
 			{
-				ofstream ofs;
-				ofs.open(file_name, ios::binary | ios::out);
+				auto ofs = make_unique<ofstream>();
+				ofs->open(file_name, ios::binary | ios::out);
 				if (FAILED("file open", !(!ofs)))
-				{
 					return false;
-				}
-
-				it = ofs_map_.insert(std::make_pair(file_name, std::move(ofs))).first;
+				
+				auto ins = ofs_map_.insert(std::make_pair(file_name, std::move(ofs)));
+				if (FAILED("insert filename", ins.second == true))
+					return false;
+				
+				it = ins.first;
 			}
 
-			it->second.write(address, size);
-			if (FAILED("file write", !it->second.fail()))
+			it->second->write(address, size);
+			if (FAILED("file write", !it->second->fail()))
 			{
 				ERR << "file write " << file_name << endl;
 				return false;
@@ -195,7 +197,7 @@ namespace rf
 		}
 	};
 
-	map<string, ofstream> FileManager::ofs_map_;
+	map<string, unique_ptr<ofstream> > FileManager::ofs_map_;
 
 	class Bitstream
 	{
@@ -228,8 +230,8 @@ namespace rf
 		int byte_pos() const { return byte_pos_; }
 
 		// 読み込み対象のstreambufを設定する
-		template<typename D>
-		bool assign(unique_ptr<streambuf, D>&& buf)
+		//template<typename Deleter>
+		bool assign(unique_ptr<streambuf>&& buf)
 		{
 			buf_ = std::move(buf);
 			byte_pos_ = 0;
@@ -669,35 +671,27 @@ namespace rf
 		#if 0
 			ios::pos_type seekoff(ios::off_type off, ios::seekdir way, ios::openmode) override
 			{
-				#if 0
-					return -1;
-				#else
-					char* pos;
-					switch (way)
-					{
-						case ios::beg: pos = eback() + off; break;
-						case ios::end: pos = egptr() + off - 1; break;
-						case ios::cur: default: pos = gptr() + off; break;
-					}
-		
-					setg(buf_.get(), pos, buf_.get() + size_);
-					return -1;
-				#endif
+				char* pos;
+				switch (way)
+				{
+					case ios::beg: pos = eback() + off; break;
+					case ios::end: pos = egptr() + off - 1; break;
+					case ios::cur: default: pos = gptr() + off; break;
+				}
+	
+				setg(buf_.get(), pos, buf_.get() + size_);
+				return -1;
 			}
 		
 			ios::pos_type seekpos(ios::pos_type pos, ios::openmode which) override
 			{
-				#if 0
-					return -1;
-				#else
-					return seekoff(pos, ios::beg, which);
-				#endif
+				return seekoff(pos, ios::beg, which);
 			}
 		#endif
 
 	public:
 
-		RingBuf() : size_(0), streambuf() {}
+		RingBuf() : streambuf(), size_(0) {}
 
 		// リングバッファのサイズを指定する
 		bool reserve(int size)

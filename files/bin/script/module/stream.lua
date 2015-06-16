@@ -55,11 +55,11 @@ function _m:new(param, mode)
 		obj.file_name = param
 		assert(obj.stream:open(param, mode))
 	elseif type(param) == "number" then
-		print("create fifo stream", param)
+		print("create fifo stream ("..hexstr(param)..")")
 		obj.stream = Fifo.new()
 		obj.stream:reserve(param)
 	else
-		print("create stream ()")
+		print("create buffer ()")
 		obj.stream = Buffer.new()
 	end
 
@@ -159,38 +159,27 @@ function _m:lbit(size)
 end
 
 function _m:fbyte(char, advance)	
+	if advance == nil then advance = true end
 	local ofs = self.stream:find_byte(char, advance)
 	check(self, ofs, "fbyte:"..char)
 	return ofs
 end
 
 function _m:fstr(pattern, advance)
+	if advance == nil then advance = true end
 	local str = pat2str(pattern)
 	local ofs = self.stream:find_byte_string(str, #str, advance)
 	check(self, ofs, "fstr:"..pattern)
 	return ofs	
 end
 
-function _m:nbyte(char)	
-	local ofs = self.stream:next_byte(char)
-	check(self, ofs, "nbyte:"..char)
-	return ofs
-end
-
-function _m:nstr(pattern)
-	local str = pat2str(pattern)
-	local ofs = self.stream:next_byte_string(str, #str)
-	check(self, ofs, "nstr:"..pattern)
-	return ofs	
-end
-
 function _m:seek(byte, bit)
-	self.stream:seekpos(byte, bit or 0)
+	assert(self.stream:seekpos(byte, bit or 0))
 end
 
 function _m:seekoff(byte, bit)
-	self.stream:seekoff_byte(byte)
-	self.stream:seekoff_bit(bit)
+	if byte ~= nil then assert(self.stream:seekoff_byte(byte)) end
+	if bit  ~= nil then assert(self.stream:seekoff_bit(bit)) end
 end
 
 function _m:putc(c)
@@ -210,6 +199,7 @@ function _m:write(pattern)
 end
 
 function _m:tbyte(name, target, size, advance)
+	if advance == nil then advance = true end	
 	if type(target) == "string" then
 		return transfer_to_file(target, self.stream, size, advance)
 	else
@@ -218,6 +208,7 @@ function _m:tbyte(name, target, size, advance)
 end
 
 function _m:sub_stream(name, size, advance)	
+	if advance == nil then advance = true end
 	local b = Buffer:new()
 	print(size)
 	self.stream:transfer_byte(name, b, size, advance)

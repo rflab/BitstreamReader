@@ -724,7 +724,7 @@ function ifd(origin, offset, indent)
 
 	seek(origin + offset)
 	rbyte("FieldCount",                                                     2)
-	print(tab.."---------------IFD count:"..format_hex(get("FieldCount")).."-----------------")
+	print(tab.."---------------IFD count:"..hexstr(get("FieldCount")).."-----------------")
 	
 	local count = get("FieldCount") -- êÊåàÇ∑ÇÈÇΩÇﬂÇ…localÇ…ï€ë∂Ç∑ÇÈ
 	for i=1, count do

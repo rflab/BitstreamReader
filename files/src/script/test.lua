@@ -4,11 +4,12 @@ enable_print(true)
 
 -- fifo
 function test_fifo()
-	local fifo1 = stream:new(4)
+	local fifo1 = stream:new(6)
 	local fifo2 = stream:new(4)
 
 	-- オーバーラン
 	-- サイズオーバーするので00は05で上書きされる
+	print(fifo1:size(), fifo1:cur())
 	fifo1:write("01 02 03 04 05 06")
 	fifo1:rbyte("01 02 03 04 05 06", 6)
 	fifo1:putc(1)
@@ -21,10 +22,8 @@ function test_fifo()
 	fifo1:rbyte("3", 1)
 	fifo1:rbyte("4", 1)
 	fifo1:rbyte("5", 1)
-	
-	-- ダンプはシークが必要なためできない
-	-- fifo1:dump()
-
+	print(fifo1:size(), fifo1:cur())
+		
     -- 別のFifoに転送
 	fifo1:write("06 07 08 09 0A")
 	fifo1:tbyte(">> ", fifo2, 5)
@@ -39,9 +38,22 @@ function test_fifo()
 	fifo2:rbit("fifo2_4_l", 4)
 	fifo2:rbit("fifo2_5_h", 4)
 	fifo2:rbit("fifo2_5_l", 4)
+	
+	fifo1:write("01 02 03 04 05 06")
+	fifo1:write("01 02 03 04 05 06")
+	fifo1:write("01 02 03 04 05 06")
+	fifo1:write("01 02 03 04 05 06")
+	fifo1:write("01 02 03 04 05 06")
+	fifo1:write("01 02 03 04 05 06")
+	fifo1:write("01 02 03 04 05 06")
+	fifo1:write("01 02 03 04 05 06")
+	fifo1:write("01 02 03 04 05 06")
+	fifo1:write("01 02 03 04 05 06")
+	fifo1:write("01 02 03 04 05 06")
+	fifo1:write("01 02 03 04 05 06")
+	fifo1:write("01 02 03 04 05 06")
+	fifo1:dump()
 end
-
-
 
 --test_fifo()
 --dofile(__exec_dir__.."script/bmp.lua")

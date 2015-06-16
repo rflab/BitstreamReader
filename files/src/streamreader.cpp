@@ -21,7 +21,7 @@
 #include "luabinder.hpp"
 
 // config、デバッグ、環境依存
-#define FAILED(msg, ...) ::rf::failed((__VA_ARGS__), __LINE__, __FUNCTION__, msg, #__VA_ARGS__)
+#define FAILED(...) ::rf::failed((__VA_ARGS__), __LINE__, __FUNCTION__, #__VA_ARGS__)
 #define ERR cerr << "# c++ error. L" << dec << __LINE__ << " " << __FUNCTION__ << ": "
 #ifdef _MSC_VER
 #else
@@ -64,11 +64,11 @@ namespace rf
 	using std::dec;
 	using std::min;
 
-	inline bool failed(bool b, int line, const std::string &fn, const std::string &msg, const std::string &exp)
+	inline bool failed(bool b, int line, const std::string &fn, const std::string &exp)
 	{
 		if (!b)
-			std::cerr << "# c++ failed " << msg << "! L."<< std::dec
-			<< line << " " << fn << ": " << exp << std::endl;
+			std::cerr << "# c++ L."<< std::dec
+			<< line << " " << fn << ": failed [ " << exp << " ]" << std::endl;
 		return !b;
 	}
 
@@ -213,7 +213,10 @@ namespace rf
 		// メンバ変数にstreambufを同期する
 		bool sync()
 		{
-			return byte_pos_ == buf_->pubseekpos(byte_pos_);
+			// リングバッファの場合のように、必ずしもstreambuf上のいちとbyte_posは同じにならない
+			// return byte_pos_ == buf_->pubseekpos(byte_pos_);
+			buf_->pubseekpos(byte_pos_);
+			return true;
 		}
 
 	public:
@@ -221,7 +224,7 @@ namespace rf
 		Bitstream() : size_(0), bit_pos_(0), byte_pos_(0){}
 
 		// このBitstreamの現在サイズ
-		int size() const { return size_; }
+		int size() const {return size_;}
 
 		// 読み取りヘッダのビット位置
 		int bit_pos() const { return bit_pos_; }
@@ -230,15 +233,15 @@ namespace rf
 		int byte_pos() const { return byte_pos_; }
 
 		// 読み込み対象のstreambufを設定する
+		// サイズの扱いをもっとねらないとだめだかなぁ
 		//template<typename Deleter>
-		bool assign(unique_ptr<streambuf>&& buf)
+		bool assign(unique_ptr<streambuf>&& buf, int size)
 		{
 			buf_ = std::move(buf);
 			byte_pos_ = 0;
 			bit_pos_ = 0;
-			size_ = static_cast<int>(buf_->pubseekoff(0, ios::end));
-			size_ = size_ == EOF ? 0 : size_;
-
+			size_ = size;
+			
 			return sync();
 		}
 
@@ -278,7 +281,7 @@ namespace rf
 		{
 			if (FAILED("check range", (0 <= byte) && (byte <= size_)))
 			{
-				ERR << "overrun byte. pos 0x" << hex << byte << endl;
+				ERR << "overrun byte. pos 0x" << hex << byte << ", size 0x" << size_ <<endl;
 				return false;
 			}
 			return true;
@@ -310,7 +313,7 @@ namespace rf
 			if (FAILED("check byte", check_by_byte(byte)))
 				return false;
 
-			if (FAILED("check bit", (0 >= bit) && (bit <= 8)))
+			if (FAILED("check bit", (0 >= bit) && (bit < 8)))
 				return false;
 
 			byte_pos_ = byte;
@@ -515,7 +518,10 @@ namespace rf
 
 			ret_str = ss.str();
 			
-			return seekoff_by_byte(ofs);
+			if (FAILED(seekoff_by_byte(ofs)))
+				return false;
+
+			return true;
 		}
 
 		// ビット単位で先読み
@@ -530,9 +536,13 @@ namespace rf
 			if (FAILED("check remain size", check_offset_by_bit(size)))
 				return false;
 
-			read_by_bit(size, ret_val);
+			if (FAILED(read_by_bit(size, ret_val)))
+				return false;
 
-			return seekoff_by_bit(-size);
+			if (FAILED(seekoff_by_bit(-size)))
+				return false;
+
+			return true;
 		}
 		
 		// バイト単位で先読み
@@ -547,8 +557,13 @@ namespace rf
 			if (FAILED("check offset", check_offset_by_byte(size)))
 				return false;
 
-			read_by_byte(size, ret_val);
-			return seekoff_by_byte(-size);
+			if (FAILED(read_by_byte(size, ret_val)))
+				return false;
+
+			if (FAILED(seekoff_by_byte(-size)))
+				return false;
+
+			return true;
 		}
 
 		// 指定バッファの分だけ先読み
@@ -561,6 +576,7 @@ namespace rf
 				return false;
 
 			buf_->sgetn(address, size);
+
 			return sync();
 		}
 
@@ -570,7 +586,7 @@ namespace rf
 		{
 			int ofs = 0;
 			int c;
-			for (;; ++ofs)
+			for (; byte_pos_ + ofs < size_; ++ofs)
 			{
 				c = buf_->sbumpc();
 				if (static_cast<char>(c) == sc)
@@ -587,7 +603,9 @@ namespace rf
 			if (advance)
 			{
 				bit_pos_ = 0;
-				return seekoff_by_byte(ofs);
+				if (FAILED(seekoff_by_byte(ofs)))
+					return false;
+				return true;
 			}
 			else
 				return sync();
@@ -607,7 +625,7 @@ namespace rf
 
 			if (FAILED("", valid_ptr(address)))
 				return false;
-
+			
 			int offset = 0;
 			int prev_byte_pos = byte_pos_;
 			for (;;)
@@ -622,7 +640,11 @@ namespace rf
 				if ((byte_pos_ >= size_)
 				||  (!check_offset_by_byte(size)))
 				{
-					break;
+					ret_offset = size_ - prev_byte_pos;
+					if (!advance)
+						return seekpos_by_byte(prev_byte_pos);
+					else
+						return seekpos_by_byte(size_);
 				}
 
 				// 一致
@@ -630,19 +652,17 @@ namespace rf
 				look_by_buf(contents, size);
 				if (std::memcmp(contents, address, static_cast<size_t>(size)) == 0)
 				{
-					break;
+					ret_offset = byte_pos_ - prev_byte_pos;
+					if (!advance)
+						return seekpos_by_byte(prev_byte_pos);
+					else
+						return true;
 				}
 				else
 				{
 					seekoff_by_byte(1);
 				}
 			}
-
-			ret_offset = byte_pos_ - prev_byte_pos;
-			if (!advance)
-				return seekpos_by_byte(prev_byte_pos);
-			else
-				return true;
 		}
 	};
 	
@@ -651,7 +671,7 @@ namespace rf
 
 	private:
 
-		unique_ptr<char> buf_;
+		unique_ptr<char[]> buf_;
 		int size_;
 
 	protected:
@@ -665,29 +685,27 @@ namespace rf
 		int underflow() override
 		{
 			setg(buf_.get(), buf_.get(), buf_.get() + size_);
-			return buf_.get()[0];
+			return buf_[0];
 		}
 
-		#if 0
-			ios::pos_type seekoff(ios::off_type off, ios::seekdir way, ios::openmode) override
+		ios::pos_type seekoff(ios::off_type off, ios::seekdir way, ios::openmode) override
+		{
+			char* pos;
+			switch (way)
 			{
-				char* pos;
-				switch (way)
-				{
-					case ios::beg: pos = eback() + off; break;
-					case ios::end: pos = egptr() + off - 1; break;
-					case ios::cur: default: pos = gptr() + off; break;
-				}
+				case ios::beg: pos = eback() + (off % size_); break;
+				case ios::end: pos = egptr() + (off % size_); break;
+				case ios::cur: default: pos = eback() + (((gptr() - eback()) + off) % size_); break;
+			}
 	
-				setg(buf_.get(), pos, buf_.get() + size_);
-				return -1;
-			}
+			setg(buf_.get(), pos, buf_.get() + size_);
+			return pos - eback(); // 先頭を返す必要あり
+		}
 		
-			ios::pos_type seekpos(ios::pos_type pos, ios::openmode which) override
-			{
-				return seekoff(pos, ios::beg, which);
-			}
-		#endif
+		ios::pos_type seekpos(ios::pos_type pos, ios::openmode which) override
+		{
+			return seekoff(pos, ios::beg, which);
+		}
 
 	public:
 
@@ -699,7 +717,7 @@ namespace rf
 			if (FAILED("check size", 0 <= size))
 				return false;
 
-			buf_ = unique_ptr<char>(new char[size]);
+			buf_ = unique_ptr<char[]>(new char[size]);
 			size_ = size;
 			setp(buf_.get(), buf_.get() + size);
 			setg(buf_.get(), buf_.get(), buf_.get() + size);
@@ -820,9 +838,9 @@ namespace rf
 		// streambufを設定
 		// template<template<typename T> class D >
 		// bool assign(unique_ptr<streambuf, D>&& b)
-		bool assign(unique_ptr<streambuf>&& b)
+		bool assign(unique_ptr<streambuf>&& b, int size)
 		{
-			return bs_.assign(std::move(b));
+			return bs_.assign(std::move(b), size);
 		}
 
 		// 指定バッファ分だけデータを先読み
@@ -857,6 +875,9 @@ namespace rf
 		// 現在位置からファイルポインタ移動
 		bool seekoff_by_byte(int offset) { return bs_.seekoff_by_byte(offset); }
 
+		// 現在位置からファイルポインタ移動
+		bool seekoff(int byte, int bit) { return bs_.seekoff(byte, bit); }
+
 		// 先頭からファイルポインタ移動
 		bool seekpos_by_bit(int byte) { return bs_.seekpos_by_bit(byte); }
 
@@ -870,6 +891,9 @@ namespace rf
 		// 32bit以上は0を返す
 		uint32_t read_by_bit(string name, int size) throw(...)
 		{
+			if (FAILED("", size >= 0))
+				throw LUA_RUNTIME_ERROR("size < 0");
+
 			if (FAILED("", bs_.check_offset_by_bit(size)))
 				throw LUA_RUNTIME_ERROR("overflow");
 
@@ -1182,7 +1206,7 @@ namespace rf
 
 		LuaGlueBufBitstream() :LuaGlueBitstream()
 		{
-			assign(make_unique<stringbuf>());
+			assign(make_unique<stringbuf>(), 0);
 		}
 	};
 
@@ -1196,32 +1220,38 @@ namespace rf
 		bool reserve(int size)
 		{
 			auto rb = make_unique<RingBuf>();
-			rb->reserve(size);
-			return assign(std::move(rb));
+
+			if (FAILED(rb->reserve(size)))
+				return false;
+
+			if (FAILED(assign(std::move(rb), 0)))
+				return false;
+
+			return true;
 		}
 
-		// 指定の値が見つかるまで読み込み
-		int next_byte(char c)
-		{
-			return LuaGlueBitstream::find_byte(c, true);
-		}
-
-		// 指定バイト列が見つかるまで読み込み
-		int next_byte_string(const char* address, int size)
-		{
-			return LuaGlueBitstream::find_byte_string(address, size, true);
-		}
+		//// 指定の値が見つかるまで読み込み
+		//int next_byte(char c)
+		//{
+		//	return LuaGlueBitstream::find_byte(c, true);
+		//}
+		//
+		//// 指定バイト列が見つかるまで読み込み
+		//int next_byte_string(const char* address, int size)
+		//{
+		//	return LuaGlueBitstream::find_byte_string(address, size, true);
+		//}
 
 		// リングバッファではサポート不能
-		bool seekoff_by_bit(int offset) = delete;
-		bool seekoff_by_byte(int offset) = delete;
-		bool seekpos_by_bit(int byte) = delete;
-		bool seekpos_by_byte(int byte) = delete;
-		bool seekpos(int byte, int bit) = delete;
-		uint32_t look_by_bit(int size) = delete;
-		uint32_t look_by_byte(int size) = delete;
-		int find_byte(char c, bool advance = false) = delete;
-		int find_byte_string(const char* address, int size, bool advance = false) = delete;
+		//bool seekoff_by_bit(int offset) = delete;
+		//bool seekoff_by_byte(int offset) = delete;
+		//bool seekpos_by_bit(int byte) = delete;
+		//bool seekpos_by_byte(int byte) = delete;
+		//bool seekpos(int byte, int bit) = delete;
+		//uint32_t look_by_bit(int size) = delete;
+		//uint32_t look_by_byte(int size) = delete;
+		//int find_byte(char c, bool advance = false) = delete;
+		//find_byteint find_byte_string(const char* address, int size, bool advance = false) = delete;
 	};
 
 
@@ -1257,7 +1287,14 @@ namespace rf
 
 			fb->open(file_name, m);
 
-			return assign(std::move(fb));
+			int size = static_cast<int>(fb->pubseekoff(0, ios::end));
+			if (size == EOF)
+				size = 0;
+
+			if (FAILED(assign(std::move(fb), size)))
+				return false;
+
+			return true;
 		}
 	};
 }
@@ -1289,6 +1326,7 @@ unique_ptr<LuaBinder> init_lua(int argc, char** argv)
 		def("seekpos",          &LuaGlueFileBitstream::seekpos).               // 先頭からファイルポインタ移動
 		def("seekoff_bit",      &LuaGlueFileBitstream::seekoff_by_bit).        // 現在位置からファイルポインタ移動
 		def("seekoff_byte",     &LuaGlueFileBitstream::seekoff_by_byte).       // 現在位置からファイルポインタ移動
+		def("seekoff",          &LuaGlueFileBitstream::seekoff).               // 現在位置からファイルポインタ移動
 		def("bit_pos",          &LuaGlueFileBitstream::bit_pos).               // 現在のビットオフセットを取得
 		def("byte_pos",         &LuaGlueFileBitstream::byte_pos).              // 現在のバイトオフセットを取得
 		def("read_bit",         &LuaGlueFileBitstream::read_by_bit).           // ビット単位で読み込み
@@ -1318,6 +1356,7 @@ unique_ptr<LuaBinder> init_lua(int argc, char** argv)
 		def("seekpos",          &LuaGlueBufBitstream::seekpos).           // 先頭からファイルポインタ移動
 		def("seekoff_bit",      &LuaGlueBufBitstream::seekoff_by_bit).    // 現在位置からファイルポインタ移動
 		def("seekoff_byte",     &LuaGlueBufBitstream::seekoff_by_byte).   // 現在位置からファイルポインタ移動
+		def("seekoff",          &LuaGlueBufBitstream::seekoff).           // 現在位置からファイルポインタ移動
 		def("bit_pos",          &LuaGlueBufBitstream::bit_pos).           // 現在のビットオフセットを取得
 		def("byte_pos",         &LuaGlueBufBitstream::byte_pos).          // 現在のバイトオフセットを取得
 		def("read_bit",         &LuaGlueBufBitstream::read_by_bit).       // ビット単位で読み込み
@@ -1345,6 +1384,12 @@ unique_ptr<LuaBinder> init_lua(int argc, char** argv)
 		def("reserve",          &LuaGlueFifoBitstream::reserve).           // バッファサイズ設定、使う前に必須
 		def("enable_print",     &LuaGlueFifoBitstream::enable_print).      // コンソール出力ON/OFF
 		def("little_endian",    &LuaGlueFifoBitstream::little_endian).     // ２バイト/４バイトの読み込み時はエンディアンを変換する
+		def("seekpos_bit",      &LuaGlueFifoBitstream::seekpos_by_bit).    // 先頭からファイルポインタ移動
+		def("seekpos_byte",     &LuaGlueFifoBitstream::seekpos_by_byte).   // 先頭からファイルポインタ移動
+		def("seekpos",          &LuaGlueFifoBitstream::seekpos).           // 先頭からファイルポインタ移動
+		def("seekoff_bit",      &LuaGlueFifoBitstream::seekoff_by_bit).    // 現在位置からファイルポインタ移動
+		def("seekoff_byte",     &LuaGlueFifoBitstream::seekoff_by_byte).   // 現在位置からファイルポインタ移動
+		def("seekoff",          &LuaGlueFifoBitstream::seekoff).           // 現在位置からファイルポインタ移動
 		def("bit_pos",          &LuaGlueFifoBitstream::bit_pos).           // 現在のビットオフセットを取得
 		def("byte_pos",         &LuaGlueFifoBitstream::byte_pos).          // 現在のバイトオフセットを取得
 		def("read_bit",         &LuaGlueFifoBitstream::read_by_bit).       // ビット単位で読み込み
@@ -1354,11 +1399,15 @@ unique_ptr<LuaBinder> init_lua(int argc, char** argv)
 		def("comp_bit",         &LuaGlueFifoBitstream::compare_by_bit).    // ビット単位で比較
 		def("comp_byte",        &LuaGlueFifoBitstream::compare_by_byte).   // バイト単位で比較
 		def("comp_string",      &LuaGlueFifoBitstream::compare_by_string). // バイト単位で文字列として比較
-		def("next_byte",        &LuaGlueFifoBitstream::next_byte).         // １バイトの一致を検索
-		def("next_byte_string", &LuaGlueFifoBitstream::next_byte_string).  // 数バイト分の一致を検索
+		def("look_bit" ,        &LuaGlueFifoBitstream::look_by_bit).       // ポインタを進めないで値を取得、4byteまで
+		def("look_byte",        &LuaGlueFifoBitstream::look_by_byte).      // ポインタを進めないで値を取得、4byteまで
+		def("find_byte",        &LuaGlueFifoBitstream::find_byte).         // １バイトの一致を検索
+		def("find_byte_string", &LuaGlueFifoBitstream::find_byte_string).  // 数バイト分の一致を検索
 		def("transfer_byte",    &LuaGlueFifoBitstream::transfer_by_byte).  // 部分ストリーム(Bitstream)を作成
 		def("write",            &LuaGlueFifoBitstream::write_by_buf).      // ビットストリームの終端に書き込む
-		def("put_char",         &LuaGlueFifoBitstream::put_char);          // ビットストリームの終端に書き込む
+		def("put_char",         &LuaGlueFifoBitstream::put_char).          // ビットストリームの終端に書き込む
+		def("dump",
+			(bool(LuaGlueFifoBitstream::*)(int)) &LuaGlueFifoBitstream::dump); // 現在位置からバイト表示
 
 	// Luaの環境を登録
 	#ifdef _MSC_VER

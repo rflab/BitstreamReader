@@ -11,6 +11,13 @@ function open(file_name)
 	return gs_stream
 end
 
+-- ストリームを入れ替える
+function swap(stream)
+	local prev = gs_stream
+	gs_stream = stream
+	return prev
+end
+
 -- ストリーム状態表示
 function print_status()
 	return gs_stream:print()
@@ -212,7 +219,7 @@ function printf(format, ...)
 end
 
 -- 16進数をHHHH(DDDD)な感じの文字列にする
-function format_hex(value)
+function hexstr(value)
 	return string.format("0x%x(%d)", value, value)
 end
 
@@ -274,6 +281,19 @@ function str2val(buf_str, little_endian)
 	return val
 end
 
+-- 00 01 ... のような文字列パターンをバッファに変換する
+function pat2str(pattern)
+	local str = ""
+	if string.match(pattern, "^[0-9a-f][0-9a-f]") ~= nil then
+		for hex in string.gmatch(pattern, "%w+") do
+			str = str .. string.char(tonumber(hex, 16))
+		end
+	else
+		str = pattern
+	end
+	return str
+end
+
 -- 数字に変える
 function hex2str(val, size, le)
 	size = size or 4
@@ -287,24 +307,11 @@ function hex2str(val, size, le)
 	else
 		for i=0, size-1 do
 			str = str .. string.char((val >> (8*i)) & 0xff)
-			
 		end
 	end
 	return str
 end
 
--- 00 01 ... のような文字列パターンをバッファに変換する
-function pat2str(pattern)
-	local str = ""
-	if string.match(pattern, "^[0-9a-f][0-9a-f]") ~= nil then
-		for hex in string.gmatch(pattern, "%w+") do
-			str = str .. string.char(tonumber(hex, 16))
-		end
-	else
-		str = pattern
-	end
-	return str
-end
 
 -- coroutine起動
 function start_thread(func, ...)
@@ -323,9 +330,10 @@ end
 --------------------------------------
 function check_yield(size)
 	if size + cur() > file_size() then
+		print("file size over", "filesize:", file_size(), "readsize:", size)
 		io.write("size over. enter key to continue.")
 		io.read()
-		coroutine.yield()
+		--coroutine.yield()
 	end
 end
 

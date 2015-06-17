@@ -599,13 +599,14 @@ function ilst(size)
 end
 
 function free(size)
-	local total_size = 0
-	while total_size < size do
-		local header, box_size, header_size = BOXHEADER()
-		rbyte("payload", box_size-header_size)
-		total_size = total_size + box_size
-	end
-	return size, header
+	rbyte("free", size)
+	-- local total_size = 0
+	-- while total_size < size do
+	-- 	local header, box_size, header_size = BOXHEADER()
+	-- 	rbyte("payload", box_size-header_size)
+	-- 	total_size = total_size + box_size
+	-- end
+	-- return size, header
 end
 
 function skip(size)

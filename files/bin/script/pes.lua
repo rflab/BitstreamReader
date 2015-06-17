@@ -28,16 +28,16 @@ local fast_reverse = 0x3;
 local slow_reverse = 0x4;
 
 function pes(buf, pid)
-	local begin = cur()
-	local PTS
-	local DTS
+	local begin = buf:cur()
+	local PTS = false
+	local DTS = false
 	local start_code
 	progress:check()
 	
     buf:fstr("00 00 01", true)
     start_code = lbyte(4)
 
-	buf:rbit("packet_start_code_prefix",                                    24)
+	buf:cbit("packet_start_code_prefix",                                    24, 1)
 	buf:rbit("stream_id",                                                   8)
 	buf:rbit("PES_packet_length",                                           16)
 	
@@ -83,10 +83,10 @@ function pes(buf, pid)
 	        buf:rbit("marker_bit",                                          1)
 	        
 		    -- PTSílÇåvéZ
-			PTS = buf:get("PTS [32..30]")*0x40000000 + buf:get("PTS [29..15]")*0x8000 + buf:get("PTS [14..0]")
-		    printf("# PTS=0x%09x (%10.3f sec)", PTS, PTS/90000)
-			store(__stream_name__.."PTS", PTS/90000)
-
+			PTS = buf:get("PTS [32..30]")*0x40000000
+				+ buf:get("PTS [29..15]")*0x8000
+				+ buf:get("PTS [14..0]")
+		    -- printf("# PTS=0x%09x (%10.3f sec)", PTS, PTS/90000)
 	    end
 	    if buf:get("PTS_DTS_flags") & 1 == 1 then
 	        buf:rbit("Åf0001Åf",                                            4)
@@ -98,10 +98,10 @@ function pes(buf, pid)
 	        buf:rbit("marker_bit",                                          1)
 
 		    -- DTSílÇåvéZ
-			DTS = buf:get("DTS [32..30]")*0x40000000 + buf:get("DTS [29..15]")*0x8000 + buf:get("DTS [14..0]")
-		    printf("# DTS=0x%09x (%10.3f sec)", DTS, DTS/90000)
-
-			store(__stream_name__.."DTS", DTS/90000)
+			DTS = buf:get("DTS [32..30]")*0x40000000
+				+ buf:get("DTS [29..15]")*0x8000
+				+ buf:get("DTS [14..0]")
+		    -- printf("# DTS=0x%09x (%10.3f sec)", DTS, DTS/90000)
 	    end
    	    if buf:get("ESCR_flag") == 1 then
 	        buf:rbit("reserved",                                            2)
@@ -189,9 +189,11 @@ function pes(buf, pid)
 			buf:seek(buf:cur()+4)
 			local ofs = buf:fstr(hex2str(start_code), false)
 			buf:seek(buf:cur()-4)
-	        buf:tbyte(PES_packet_data_byte, __stream_dir__.."out/pid"..hexstr(pid)..".es", ofs + 4)
+	        buf:tbyte("PES_packet_data_byte",
+	        	__stream_dir__.."out/pid"..hexstr(pid)..".es", ofs + 4)
         else
-	        buf:tbyte(PES_packet_data_byte, __stream_dir__.."out/pid"..hexstr(pid)..".es", N)
+	        buf:tbyte("PES_packet_data_byte",
+	        	__stream_dir__.."out/pid"..hexstr(pid)..".es", N)
         end
         
 	elseif buf:get("stream_id") == program_stream_map
@@ -207,7 +209,7 @@ function pes(buf, pid)
 	end
 
 	-- return buf:get("PES_packet_length")
-	return cur() - begin, PTS, DTS
+	return buf:cur() - begin, PTS, DTS
 end
 
 function pes_stream(size)

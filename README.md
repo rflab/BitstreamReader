@@ -5,7 +5,7 @@
 MPEG-2 TS(PES)、MP4、JPEG(Exif)、h.264(ES)、bmp、wav、を解析するサンプル、及びbmpを作成するサンプルを含みます。
 TS/MP4は主にタイムスタンプを解析してESを出力します、h.264、bmp、wav、jpgは各種フラグを見ることができます。 
 
-対応拡張子:.wav, .bmp, .jpg, .ts, .tts, .m2t, .mpg, .mp4, .pes, .h264
+対応拡張子:.wav, .bmp, .jpg, .ts, .tts, .m2ts, .mpg, .mp4, .pes, .h264, など
 
 ## 実行ファイル
 Windows用の実行ファイルはfiles/bin/streamreader.exeです。

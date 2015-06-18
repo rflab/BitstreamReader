@@ -15,5 +15,5 @@ fstr("00 01", true)
 
 -- ファイル書き出しテスト
 write("out.dat", "00 00 00 01")
-tbyte("out.dat", 7)
+tbyte("dat", 7, "dat.dat")
 print_status()

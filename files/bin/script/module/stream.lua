@@ -70,9 +70,9 @@ end
 
 function _m:print()	
 	printf("name    : %s", self.file_name)
-	printf("size    : 0x%08x", self:size())
+	printf("size    : 0x%08x", self:get_size())
 	printf("cursor  : 0x%08x(%d)", self:cur(), self:cur())
-	printf("remain  : 0x%08x", self:size() - self:cur())
+	printf("remain  : 0x%08x", self:get_size() - self:cur())
 	perf:print()
 end
 
@@ -80,7 +80,7 @@ function _m:print_table()
 	print_table(self.tbl)
 end
 
-function _m:size()	
+function _m:get_size()	
 	return self.stream:size()
 end
 
@@ -126,24 +126,15 @@ function _m:rexp(name)
 end
 
 function _m:cbit(name, size, comp)	
-	local val = self.stream:comp_bit(name, size, comp)
-	--check(self, val, "cbit:"..name)
-	self.tbl[name] = val
-	return val
+	return self.stream:comp_bit(name, size, comp)
 end
 
 function _m:cbyte(name, size, comp)	
-	local val = self.stream:comp_byte(name, size, comp)
-	--check(self, val, "cbyte:"..name)
-	self.tbl[name] = val
-	return val
+	return self.stream:comp_byte(name, size, comp)
 end
 
 function _m:cstr(name, size, comp)
- 	local val = self.stream:comp_string(name, size, comp)
-	--check(self, val, "cstr:"..name)
-	self.tbl[name] = val
-	return val
+ 	return self.stream:comp_string(name, size, comp)
 end
 
 function _m:lbyte(size)	
@@ -198,7 +189,7 @@ function _m:write(pattern)
 	self.stream:write(str, #str)
 end
 
-function _m:tbyte(name, target, size, advance)
+function _m:tbyte(name, size, target, advance)
 	if advance == nil then advance = true end	
 	if type(target) == "string" then
 		return transfer_to_file(target, self.stream, size, advance)
@@ -233,7 +224,7 @@ function _m:little_endian(enable)
 end
 
 --function progress()
---	local p = math.modf(cur()/file_size() * 100)
+--	local p = math.modf(cur()/get_size() * 100)
 --	if math.modf(p % 10) == 0 and progress <= p then
 --		gs_prev_progress = gs_prev_progress + 10
 --		print(progress.."%", os.clock().."sec.")

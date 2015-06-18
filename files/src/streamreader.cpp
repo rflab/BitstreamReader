@@ -1026,7 +1026,7 @@ namespace rf
 		}
 
 		// ビット単位で比較
-		uint32_t compare_by_bit(string name, int size, uint32_t compvalue) throw(...)
+		bool compare_by_bit(string name, int size, uint32_t compvalue) throw(...)
 		{
 			if (FAILED(bs_.check_offset_by_bit(size)))
 				throw LUA_RUNTIME_ERROR("overflow");
@@ -1037,13 +1037,13 @@ namespace rf
 				printf("# compare value: 0x%08x(%d) != 0x%08x(%d)\n",
 					value, value, compvalue, compvalue);
 
-				throw LUA_RUNTIME_ERROR("compare fail");
+				return false;
 			}
-			return value;
+			return true;
 		}
 
 		// バイト単位で比較
-		uint32_t compare_by_byte(string name, int size, uint32_t compvalue) throw(...)
+		bool compare_by_byte(string name, int size, uint32_t compvalue) throw(...)
 		{
 			if (FAILED(bs_.check_offset_by_byte(size)))
 				throw LUA_RUNTIME_ERROR("overflow");
@@ -1052,7 +1052,7 @@ namespace rf
 		}
 
 		// バイト単位で文字列として比較
-		string compare_by_string(string name, int max_length, string comp_str) throw(...)
+		bool compare_by_string(string name, int max_length, string comp_str) throw(...)
 		{
 			if (FAILED(bs_.check_offset_by_byte(max_length)))
 				throw LUA_RUNTIME_ERROR("overflow");
@@ -1061,9 +1061,9 @@ namespace rf
 			if (str != comp_str)
 			{
 				printf("# compare string: \"%s\" != \"%s\"\n", str.c_str(), comp_str.c_str());
-				throw LUA_RUNTIME_ERROR("compare fail");
+				return false;
 			}
-			return str;
+			return true;
 		}
 
 		// １バイトの一致を検索

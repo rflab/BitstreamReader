@@ -28,8 +28,8 @@ function print_status_all()
 end
 
 -- ストリームファイルサイズ取得
-function file_size()
-	return gs_stream:size()
+function get_size()
+	return gs_stream:get_size()
 end
 
 -- ストリームを最大256バイト出力
@@ -74,55 +74,46 @@ end
 
 -- ビット単位読み込み
 function rbit(name, size)
-	check_yield(size)
 	return name, gs_stream:rbit(name, size)
 end
 
 -- バイト単位読み込み
 function rbyte(name, size)
-	check_yield(size)
 	return name, gs_stream:rbyte(name, size)
 end
 
 -- 文字列として読み込み
 function rstr(name, size)
-	check_yield(size)
 	return name, gs_stream:rstr(name, size)
 end
 
 -- 指数ゴロムとして読み込み
 function rexp(name)
-	check_yield(size)
 	return name, gs_stream:rexp(name)
 end
 
 -- ビット単位で読み込み、compとの一致を確認
 function cbit(name, size, comp)
-	check_yield(size)
 	return name, gs_stream:cbit(name, size, comp)
 end
 
 -- バイト単位で読み込み、compとの一致を確認
 function cbyte(name, size, comp)
-	check_yield(size)
 	return name, gs_stream:cbyte(name, size, comp)
 end
 
 -- 文字列として読み込み、compとの一致を確認
 function cstr(name, size, comp)
-	check_yield(size)
 	return name, gs_stream:cstr(name, size, comp)
 end
 
 -- bit単位で読み込むがポインタは進めない
 function lbit(size)
-	check_yield(size)
 	return gs_stream:lbit(size)
 end
 
 -- バイト単位で読み込むがポインタは進めない
 function lbyte(size)
-	check_yield(size)
 	return gs_stream:lbyte(size)
 end
 
@@ -137,12 +128,11 @@ function fstr(pattern, advance)
 end
 
 -- ストリームからファイルにデータを追記
-function tbyte(target, size)
-	check_yield(size)
+function tbyte(name, size, target)
 	if type(target) == "string" then
 		return transfer_to_file(target, gs_stream.stream, size, true)
 	else
-		return gs_stream:tbyte(tostring(target), target, size, true)
+		return gs_stream:tbyte(name, size, target, true)
 	end
 end
 
@@ -177,7 +167,6 @@ function save_as_csv(file_name)
 	return gs_csv:save(file_name)
 end
 
-
 --------------------------------------------
 -- その他ユーティリティ
 --------------------------------------------
@@ -186,7 +175,7 @@ perf = profiler:new()
 progress = {
 	prev = 10,
 	check = function (self)
-		local cur = math.modf(cur()/file_size() * 100)
+		local cur = math.modf(cur()/get_size() * 100)
 		if math.abs(self.prev - cur) >= 9.99 then
 			self.prev = cur
 			print("--------------------------")
@@ -211,7 +200,6 @@ function split_file_name(path)
 	
 	return path, dir, name, ext
 end
-
 
 -- 最後に勝手に\nが入るprintf
 function printf(format, ...)
@@ -253,6 +241,7 @@ function print_table(tbl, indent)
 end
 
 -- tbl[name].tblの末尾とtbl[name].valに値を入れる
+-- 自作store関数のテーブル版
 function store_to_table(tbl, name, value)
 	assert(name ~= nil, "nil name specified")
 	assert(value ~= nil, "nil value specified")
@@ -263,7 +252,7 @@ function store_to_table(tbl, name, value)
 	table.insert(tbl[name].tbl, value)
 end
 
--- 4文字までのバッファを数値に変換する
+-- 4文字までのchar配列を数値にキャストする
 function str2val(buf_str, little_endian)
 	local s
 	local val = 0
@@ -281,7 +270,7 @@ function str2val(buf_str, little_endian)
 	return val
 end
 
--- 00 01 ... のような文字列パターンをバッファに変換する
+-- 00 01 ... のような文字列パターンをchar配列に変換する
 function pat2str(pattern)
 	local str = ""
 	if string.match(pattern, "^[0-9a-f][0-9a-f]") ~= nil then
@@ -294,7 +283,7 @@ function pat2str(pattern)
 	return str
 end
 
--- 数字に変える
+-- 数値をchar配列に変える
 function hex2str(val, size, le)
 	size = size or 4
 	assert(size <= 4)
@@ -328,9 +317,9 @@ end
 --------------------------------------
 -- 内部関数、通常使わない
 --------------------------------------
-function check_yield(size)
-	if size + cur() > file_size() then
-		print("file size over", "filesize:", file_size(), "readsize:", size)
+function check(size)
+	if size + cur() > get_size() then
+		print("size over", "size:", get_size(), "readsize:", size)
 		io.write("size over. enter key to continue.")
 		io.read()
 		--coroutine.yield()

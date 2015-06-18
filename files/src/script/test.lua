@@ -9,7 +9,7 @@ function test_fifo()
 
 	-- オーバーラン
 	-- サイズオーバーするので00は05で上書きされる
-	print(fifo1:size(), fifo1:cur())
+	print(fifo1:get_size(), fifo1:cur())
 	fifo1:write("01 02 03 04 05 06")
 	fifo1:rbyte("01 02 03 04 05 06", 6)
 	fifo1:putc(1)
@@ -22,12 +22,12 @@ function test_fifo()
 	fifo1:rbyte("3", 1)
 	fifo1:rbyte("4", 1)
 	fifo1:rbyte("5", 1)
-	print(fifo1:size(), fifo1:cur())
+	print(fifo1:get_size(), fifo1:cur())
 		
     -- 別のFifoに転送
 	fifo1:write("06 07 08 09 0A")
-	fifo1:tbyte(">> ", fifo2, 5)
-	print(fifo2:size(), fifo2:cur())
+	fifo1:tbyte(">> ", 5, fifo2)
+	print(fifo2:get_size(), fifo2:cur())
 	fifo2:rbit("fifo2_1_h", 4)
 	fifo2:rbit("fifo2_1_l", 4)
 	fifo2:rbit("fifo2_2_h", 4)

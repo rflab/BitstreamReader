@@ -748,7 +748,7 @@ function analyse_trak(trak)
 	for i = 1, #Offset do
 		--print(Offset[i], Size[i])
 		seek(Offset[i])
-		tbyte(__stream_dir__.."/out/"..trak.descriptor..".dat", Size[i])
+		tbyte("es", Size[i], __stream_dir__.."/out/"..trak.descriptor..".es")
 	end
 	seek(prev)
 	
@@ -812,7 +812,7 @@ end
 open(__stream_path__)
 enable_print(false)
 stdout_to_file(false)
-mp4(file_size())
+mp4(get_size())
 
 print_status()
 save_as_csv(__stream_dir__.."out/mp4.csv")

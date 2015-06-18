@@ -1,10 +1,17 @@
 -- H264解析
 function more_rbsp_data()
+	if cur() >= get_size() then
+		return false
+	end
 	return lbit(1) ~= 1
 end
 
+function more_data_in_byte_stream()
+	return cur() < get_size()
+end
+
 function rbsp_trailing_bits()
-	local byte, bit = cur()
+	local bit = select(2, cur())
 	cbit("rbsp_stop_one_bit",                          1,       1)
 	cbit("rbsp_alignment_zero_bit",                    8-1-bit, 0) 
 end
@@ -24,10 +31,12 @@ end
 
 function nal_unit_header_svc_extension()
 	assert("false")
+	rbyte("nal_unit_header_svc_extension", 2)
 end
 
 function nal_unit_header_mvc_extension()
 	assert("false")
+	rbyte("nal_unit_header_mvc_extension", 2)
 end
 
 function get_slice_type_str(t)
@@ -51,15 +60,15 @@ function access_unit_delimiter_rbsp()
 	local t = get("primary_pic_type")
 	local st = get_slice_type_str
 
-	if     t == 0 then print("AUD", st(2), st(7)) 
-	elseif t == 1 then print("AUD", st(1), st(0), st(2), st(5), st(7)) 
-	elseif t == 2 then print("AUD", st(2), st(0), st(1), st(2), st(5), st(6), st(7))
-	elseif t == 3 then print("AUD", st(3), st(4), st(9))
-	elseif t == 4 then print("AUD", st(4), st(3), st(4), st(8), st(9))
-	elseif t == 5 then print("AUD", st(5), st(2), st(4), st(7), st(9))
-	elseif t == 6 then print("AUD", st(6), st(0), st(2), st(3), st(4), st(5), st(7), st(8), st(9))
-	elseif t == 7 then print("AUD", st(7), st(0), st(1), st(2), st(3), st(4), st(5), st(6), st(7), st(8), st(9))
-	else               print("AUD", "unknown")
+	if     t == 0 then print("AUD I")--st(2), st(7)) 
+	elseif t == 1 then print("AUD IP")--st(0), st(2), st(5), st(7)) 
+	elseif t == 2 then print("AUD IPB")--st(0), st(1), st(2), st(5), st(6), st(7))
+	elseif t == 3 then print("AUD SI")--st(4), st(9))
+	elseif t == 4 then print("AUD SIP")--st(3), st(4), st(8), st(9))
+	elseif t == 5 then print("AUD I & SI")--st(2), st(4), st(7), st(9))
+	elseif t == 6 then print("AUD IP & SIP")--st(0), st(2), st(3), st(4), st(5), st(7), st(8), st(9))
+	elseif t == 7 then print("AUD IPB & SIPB")--st(0), st(1), st(2), st(3), st(4), st(5), st(6), st(7), st(8), st(9))
+	else               print("AUD unknown")
 	end
 	
 	rbsp_trailing_bits()
@@ -289,12 +298,23 @@ print("pic_parameter_set_rbsp")
 				end
 			end
 		end
-		rexp("second_chroma_qp_index_offset",                    1) -- se(v)
+		rexp("second_chroma_qp_index_offset"                       ) -- se(v)
 	end
 	rbsp_trailing_bits()
 end
 
+function slice_header()
+	rexp("first_mb_in_slice"             ) -- ue(v)
+	rexp("slice_type"                    ) -- ue(v)
+	rexp("pic_parameter_set_id"          ) -- ue(v)
+	
+	print("slice", get_slice_type_str(get("slice_type")))
+	
+	-----まだつづく
+end
+
 function sei_rbsp()
+print("SEI")
 	repeat
 		sei_message()
 	until more_rbsp_data() == false
@@ -304,28 +324,26 @@ end
 function sei_message()
 	local payloadType = 0
 	while lbyte(1) == 0xff do
-		cbit("ff_byte",                  5) -- f(8)
+		cbit("ff_byte",                  8, 0xff) -- f(8)
 		payloadType = payloadType + 255
 	end
-	rbit("last_payload_type_byte",       5) -- u(8)
+	rbit("last_payload_type_byte",       8, 0xff) -- u(8)
 	payloadType = payloadType + get("last_payload_type_byte")
 
 	payloadSize = 0
 	while lbyte(1) == 0xff do
-		cbit("ff_byte",                  5) -- f(8)
+		cbit("ff_byte",                  8, 0xff) -- f(8)
 		payloadSize = payloadSize + 255
 	end
-	rbit("last_payload_size_byte",       5) -- u(8)
+	rbit("last_payload_size_byte",       8, 0xff) -- u(8)
 	payloadSize = payloadSize + get("last_payload_size_byte")
 
 	sei_payload(payloadType, payloadSize)
 end
 
 function sei_payload(payloadType, payloadSize)
-print("sei tyep, size = ", payloadType, payloadSize)
-dump()
 	local begin = cur()
-
+	
 	if payloadType == 0 then
 		buffering_period(payloadSize)
 	elseif payloadType == 1 then
@@ -438,11 +456,11 @@ dump()
 		print("reserved_sei_message( payloadSize )")
 	end
 	
-	if cur()-begin ~= payloadSize then
-		rbyte("remained payload",  payloadSize - (cur() - begin))
+	rbyte("sei payload", payloadSize - (cur() - begin))
+	
+	if byte_aligned() == false then
+		rbsp_trailing_bits()
 	end
-
-	rbsp_trailing_bits()
 end
 
 function buffering_period(payloadSize)
@@ -460,14 +478,11 @@ function buffering_period(payloadSize)
 --	end
 end
 
-function nal_unit(NumBytesInNALunit)
-print("nal_unit")
+function nal_unit(rbsp, NumBytesInNALunit)
 	rbit("forbidden_zero_bit",                          1)
 	rbit("nal_ref_idc",                                 2)
     rbit("nal_unit_type",                               5)
 	
-	local NumBytesInRBSP = 0
-	local nalUnitHeaderBytes = 1
 	if get("nal_unit_type") == 14
 	or get("nal_unit_type") == 20
 	or get("nal_unit_type") == 21 then
@@ -477,53 +492,67 @@ print("nal_unit")
 		else
 			nal_unit_header_mvc_extension()
 		end
-		nalUnitHeaderBytes = nalUnitHeaderBytes + 3
 	end
 
--- バイト数の計算が面倒くさそうなのでとりあえずすぐにreturnする
---	local total = nalUnitHeaderBytes
---	while total < NumBytesInNALunit do
-
-		-- 本来03の除去はここで行うべき
-		-- このスクリプトでは事前に000003を抜いているのでおかしくなるストリームもあるかも
-		--if i + 2 < NumBytesInNALunit
-		-- and lbyte(3) == 0x000003 then 
-		-- 	tbyte("rbsp_byte",                              2)
-		-- 	rbit("emulation_prevention_three_byte",         8)
-		-- 	NumBytesInRBSP = NumBytesInRBSP + 2
-		-- 	i = i + 2
-		-- else
-		--	tbyte("rbsp_byte",                              1)
-		--end
-		local begin = cur()
-	
-		if get("nal_unit_type") == 0 then
-			print("Unspecified RBSP")
-		elseif get("nal_unit_type") == 6 then
-			sei_rbsp()
-		elseif get("nal_unit_type") == 7 then
-			seq_parameter_set_rbsp()
-		elseif get("nal_unit_type") == 8 then
-			pic_parameter_set_rbsp()
-		elseif get("nal_unit_type") == 9 then
-			access_unit_delimiter_rbsp()
-			
-			
-			
-			
-		else
-			seekoff(1, 0)
-			print("seek")
-			--rbyte("rbsp_byte",                              1)
-		end
+	local total = 1
+	local ofs
+	while true do
+		ofs = math.min(fstr("00 00 03", false), NumBytesInNALunit - total)
 		
---		total = total + cur() - begin
---	end
+		if ofs >= NumBytesInNALunit - total then 
+			tbyte("rbsp end", ofs, rbsp)
+			break
+		else
+			tbyte("rbsp", ofs+2, rbsp)
+			rbyte("dummy", 1)
+			total = total + ofs + 2 + 1
+		end
+	end
+
+
+	local file = swap(rbsp)
+	
+	if file:get("nal_unit_type") == 0 then
+		print("Unspecified RBSP")
+	elseif file:get("nal_unit_type") == 1 then
+		--print("[non-IDR] picture slice_layer_without_partitioning_rbsp( )")
+		slice_header()
+	elseif file:get("nal_unit_type") == 2 then
+		--print("[slice A] slice_data_partition_a_layer_rbsp( )")
+		slice_header()
+	elseif file:get("nal_unit_type") == 3 then
+		--print("[slice B] slice_data_partition_b_layer_rbsp( )")
+		slice_header()
+	elseif file:get("nal_unit_type") == 4 then
+		--print("[slice C] slice_data_partition_c_layer_rbsp( )")
+		slice_header()
+	elseif file:get("nal_unit_type") == 5 then
+		--print("[IDR] slice_layer_without_partitioning_rbsp( )")
+		slice_header()
+	elseif file:get("nal_unit_type") == 6 then
+		sei_rbsp()
+	elseif file:get("nal_unit_type") == 7 then
+		seq_parameter_set_rbsp()
+	elseif file:get("nal_unit_type") == 8 then
+		pic_parameter_set_rbsp()
+	elseif file:get("nal_unit_type") == 9 then
+		access_unit_delimiter_rbsp()
+	else
+		seekoff(1, 0)
+		--rbyte("rbsp_byte",                              1)
+	end
+	
+	-- とりあえず余ったデータを読み捨てる
+	seek(get_size())
+
+	swap(file)
 end
 
-function byte_stream_nal_unit(NumBytesInNALunit)
+function byte_stream_nal_unit(rbsp, NumBytesInNALunit)
+print("------------"..hexstr(cur()).."------------")
+
 	local begin = cur()
-	
+
 	while lbyte(3) ~= 0x000001
 	and lbyte(4) ~= 0x00000001 do
 		cbyte("leading_zero_8bits",                     1, 0)
@@ -533,9 +562,11 @@ function byte_stream_nal_unit(NumBytesInNALunit)
 		cbyte("zero_byte",                              1, 0)
 	end
 	cbyte("start_code_prefix_one_3bytes",               3, 0x000001)
-	nal_unit(NumBytesInNALunit)
 	
-	while NumBytesInNALunit > begin - cur()
+	NumBytesInNALunit = math.min(fstr("00 00 00", false), fstr("00 00 01", false), NumBytesInNALunit)
+	nal_unit(rbsp, NumBytesInNALunit)
+	
+	while more_data_in_byte_stream()
 	and lbyte(3) ~= 0x000001
 	and lbyte(4) ~= 0x00000001 do
 		cbit("trailing_zero_8bits",                     8, 0)
@@ -545,47 +576,18 @@ function byte_stream_nal_unit(NumBytesInNALunit)
 end
 
 function h264_byte_stream(max_length)
+	local rbsp = stream:new(1024*1024*3)
+	rbsp:enable_print(true)
 	local total_size = 0;
 	while total_size < max_length do
-		total_size = total_size + byte_stream_nal_unit(max_length-total_size)
-		-- if lbyte(3) == 0x000001 then
-		-- 	break
-		-- end
+		total_size = total_size + byte_stream_nal_unit(rbsp, max_length-total_size)
 	end
 end
 
-function remove_dummy(max_length, path)
-	print("replace 00 00 03 -> 00 00")
-	local ofs = 0
-	while true do
-		if cur() >= max_length then
-			break
-		end
-
-		ofs = fstr("00 00 03", false)
-		if cur() + ofs >= max_length then 
-			tbyte(path, ofs)
-			break
-		end
-
-		tbyte(path, ofs+2)
-		rbyte("dummy", 1)
-	end
-end
-
--- 解析
-if __stream_path__ ~= __stream_dir__.."removed03.h264" then
-	open(__stream_path__)
-	print_status()
-	enable_print(true)
-	stdout_to_file(false)
-	start_thread(remove_dummy, file_size(), __stream_dir__.."removed03.h264")
-end
-
-open(__stream_dir__.."removed03.h264")
+open(__stream_path__)
 print_status()
-enable_print(true)
+enable_print(false)
 stdout_to_file(false)
-start_thread(h264_byte_stream, file_size())
+h264_byte_stream(get_size())
 
 

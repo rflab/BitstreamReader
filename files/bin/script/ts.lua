@@ -309,7 +309,7 @@ function data_byte(target, pid, size)
 	elseif target == "pes" then
 		if pes_buf_array[pid] ~= nil then
 			-- バッファにデータ転送
-			tbyte(pes_buf_array[pid], size)
+			tbyte("data_byte", size, pes_buf_array[pid])
 			return true
 		else
 			rbyte("unknown data", size)
@@ -321,11 +321,11 @@ end
 function payload(pid)
 	local buf = pes_buf_array[pid]
 	if  buf ~= nil then
-		if buf:size() ~= buf:cur() then
+		if buf:get_size() ~= buf:cur() then
 			local size, PTS, DTS = pes(buf, pid)
 			store_recode(pid, cur(), size, false, PTS, DTS)
-			if buf:size() ~= buf:cur() then
-				buf:rbyte("#unknown remain data", buf:size() - buf:cur())
+			if buf:get_size() ~= buf:cur() then
+				buf:rbyte("#unknown remain data", buf:get_size() - buf:cur())
 			end
 		end
 	end
@@ -361,12 +361,14 @@ function analyze()
 	seek(0)
 	enable_print(false)
 	stdout_to_file(false)
-	ts(file_size(), "pes")
+	ts(get_size()-200, "pes")
 end
 
 open(__stream_path__)
+print_status()
 analyze()
 save_as_csv(__stream_dir__.."out/ts.csv")
+print_status()
 
 
 

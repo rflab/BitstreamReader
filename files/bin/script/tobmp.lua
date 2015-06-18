@@ -20,7 +20,7 @@ function create_bmp(filename, dip)
 	write(filename, "00 00 00 00")                               -- "biClrUsed",        4)
 	write(filename, "00 00 00 00")                               -- "biClrImporant",    4)
 	dip.buf:seek(0)
-	dip.buf:tbyte("dip", filename, dip.buf:size(), true)
+	dip.buf:tbyte("dip", dip.buf:size(), true, filename)
 end
 
 function init_dip(pitch, hight)

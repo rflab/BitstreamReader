@@ -32,10 +32,12 @@ function pes(buf, pid)
 	local PTS = false
 	local DTS = false
 	local start_code
+	local ofs
 	progress:check()
 	
-    buf:fstr("00 00 01", true)
+    ofs = buf:fstr("00 00 01", true)
     start_code = lbyte(4)
+    assert(ofs == 0)
 
 	buf:cbit("packet_start_code_prefix",                                    24, 1)
 	buf:rbit("stream_id",                                                   8)
@@ -44,13 +46,7 @@ function pes(buf, pid)
 	if buf:get("PES_packet_length") == 0 then
 		no_packet_length = true
 	end
-	
-	-- H.262
-	if  buf:get("stream_id") < 0xB9 then
-		-- ES data
-		return cur() - begin 
-	end
-	
+		
 	if  buf:get("stream_id") ~= program_stream_map
 	and buf:get("stream_id") ~= padding_stream
 	and buf:get("stream_id") ~= private_stream_2
@@ -189,11 +185,11 @@ function pes(buf, pid)
 			buf:seek(buf:cur()+4)
 			local ofs = buf:fstr(hex2str(start_code), false)
 			buf:seek(buf:cur()-4)
-	        buf:tbyte("PES_packet_data_byte",
-	        	__stream_dir__.."out/pid"..hexstr(pid)..".es", ofs + 4)
+	        buf:tbyte("PES_packet_data_byte", ofs + 4,
+	        	__stream_dir__.."out/pid"..hexstr(pid)..".es")
         else
-	        buf:tbyte("PES_packet_data_byte",
-	        	__stream_dir__.."out/pid"..hexstr(pid)..".es", N)
+	        buf:tbyte("PES_packet_data_byte", N,
+	        	__stream_dir__.."out/pid"..hexstr(pid)..".es")
         end
         
 	elseif buf:get("stream_id") == program_stream_map
@@ -203,9 +199,9 @@ function pes(buf, pid)
 	or     buf:get("stream_id") == program_stream_directory
 	or     buf:get("stream_id") == ITU_T_Rec_H_222_0_ISO_IEC_13818_1_Annex_B_or_ISO_IEC_13818_6_DSMCC_stream
 	or     buf:get("stream_id") == ITU_T_Rec_H_222_1_type_E then
-	    buf:tbyte(__stream_dir__.."out/pid.es",         buf:get("PES_packet_length"))
+	    buf:tbyte("PES_packet_data_byte",                                   buf:get("PES_packet_length"), __stream_dir__.."out/pid.es")
 	elseif ( stream_id == padding_stream) then
-        buf:rbyte("padding_byte",                                        buf:get("PES_packet_length"))
+        buf:rbyte("padding_byte",                                           buf:get("PES_packet_length"))
 	end
 
 	-- return buf:get("PES_packet_length")
@@ -229,10 +225,8 @@ function pes_stream(size)
 end
 
 -- ファイルオープン＆初期化＆解析
---__pid__ = __pid__ or 0
---
 --open(__stream_path__)
 --enable_print(false)
 --stdout_to_file(false)
---start_thread(pes_stream, file_size())
+--start_thread(pes_stream, get_size())
 

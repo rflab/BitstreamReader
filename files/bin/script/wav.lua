@@ -19,7 +19,7 @@ rbyte("block_size(smaple_x_channel)", 2)
 rbyte("bit_depth",                    2)
 rbyte("'data'",                       4)
 rbyte("size_audio_data",              4)
-tbyte("pcm.dat",                      get("size_audio_data")) -- PCMを書き出す
+tbyte("pcm",                          get("size_audio_data"), "pcm.dat") -- PCMを書き出す
 rbyte("tag",                          4)
 rbyte("size_data",                    4, data)
 rbyte("data",                         get("size_data"))

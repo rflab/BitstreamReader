@@ -45,28 +45,29 @@ Lua5.3.0＆VC++12＆gcc version 4.9.2 (Ubuntu 4.9.2-10ubuntu13) でビルド確�
 --test.lua--
 
 -- 準備
-dofile("script/util.lua")    -- Luaに関数登録ロード
-open("test.dat")             -- ファイルオープン＆初期化
+dofile("script/util.lua")     -- Luaに関数登録ロード
+open("test.dat")              -- ファイルオープン＆初期化
 
 -- 基本的な読み込み
-dump()                       -- 現在行から数バイト表示してみる
-rstr ("tag",   4)            -- 4バイトを文字列として読み込み
-rbyte("dataA", 1)            -- 1バイトを読み込み
-rbit ("flagA", 1)            -- 1ビットを読み込み
-rbit ("flagB", 7)            -- 7ビットを読み込み
-rbit ("flagC", 80)           -- 80ビットを読み込み
-tbyte("out.pcm", 16)         -- 16バイトをファイルに書き写す
-print(get("flagC"))          -- 取得済みのデータを参照する
+dump()                        -- 現在行から数バイト表示してみる
+rstr ("tag",   4)             -- 4バイトを文字列として読み込み
+rbyte("dataA", 1)             -- 1バイトを読み込み
+rbit ("flagA", 1)             -- 1ビットを読み込み
+rbit ("flagB", 7)             -- 7ビットを読み込み
+rbit ("flagC", 80)            -- 80ビットを読み込み
+tbyte("pcm",   16, "pcm.dat") -- 16バイトをファイルに書き写す
+print(get("flagC"))           -- 取得済みのデータを参照する
 
 -- その他
 local next16bit = lbit(16)           -- 16bit先読み、ポインタは進まない
 local ofs = fstr("00 00 03", false)  -- 00 00 03のバイナリ列を検索、リードポインタは進めない
 local s = sub_stream("payload", ofs) -- ↑で検索したところまでを部分ストリームにする                
 store(rbyte("size_audio_data", 4))   -- csvファイル用データの記憶、書き方1
-store("data", get("flafA"))          -- csvファイル用データの記憶、書き方2
+store("data", get("flagA"))          -- csvファイル用データの記憶、書き方2
 save_as_csv(result.csv)              -- csvファイルに書き出す
 ```
 C++側からは以下のような関数・クラスがバインドされています。
+細かい拡張はこちら。
 （関数・クラスの仕様はfiles/src/streamreader.cpp参照のこと。）
 
 ```cpp

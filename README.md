@@ -3,18 +3,19 @@
 各種ファイルストリームを解析するツールです。（現在の対応拡張子:.wav, .bmp, .jpg, .ts, .tts, .m2ts, .mpg, .mp4, .pes, .h264, h265, など）
 
 windowsなら実行ファイルにファイルをドロップすれば解析が始まります。
+
 スクリプトを書けばビット単位、可変長でどんなバイナリデータも解析できます
 
 ## 実行ファイル
 Windows用の実行ファイルはfiles/bin/streamreader.exeです。
 
-ビルドする場合、
+自分でビルドする場合、
 * gccの場合はfiles/srcでmake build
 * VisualStudio2013の場合は、files/visual_studio_solution/visual_studio_solution.slnを開いてF5
 
-Lua5.3.0＆VC++12＆gcc version 4.9.2 (Ubuntu 4.9.2-10ubuntu13) でビルド確認しています。
+Lua5.3.0＆VC++12＆gcc version 4.9.2 (Ubuntu 4.9.2-10ubuntu13) でもたまにビルド確認しています。
 
-## 使い方・機能
+## 詳細
 引数なしで起動した場合はLuaのインタプリタとして起動されます。
 
 第２引数にファイル名を入れると解析が始まるようにしています。

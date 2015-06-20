@@ -33,7 +33,7 @@ Lua5.3.0＆VC++12＆gcc version 4.9.2 (Ubuntu 4.9.2-10ubuntu13) でもたまに�
 * 現状のdefault.luaはarg[1]をファイル名とみなして拡張子による解析の切り分けを行っています。
 * 実行時引数はすべてluaでargc、argv[]としてアクセスできます。
 
-## 定義ファイルの書き方
+### 定義ファイルの書き方
 
 解析方法はLuaスクリプトで記述します。
 （Luaの文法は http://milkpot.sakura.ne.jp/lua/lua52_manual_ja.html あたり参照のこと。）

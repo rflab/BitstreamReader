@@ -52,6 +52,9 @@ elseif ext == ".pes" then
 elseif ext == ".h264" then
 	dofile(__exec_dir__.."script/h264.lua")
 
+elseif ext == ".h265" then
+	dofile(__exec_dir__.."script/h265.lua")
+
 elseif ext == ".mp4" then
 	dofile(__exec_dir__.."script/mp4.lua")
 

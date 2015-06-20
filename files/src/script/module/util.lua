@@ -1,5 +1,6 @@
 local gs_stream
 local gs_csv
+local gs_tbl = {}
 
 --------------------------------------------
 -- ストリーム解析用関数
@@ -42,6 +43,11 @@ function enable_print(b)
 	return gs_stream:enable_print(b)
 end
 
+-- 解析結果表示のON/OFFを問い合わせる
+function ask_enable_print()
+	return gs_stream:ask_enable_print()
+end
+
 -- ２バイト/４バイトの読み込みでエンディアンを変換する
 function little_endian(enable)
 	return gs_stream:little_endian(enable)
@@ -54,7 +60,15 @@ end
 
 -- これまでに読み込んだ値を取得する
 function get(name)
-	return gs_stream:get(name)
+	--local value = gs_stream:get(name)
+	--return value or gs_tbl[name]
+	return gs_tbl[name]
+end
+
+-- これまでに読み込んだ値を破棄する
+function reset(name, value)
+	gs_stream:reset(name, value)
+	gs_tbl[name] = value
 end
 
 -- 絶対位置シーク
@@ -74,37 +88,51 @@ end
 
 -- ビット単位読み込み
 function rbit(name, size)
-	return name, gs_stream:rbit(name, size)
+	local value = gs_stream:rbit(name, size)
+	gs_tbl[name] = value
+	return value
 end
 
 -- バイト単位読み込み
 function rbyte(name, size)
-	return name, gs_stream:rbyte(name, size)
+	local value = gs_stream:rbyte(name, size)
+	gs_tbl[name] = value
+	return value
 end
 
 -- 文字列として読み込み
 function rstr(name, size)
-	return name, gs_stream:rstr(name, size)
+	local value = gs_stream:rstr(name, size)
+	gs_tbl[name] = value
+	return name, value
 end
 
 -- 指数ゴロムとして読み込み
 function rexp(name)
-	return name, gs_stream:rexp(name)
+	local value = gs_stream:rexp(name)
+	gs_tbl[name] = value
+	return value
 end
 
 -- ビット単位で読み込み、compとの一致を確認
 function cbit(name, size, comp)
-	return name, gs_stream:cbit(name, size, comp)
+	local value = gs_stream:cbit(name, size, comp)
+	gs_tbl[name] = value
+	return value
 end
 
 -- バイト単位で読み込み、compとの一致を確認
 function cbyte(name, size, comp)
-	return name, gs_stream:cbyte(name, size, comp)
+	local value = gs_stream:cbyte(name, size, comp)
+	gs_tbl[name] = value
+	return value
 end
 
 -- 文字列として読み込み、compとの一致を確認
 function cstr(name, size, comp)
-	return name, gs_stream:cstr(name, size, comp)
+	local value = gs_stream:cstr(name, size, comp)
+	gs_tbl[name] = value
+	return value
 end
 
 -- bit単位で読み込むがポインタは進めない
@@ -151,6 +179,11 @@ function sub_stream(name, size)
 	return gs_stream:sub_stream(name, size)
 end
 
+function do_until(closure, offset)
+	while cur() < offset do
+		closure()
+	end
+end
 
 --------------------------------------
 -- ストリーム解析用ユーティリティ
@@ -300,7 +333,6 @@ function hex2str(val, size, le)
 	end
 	return str
 end
-
 
 -- coroutine起動
 function start_thread(func, ...)

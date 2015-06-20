@@ -8,6 +8,82 @@ local ts_packet_size = 188
 local pmt_pid = nil
 local pes_buf_array = {}
 
+function descriptor()
+	local begin = cur()
+	
+	rbit("descriptor_tag",    8) -- uimsbf
+	rbit("descriptor_length", 8) -- uimsbf
+
+	local descriptor_tag = get("descriptor_tag")
+	local descriptor_length = get("descriptor_length")	
+
+	if     descriptor_tag == 0  then print("descriptor_tag="..hexstr(descriptor_tag), "reserved")
+	elseif descriptor_tag == 1  then print("descriptor_tag="..hexstr(descriptor_tag), "forbidden")
+	elseif descriptor_tag == 2  then print("descriptor_tag="..hexstr(descriptor_tag), "video_stream_descriptor")
+	elseif descriptor_tag == 3  then print("descriptor_tag="..hexstr(descriptor_tag), "audio_stream_descriptor")
+	elseif descriptor_tag == 4  then print("descriptor_tag="..hexstr(descriptor_tag), "hierarchy_descriptor")
+	elseif descriptor_tag == 5  then registration_descriptor(descriptor_length)
+	elseif descriptor_tag == 6  then print("descriptor_tag="..hexstr(descriptor_tag), "data_stream_alignment_descriptor")
+	elseif descriptor_tag == 7  then print("descriptor_tag="..hexstr(descriptor_tag), "target_background_grid_descriptor")
+	elseif descriptor_tag == 8  then print("descriptor_tag="..hexstr(descriptor_tag), "video_window_descriptor")
+	elseif descriptor_tag == 9  then print("descriptor_tag="..hexstr(descriptor_tag), "CA_descriptor")
+	elseif descriptor_tag == 10 then print("descriptor_tag="..hexstr(descriptor_tag), "ISO_639_language_descriptor")
+	elseif descriptor_tag == 11 then print("descriptor_tag="..hexstr(descriptor_tag), "system_clock_descriptor")
+	elseif descriptor_tag == 12 then print("descriptor_tag="..hexstr(descriptor_tag), "multiplex_buffer_utilization_descriptor")
+	elseif descriptor_tag == 13 then print("descriptor_tag="..hexstr(descriptor_tag), "copyright_descriptor")
+	elseif descriptor_tag == 14 then print("descriptor_tag="..hexstr(descriptor_tag), "maximum_bitrate_descriptor")
+	elseif descriptor_tag == 15 then print("descriptor_tag="..hexstr(descriptor_tag), "private_data_indicator_descriptor")
+	elseif descriptor_tag == 16 then print("descriptor_tag="..hexstr(descriptor_tag), "smoothing_buffer_descriptor")
+	elseif descriptor_tag == 17 then print("descriptor_tag="..hexstr(descriptor_tag), "STD_descriptor")
+	elseif descriptor_tag == 18 then print("descriptor_tag="..hexstr(descriptor_tag), "IBP_descriptor")
+	elseif descriptor_tag == 27 then print("descriptor_tag="..hexstr(descriptor_tag), "MPEG-4_video_descriptor")
+	elseif descriptor_tag == 28 then print("descriptor_tag="..hexstr(descriptor_tag), "MPEG-4_audio_descriptor")
+	elseif descriptor_tag == 29 then print("descriptor_tag="..hexstr(descriptor_tag), "IOD_descriptor")
+	elseif descriptor_tag == 30 then print("descriptor_tag="..hexstr(descriptor_tag), "SL_descriptor")
+	elseif descriptor_tag == 31 then print("descriptor_tag="..hexstr(descriptor_tag), "FMC_descriptor")
+	elseif descriptor_tag == 32 then print("descriptor_tag="..hexstr(descriptor_tag), "external_ES_ID_descriptor")
+	elseif descriptor_tag == 33 then print("descriptor_tag="..hexstr(descriptor_tag), "MuxCode_descriptor")
+	elseif descriptor_tag == 34 then print("descriptor_tag="..hexstr(descriptor_tag), "FmxBufferSize_descriptor")
+	elseif descriptor_tag == 35 then print("descriptor_tag="..hexstr(descriptor_tag), "multiplexbuffer_descriptor")
+	elseif descriptor_tag == 36 then print("descriptor_tag="..hexstr(descriptor_tag), "content_labeling_descriptor")
+	elseif descriptor_tag == 37 then print("descriptor_tag="..hexstr(descriptor_tag), "metadata_pointer_descriptor")
+	elseif descriptor_tag == 38 then print("descriptor_tag="..hexstr(descriptor_tag), "metadata_descriptor")
+	elseif descriptor_tag == 39 then print("descriptor_tag="..hexstr(descriptor_tag), "metadata_STD_descriptor")
+	elseif descriptor_tag == 40 then print("descriptor_tag="..hexstr(descriptor_tag), "AVC video descriptor")
+	elseif descriptor_tag == 41 then print("descriptor_tag="..hexstr(descriptor_tag), "IPMP_descriptor (defined in ISO/IEC 13818-11, MPEG-2 IPMP)")
+	elseif descriptor_tag == 42 then print("descriptor_tag="..hexstr(descriptor_tag), "AVC timing and HRD descriptor")
+	elseif descriptor_tag == 43 then print("descriptor_tag="..hexstr(descriptor_tag), "MPEG-2_AAC_audio_descriptor")
+	elseif descriptor_tag == 44 then print("descriptor_tag="..hexstr(descriptor_tag), "FlexMuxTiming_descriptor")
+	elseif descriptor_tag == 45 then print("descriptor_tag="..hexstr(descriptor_tag), "MPEG-4_text_descriptor")
+	elseif descriptor_tag == 46 then print("descriptor_tag="..hexstr(descriptor_tag), "MPEG-4_audio_extension_descriptor")
+	elseif descriptor_tag == 47 then print("descriptor_tag="..hexstr(descriptor_tag), "auxiliary_video_stream_descriptor")
+	elseif descriptor_tag == 48 then print("descriptor_tag="..hexstr(descriptor_tag), "SVC extension descriptor")
+	elseif descriptor_tag == 49 then print("descriptor_tag="..hexstr(descriptor_tag), "MVC extension descriptor")
+	elseif descriptor_tag == 50 then print("descriptor_tag="..hexstr(descriptor_tag), "J2K video descriptor")
+	elseif descriptor_tag == 51 then print("descriptor_tag="..hexstr(descriptor_tag), "MVC operation point descriptor")
+	elseif descriptor_tag == 52 then print("descriptor_tag="..hexstr(descriptor_tag), "MPEG2_stereoscopic_video_format_descriptor")
+	elseif descriptor_tag == 53 then print("descriptor_tag="..hexstr(descriptor_tag), "Stereoscopic_program_info_descriptor")
+	elseif descriptor_tag == 54 then print("descriptor_tag="..hexstr(descriptor_tag), "Stereoscopic_video_info_descriptor")
+	elseif 19 <= descriptor_tag and descriptor_tag <= 26 then
+		print("descriptor_tag="..hexstr(descriptor_tag), "Defined in ISO/IEC 13818-6")
+	elseif 55 <= descriptor_tag and descriptor_tag <= 63 then
+		print("descriptor_tag="..hexstr(descriptor_tag), "Rec. ITU-T H.222.0 | ISO/IEC 13818-1 Reserved")
+	elseif 64 <= descriptor_tag and descriptor_tag <= 255 then
+		print("descriptor_tag="..hexstr(descriptor_tag), "User Private")
+	else
+		print("descriptor_tag="..hexstr(descriptor_tag), "unknown")
+	end
+	
+	rbyte("remain data", get("descriptor_length") - (cur() - begin - 2))
+end
+
+function registration_descriptor(length)
+	rstr("format_identifier", 4) -- 32 uimsbf
+	for i = 1, length - 4 do
+		rbit("additional_identification_info", 8) -- bslbf
+	end
+end
+
 function adaptation_field()
 --print("adaptation_field")
 	local begin = cur()
@@ -115,59 +191,73 @@ function pat()
 	return cur() - begin
 end
 
-function stream_type_to_string(stream_type)
-	assert(stream_type)
-	if     stream_type == 0x00 then return "[MPEG-1 Video]"-- ITU-T | ISO/IEC Reserved"
-	elseif stream_type == 0x01 then return "[MPEG-2 Video]"-- ISO/IEC 11172-2 Video"
-	elseif stream_type == 0x02 then return "[MPEG-1 Audio]"-- Rec. ITU-T H.262 | ISO/IEC 13818-2 Video or ISO/IEC 11172-2 constrained parameter video stream"
-	elseif stream_type == 0x03 then return "[MPEG-2 Audio]"-- ISO/IEC 11172-3 Audio"
-	elseif stream_type == 0x04 then return "ISO/IEC 13818-3 Audio"
-	elseif stream_type == 0x05 then return "Rec. ITU-T H.222.0 | ISO/IEC 13818-1 private_sections"
-	elseif stream_type == 0x06 then return "Rec. ITU-T H.222.0 | ISO/IEC 13818-1 PES packets containing private data"
-	elseif stream_type == 0x07 then return "ISO/IEC 13522 MHEG"
-	elseif stream_type == 0x08 then return "Rec. ITU-T H.222.0 | ISO/IEC 13818-1 Annex A DSM-CC"
-	elseif stream_type == 0x09 then return "Rec. ITU-T H.222.1"
-	elseif stream_type == 0x0A then return "ISO/IEC 13818-6 type A"
-	elseif stream_type == 0x0B then return "ISO/IEC 13818-6 type B"
-	elseif stream_type == 0x0C then return "ISO/IEC 13818-6 type C"
-	elseif stream_type == 0x0D then return "ISO/IEC 13818-6 type D"
-	elseif stream_type == 0x0E then return "Rec. ITU-T H.222.0 | ISO/IEC 13818-1 auxiliary"
-	elseif stream_type == 0x0F then return "ISO/IEC 13818-7 Audio with ADTS transport syntax"
-	elseif stream_type == 0x10 then return "ISO/IEC 14496-2 Visual"
-	elseif stream_type == 0x11 then return "ISO/IEC 14496-3 Audio with the LATM transport syntax as defined in ISO/IEC 14496-3"
-	elseif stream_type == 0x12 then return "ISO/IEC 14496-1 SL-packetized stream or FlexMux stream carried in PES packets"
-	elseif stream_type == 0x13 then return "ISO/IEC 14496-1 SL-packetized stream or FlexMux stream carried in ISO/IEC 14496_sections"
-	elseif stream_type == 0x14 then return "ISO/IEC 13818-6 Synchronized Download Protocol"
-	elseif stream_type == 0x15 then return "Metadata carried in PES packets"
-	elseif stream_type == 0x16 then return "Metadata carried in metadata_sections"
-	elseif stream_type == 0x17 then return "Metadata carried in ISO/IEC 13818-6 Data Carousel"
-	elseif stream_type == 0x18 then return "Metadata carried in ISO/IEC 13818-6 Object Carousel"
-	elseif stream_type == 0x19 then return "Metadata carried in ISO/IEC 13818-6 Synchronized Download Protocol"
-	elseif stream_type == 0x1A then return "IPMP stream (defined in ISO/IEC 13818-11, MPEG-2 IPMP)"
-	elseif stream_type == 0x1B then return "[H.264]" -- AVC video stream conforming to one or more profiles defined in Annex A of Rec. ITU-T H.264 |"
-	                                       --.." ISO/IEC 14496-10 or AVC video sub-bitstream of SVC as defined in 2.1.78 or MVC base view"
-	                                       --.." sub-bitstream, as defined in 2.1.85, or AVC video sub-bitstream of MVC, as defined in 2.1.88"
-	elseif stream_type == 0x1C then return "ISO/IEC 14496-3 Audio, without using any additional transport syntax, such as DST, ALS and SLS"
-	elseif stream_type == 0x1D then return "ISO/IEC 14496-17 Text"
-	elseif stream_type == 0x1E then return "Auxiliary video stream as defined in ISO/IEC 23002-3"
-	elseif stream_type == 0x1F then return "SVC video sub-bitstream of an AVC video stream conforming to one or more profiles defined in Annex G of Rec. ITU-T H.264 | ISO/IEC 14496-10"
-	elseif stream_type == 0x20 then return "MVC video sub-bitstream of an AVC video stream conforming to one or more profiles defined in Annex H of Rec. ITU-T H.264 | ISO/IEC 14496-10"
-	elseif stream_type == 0x21 then return "Video stream conforming to one or more profiles as defined in Rec. ITU-T T.800 | ISO/IEC 15444-1"
-	elseif stream_type == 0x22 then return "Additional view Rec. ITU-T H.262 | ISO/IEC 13818-2 video stream for service-compatible stereoscopic 3D services (see Notes 3 and 4)"
-	elseif stream_type == 0x23 then return "Additional view Rec. ITU-T H.264 | ISO/IEC 14496-10 video stream conforming to one or more profiles defined in Annex A for service-compatible stereoscopic 3D services (see Notes 3 and 4)"
+function stream_type_to_string(stream_type, format_identifire)
+	local ret1
+	local ret2
+	
+	if     stream_type == 0x00 then ret1 = "ITU-T | ISO/IEC Reserved"
+	elseif stream_type == 0x01 then ret1 = "[MPEG-1 Video]" -- ISO/IEC 11172-2 Video"
+	elseif stream_type == 0x02 then ret1 = "[MPEG-2 Video]" -- Rec. ITU-T H.262 | ISO/IEC 13818-2 Video or ISO/IEC 11172-2 constrained parameter video stream"
+	elseif stream_type == 0x03 then ret1 = "[MPEG-1 Audio]" -- ISO/IEC 11172-3 Audio"
+	elseif stream_type == 0x04 then ret1 = "[MPEG-2 Video]" -- "ISO/IEC 13818-3 Audio"
+	elseif stream_type == 0x05 then ret1 = "Rec. ITU-T H.222.0 | ISO/IEC 13818-1 private_sections"
+	elseif stream_type == 0x06 then ret1 = "[private data]" -- Rec. ITU-T H.222.0 | ISO/IEC 13818-1 PES packets containing private data"
+	elseif stream_type == 0x07 then ret1 = "ISO/IEC 13522 MHEG"
+	elseif stream_type == 0x08 then ret1 = "Rec. ITU-T H.222.0 | ISO/IEC 13818-1 Annex A DSM-CC"
+	elseif stream_type == 0x09 then ret1 = "Rec. ITU-T H.222.1"
+	elseif stream_type == 0x0A then ret1 = "ISO/IEC 13818-6 type A"
+	elseif stream_type == 0x0B then ret1 = "ISO/IEC 13818-6 type B"
+	elseif stream_type == 0x0C then ret1 = "ISO/IEC 13818-6 type C"
+	elseif stream_type == 0x0D then ret1 = "ISO/IEC 13818-6 type D"
+	elseif stream_type == 0x0E then ret1 = "Rec. ITU-T H.222.0 | ISO/IEC 13818-1 auxiliary"
+	elseif stream_type == 0x0F then ret1 = "[ADTS MPEG-2 AAC]" -- "ISO/IEC 13818-7 Audio with ADTS transport syntax"
+	elseif stream_type == 0x10 then ret1 = "ISO/IEC 14496-2 Visual"
+	elseif stream_type == 0x11 then ret1 = "[LATM MPEG-4 Audio]" -- "ISO/IEC 14496-3 Audio with the LATM transport syntax as defined in ISO/IEC 14496-3"
+	elseif stream_type == 0x12 then ret1 = "ISO/IEC 14496-1 SL-packetized stream or FlexMux stream carried in PES packets"
+	elseif stream_type == 0x13 then ret1 = "ISO/IEC 14496-1 SL-packetized stream or FlexMux stream carried in ISO/IEC 14496_sections"
+	elseif stream_type == 0x14 then ret1 = "ISO/IEC 13818-6 Synchronized Download Protocol"
+	elseif stream_type == 0x15 then ret1 = "Metadata carried in PES packets"
+	elseif stream_type == 0x16 then ret1 = "Metadata carried in metadata_sections"
+	elseif stream_type == 0x17 then ret1 = "Metadata carried in ISO/IEC 13818-6 Data Carousel"
+	elseif stream_type == 0x18 then ret1 = "Metadata carried in ISO/IEC 13818-6 Object Carousel"
+	elseif stream_type == 0x19 then ret1 = "Metadata carried in ISO/IEC 13818-6 Synchronized Download Protocol"
+	elseif stream_type == 0x1A then ret1 = "IPMP stream (defined in ISO/IEC 13818-11, MPEG-2 IPMP)"
+	elseif stream_type == 0x1B then ret1 = "[H.264 / MPEG-4 AVC]"
+	-- AVC video stream conforming to one or more profiles defined in Annex A of Rec. ITU-T H.264 |
+	-- ISO/IEC 14496-10 or AVC video sub-bitstream of SVC as defined in 2.1.78 or MVC base view
+	-- sub-bitstream, as defined in 2.1.85, or AVC video sub-bitstream of MVC, as defined in 2.1.88
+	elseif stream_type == 0x1C then ret1 = "ISO/IEC 14496-3 Audio, without using any additional transport syntax, such as DST, ALS and SLS"
+	elseif stream_type == 0x1D then ret1 = "ISO/IEC 14496-17 Text"
+	elseif stream_type == 0x1E then ret1 = "Auxiliary video stream as defined in ISO/IEC 23002-3"
+	elseif stream_type == 0x1F then ret1 = "SVC video sub-bitstream of an AVC video stream conforming to one or more profiles defined in Annex G of Rec. ITU-T H.264 | ISO/IEC 14496-10"
+	elseif stream_type == 0x20 then ret1 = "MVC video sub-bitstream of an AVC video stream conforming to one or more profiles defined in Annex H of Rec. ITU-T H.264 | ISO/IEC 14496-10"
+	elseif stream_type == 0x21 then ret1 = "Video stream conforming to one or more profiles as defined in Rec. ITU-T T.800 | ISO/IEC 15444-1"
+	elseif stream_type == 0x22 then ret1 = "Additional view Rec. ITU-T H.262 | ISO/IEC 13818-2 video stream for service-compatible stereoscopic 3D services (see Notes 3 and 4)"
+	elseif stream_type == 0x23 then ret1 = "Additional view Rec. ITU-T H.264 | ISO/IEC 14496-10 video stream conforming to one or more profiles defined in Annex A for service-compatible stereoscopic 3D services (see Notes 3 and 4)"
+	elseif stream_type == 0x24 then ret1 = "[H.265 / HEVC]"
+	elseif stream_type == 0x24 then ret1 = "[H.265 / HEVC]"
+	elseif stream_type == 0x2A then ret1 = "[H.265 / HEVC]"
 	elseif 0x24 <= stream_type and stream_type <= 0x7E then
-		return "Rec. ITU-T H.222.0 | ISO/IEC 13818-1 Reserved"
+		ret1 = "Rec. ITU-T H.222.0 | ISO/IEC 13818-1 Reserved"
 	elseif stream_type == 0x7F then
-		return "IPMP stream"
+		ret1 = "IPMP stream"
 	elseif 0x80 <= stream_type and stream_type <= 0xFF then
-		return "User Private"
+		ret1 = "User Private"
 	elseif stream_type == 0x81 then
-		 return "AC3"
-	elseif stream_type == 0xFD then
-		 return "ADTS AAC"
+		 ret1 = "[AC3]"
 	else
 		print("unknown stream_type", stream_type)
 	end
+	
+	if format_identifire == nil then
+		ret2 = ""
+	elseif format_identifire == "HEVC" then
+		ret2 = "[HEVC]"
+	else 
+		ret2 = format_identifire
+	end
+	
+	return ret1..ret2
 end
 
 function pmt()
@@ -187,7 +277,8 @@ function pmt()
 	rbit("PCR_PID",                                         13)
 	rbit("reserved",                                        4) 
 	rbit("program_info_length",                             12)
-	rbyte("descriptor()",                                   get("program_info_length"))
+
+	do_until(function() descriptor() end, cur() + get("program_info_length"))
 	
 	local len = get("section_length") - 4  - 9
 		- get("program_info_length")
@@ -199,14 +290,16 @@ function pmt()
 		rbit("elementary_PID",                              13)
 		rbit("reserved",                                    4)
 		rbit("ES_info_length",                              12)
-		rbyte("descriptor()",                               get("ES_info_length"))
+
+		do_until(function() descriptor() end, cur() + get("ES_info_length"))
 		
 		-- 初めて見るPIDなら追加
 		local buf = stream:new(1024*1024*3)
 		buf:enable_print(false)
 	    pes_buf_array[get("elementary_PID")] = buf
-		print("", stream_type_to_string(get("stream_type"))..
+		print("", stream_type_to_string(get("stream_type"), get("format_identifier"))..
 			" = "..hexstr(get("elementary_PID")))
+		reset("format_identifier")
 
 		total = total + get("ES_info_length") + 5
 	end
@@ -341,7 +434,7 @@ function store_recode(pid, offset, size, PCR, PTS, DTS)
 	PCR = PCR or 0
 	PTS = PTS or 0
 	DTS = DTS or 0
-	printf("%10d,%10d,%10d,%10.3f,%10.3f,%10.3f", pid, offset, size, PCR/90000, PTS/90000, DTS/90000)
+--	printf("%10d,%10d,%10d,%10.3f,%10.3f,%10.3f", pid, offset, size, PCR/90000, PTS/90000, DTS/90000)
 end
 
 function analyze()

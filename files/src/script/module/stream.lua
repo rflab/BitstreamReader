@@ -45,7 +45,7 @@ end
 ------------------------------------------------
 
 function _m:new(param, mode)
-	obj = {tbl={}}
+	obj = {tbl={}, name}
 	--_v[obj] = {}
 	setmetatable(obj, _meta )
 
@@ -54,13 +54,16 @@ function _m:new(param, mode)
 		obj.stream = FileBitstream.new()
 		obj.file_name = param
 		assert(obj.stream:open(param, mode))
+		obj.name = "file stream"
 	elseif type(param) == "number" then
 		print("create fifo stream ("..hexstr(param)..")")
 		obj.stream = Fifo.new()
 		obj.stream:reserve(param)
+		obj.name = "fifo stream"
 	else
 		print("create buffer ()")
 		obj.stream = Buffer.new()
+		obj.name = "buffer stream"
 	end
 
 	obj.stream:little_endian(false)
@@ -96,6 +99,9 @@ function _m:get(name)
 	return self.tbl[name]
 end
 
+function _m:reset(name, value)	
+	self.tbl[name] = value
+end
 
 function _m:rbit(name, size)
 	local val = self.stream:read_bit(name, size)
@@ -208,6 +214,13 @@ end
 
 function _m:enable_print(b)	
 	return self.stream:enable_print(b)
+end
+
+function _m:ask_enable_print()
+	print("print analyze for "..self.name.."? [y/n]")
+	local enalbe = io.read() == "y" and true or false
+	self.stream:enable_print(enalbe)
+	return enalbe
 end
 
 function _m:set_exit(address)	

@@ -126,7 +126,7 @@ function elst(size)
 	-- ELSTRECORD
 	for i=1, get("EntryCount") do
 		rbyte("SegmentDuration",              4 * x)
-		store(rbyte("#MediaTime",              4 * x))
+		rbyte("#MediaTime",                   4 * x)
 		rbyte("MediaRateInteger",             2)
 		rbyte("MediaRateFraction",            2)
 		
@@ -156,13 +156,13 @@ function mdhd(size)
 	rbyte("Flags",                           3)
 
 	local x = get("Version") + 1
-	store(rbyte("CreationTime",              4 * x))
-	store(rbyte("ModificationTime",          4 * x))
-	store(rbyte("TimeScale",                 4))
-	store(rbyte("Duration",                  4 * x))
-	store(rbit ("Pad",                       1))
-	store(rbit ("Language",                  15))
-	store(rbyte("Reserved",                  2))
+	rbyte("CreationTime",              4 * x)
+	rbyte("ModificationTime",          4 * x)
+	rbyte("TimeScale",                 4)
+	rbyte("Duration",                  4 * x)
+	rbit ("Pad",                       1)
+	rbit ("Language",                  15)
+	rbyte("Reserved",                  2)
 end
 
 function hdlr(size)
@@ -242,20 +242,20 @@ function stbl(size)
 end
 
 function VisualSampleEntryBox(header, size)
-	      rbyte("Reserved",                    6)
-	      rbyte("DataReferenceIndex",          2)
-	      rbyte("Predefined",                  2)
-	      rbyte("Reserved",                    2)
-	      rbyte("Predefined",                  4)
-	store(rbyte("Width",                       2))
-	store(rbyte("Height",                      2))
-	store(rbyte("HorizResolution",             4))
-	store(rbyte("VertResolution",              4))
-	      rbyte("Reserved",                    4)
-	store(rbyte("FrameCount",                  2))
-	      rstr ("CompressorName",              32)
-	store(rbyte("Depth",                       2))
-	      rbyte("Predefined",                  2)
+	rbyte("Reserved",                    6)
+	rbyte("DataReferenceIndex",          2)
+	rbyte("Predefined",                  2)
+	rbyte("Reserved",                    2)
+	rbyte("Predefined",                  4)
+	rbyte("Width",                       2)
+	rbyte("Height",                      2)
+	rbyte("HorizResolution",             4)
+	rbyte("VertResolution",              4)
+	rbyte("Reserved",                    4)
+	rbyte("FrameCount",                  2)
+	rstr ("CompressorName",              32)
+	rbyte("Depth",                       2)
+	rbyte("Predefined",                  2)
 end
 
 function DESCRIPTIONRECORD()
@@ -368,11 +368,11 @@ end
 function stts(size)
 	rbyte("Version",                                        1)
 	rbyte("Flags",                                          3)
-	store_to_table(cur_trak, rbyte("Count",                 4))
+	store_to_table(cur_trak, "Count", rbyte("Count",                 4))
 	
 	for i=1, get("Count") do
-		store_to_table(cur_trak, rbyte("SttsSampleCount",   4))
-		store_to_table(cur_trak, rbyte("SttsSampleDelta",   4))
+		store_to_table(cur_trak, "SttsSampleCount", rbyte("SttsSampleCount",   4))
+		store_to_table(cur_trak, "SttsSampleDelta", rbyte("SttsSampleDelta",   4))
 	end
 end
 
@@ -381,15 +381,15 @@ function ctts(size)
 	rbyte("Flags",                                          3)
 	rbyte("Count",                                          4)
 	for i=1, get("Count") do
-		store_to_table(cur_trak, rbyte("CttsSampleCount",   4))
-		store_to_table(cur_trak, rbyte("CttsSampleOffset",  4))
+		store_to_table(cur_trak, "CttsSampleCount",  rbyte("CttsSampleCount",   4))
+		store_to_table(cur_trak, "CttsSampleOffset", rbyte("CttsSampleOffset",  4))
 	end
 end
 
 function STSCRECORD()
-	store_to_table(cur_trak, rbyte("FirstChunk",            4))
-	store_to_table(cur_trak, rbyte("SamplesPerChunk",       4))
-	store_to_table(cur_trak, rbyte("SampleDescIndex",       4))
+	store_to_table(cur_trak, "FirstChunk",      rbyte("FirstChunk",            4))
+	store_to_table(cur_trak, "SamplesPerChunk", rbyte("SamplesPerChunk",       4))
+	store_to_table(cur_trak, "SampleDescIndex", rbyte("SampleDescIndex",       4))
 end
 
 function stsc(size)
@@ -407,7 +407,7 @@ function stsz(size)
 	rbyte("ConstantSize",                                   4)
 	rbyte("SizeCount",                                      4)
 	for i=1, get("SizeCount") do
-		store_to_table(cur_trak, rbyte("SizeTable",         4))
+		store_to_table(cur_trak, "SizeTable", rbyte("SizeTable",         4))
 	end
 end
 
@@ -416,7 +416,7 @@ function stco(size)
 	rbyte("Flags",                                          3)
 	rbyte("OffsetCount",                                    4)
 	for i=1, get("OffsetCount") do
-		store_to_table(cur_trak, rbyte("StcoOffsets",       4))
+		store_to_table(cur_trak, "StcoOffsets", rbyte("StcoOffsets",       4))
 	end
 end
 
@@ -426,7 +426,7 @@ function co64(size)
 	rbyte("Flags",                                          4)
 	rbyte("OffsetCount",                                    4)
 	for i=1, get("OffsetCount") do
-		store_to_table(cur_trak, rbyte("StcoOffsets",       8))
+		store_to_table(cur_trak, "StcoOffsets", rbyte("StcoOffsets",       8))
 	end
 end
 
@@ -435,7 +435,7 @@ function stss(size)
 	rbyte("Flags",                                          3)
 	rbyte("SyncCount",                                      4)
 	for i=1, get("SyncCount") do
-		store_to_table(cur_trak, rbyte("SyncTable",         4))
+		store_to_table(cur_trak, "SyncTable", rbyte("SyncTable",         4))
 	end
 end
 

@@ -78,6 +78,180 @@ function scaling_list()
 	assert(false)
 end
 
+function video_parameter_set_rbsp()
+print("video_parameter_set_rbsp")
+	rbit("vps_video_parameter_set_id",                                  4)  -- u(4)
+	rbit("vps_base_layer_internal_flag",                                1)  -- u(1)
+	rbit("vps_base_layer_available_flag",                               1)  -- u(1)
+	rbit("vps_max_layers_minus1",                                       6)  -- u(6)
+	rbit("vps_max_sub_layers_minus1",                                   3)  -- u(3)
+	rbit("vps_temporal_id_nesting_flag",                                1)  -- u(1)
+	rbit("vps_reserved_0xffff_16bits",                                  16) -- u(16)
+	profile_tier_level(1, get("vps_max_sub_layers_minus1"))
+	rbit("vps_sub_layer_ordering_info_present_flag",                    1)  -- u(1)
+
+	local i = get("vps_sub_layer_ordering_info_present_flag") and 0 or get("vps_max_sub_layers_minus1")
+	for i = i, get("vps_max_sub_layers_minus1") do
+		rexp("vps_max_dec_pic_buffering_minus1[i]"                    )   -- ue(v)
+		rexp("vps_max_num_reorder_pics[i]"                            )   -- ue(v)
+		rexp("vps_max_latency_increase_plus1[i]"                      )   -- ue(v)
+	end
+	rbit("vps_max_layer_id",                                            6)  -- u(6)
+	rexp("vps_num_layer_sets_minus1"                                    )   -- ue(v)
+	for i = 1, get("vps_num_layer_sets_minus1") do
+		for j = 1, get("vps_max_layer_id")+1 do
+			rbit("layer_id_included_flag[i][j]",                    1)  -- u(1)
+		end
+	end
+	rbit("vps_timing_info_present_flag",                        1)  -- u(1)
+	if get("vps_timing_info_present_flag") == 1 then
+		rbit("vps_num_units_in_tick",                           32) -- u(32)
+		rbit("vps_time_scale",                                  32) -- u(32)
+		rbit("vps_poc_proportional_to_timing_flag",             1)  -- u(1)
+		if get("vps_poc_proportional_to_timing_flag") == 1 then
+			rexp("vps_num_ticks_poc_diff_one_minus1"            )   -- ue(v)
+		end
+		rexp("vps_num_hrd_parameters"                           )   -- ue(v)
+		for i = 1, get("vps_num_hrd_parameters") do
+			rexp("hrd_layer_set_idx[i]"                       )   -- ue(v)
+			if i > 1 then
+				rbit("cprms_present_flag[i]",                 1)  -- u(1)
+			end
+			hrd_parameters( get("cprms_present_flag[i]"), get("vps_max_sub_layers_minus1") )
+		end
+	end
+	rbit("vps_extension_flag",                                          1)  -- u(1)
+	if get("vps_extension_flag") == true then
+		while byte_aligned() ~= true do
+			rbit("vps_extension_alignment_bit_equal_to_one",            1)  -- u(1)
+		end
+		vps_extension()
+		rbit("vps_extension2_flag",                                     1)  -- u(1)
+		if get("vps_extension2_flag") then
+			while more_rbsp_data() do
+				rbit("vps_extension_data_flag",                         1)  -- u(1)
+			end
+		end
+	end
+	rbsp_trailing_bits()
+end
+
+function profile_tier_level(profilePresentFlag, maxNumSubLayersMinus1 )
+	if profilePresentFlag == 1 then
+		rbit("general_profile_space",                            2) -- u(2)
+		rbit("general_tier_flag",                                1) -- u(1)
+		rbit("general_profile_idc",                              5) -- u(5)
+		
+		local general_profile_compatibility_flag = {}
+		for j = 1, 32 do
+			rbit("general_profile_compatibility_flag[j]",      1) -- u(1)
+			general_profile_compatibility_flag[j-1] = get("general_profile_compatibility_flag[j]")
+		end
+		rbit("general_progressive_source_flag",              1) -- u(1)
+		rbit("general_interlaced_source_flag",               1) -- u(1)
+		rbit("general_non_packed_constraint_flag",           1) -- u(1)
+		rbit("general_frame_only_constraint_flag",           1) -- u(1)
+
+		local general_profile_idc = get("general_profile_idc")
+		if general_profile_idc == 4 or general_profile_compatibility_flag[4] == 1
+		or general_profile_idc == 5 or general_profile_compatibility_flag[5] == 1
+		or general_profile_idc == 6 or general_profile_compatibility_flag[6] == 1
+		or general_profile_idc == 7 or general_profile_compatibility_flag[7] == 1 then
+			rbit("general_max_12bit_constraint_flag",        1) -- u(1)
+			rbit("general_max_10bit_constraint_flag",        1) -- u(1)
+			rbit("general_max_8bit_constraint_flag",         1) -- u(1)
+			rbit("general_max_422chroma_constraint_flag",    1) -- u(1)
+			rbit("general_max_420chroma_constraint_flag",    1) -- u(1)
+			rbit("general_max_monochrome_constraint_flag",   1) -- u(1)
+			rbit("general_intra_constraint_flag",            1) -- u(1)
+			rbit("general_one_picture_only_constraint_flag", 1) -- u(1)
+			rbit("general_lower_bit_rate_constraint_flag",   1) -- u(1)
+			rbit("general_reserved_zero_34bits",             34) -- u(34)
+		else
+			rbit("general_reserved_zero_43bits",                     43) -- u(43)
+		end
+
+		if (general_profile_idc >= 1 and general_profile_idc <= 5)
+		or general_profile_compatibility_flag[1] == 1 
+		or general_profile_compatibility_flag[2] == 1 
+		or general_profile_compatibility_flag[3] == 1 
+		or general_profile_compatibility_flag[4] == 1 
+		or general_profile_compatibility_flag[5] == 1 then
+		 	rbit("general_inbld_flag",                     1) -- u(1)
+		else
+			rbit("general_reserved_zero_bit",              1) -- u(1)
+		end
+	end
+	rbit("general_level_idc",                              8) -- u(8)
+	
+	local sub_layer_profile_present_flag = {}
+	local sub_layer_level_present_flag = {}
+	for i = 1, maxNumSubLayersMinus1 do
+		rbit("sub_layer_profile_present_flag[i]",          1) -- u(1)
+		rbit("sub_layer_level_present_flag[i]",            1) -- u(1)
+		sub_layer_profile_present_flag[i-1] = get("sub_layer_profile_present_flag[i]")
+		sub_layer_level_present_flag[i-1] = get("sub_layer_level_present_flag[i]")
+	end
+	if maxNumSubLayersMinus1 > 0 then
+		for i = maxNumSubLayersMinus1 + 1, 8 do
+			rbit("reserved_zero_2bits[i]",                 2) -- u(2)
+		end
+	end
+
+	local sub_layer_profile_idc = {}
+	local sub_layer_profile_compatibility_flag = {}
+	for i = 1, maxNumSubLayersMinus1 do
+		if sub_layer_profile_present_flag[i] == 1 then
+			rbit("sub_layer_profile_space[i]",                         2) -- u(2)
+			rbit("sub_layer_tier_flag[i]",                             1) -- u(1)
+			rbit("sub_layer_profile_idc[i]",                           5) -- u(5)
+			sub_layer_profile_idc[i] = get("sub_layer_profile_idc[i]")
+
+			sub_layer_profile_compatibility_flag[i] = {}
+			for j = 1, 32 do
+				rbit("sub_layer_profile_compatibility_flag[i][j]",     1) -- u(1)
+				sub_layer_profile_compatibility_flag[i-1][j-1] = get("sub_layer_profile_compatibility_flag[i][j]")
+			end
+			rbit("sub_layer_progressive_source_flag[i]",               1) -- u(1)
+			rbit("sub_layer_interlaced_source_flag[i]",                1) -- u(1)
+			rbit("sub_layer_non_packed_constraint_flag[i]",            1) -- u(1)
+			rbit("sub_layer_frame_only_constraint_flag[i]",            1) -- u(1)			
+
+			if sub_layer_profile_idc[i] == 4 or sub_layer_profile_compatibility_flag[i][4] == 1 
+			or sub_layer_profile_idc[i] == 5 or sub_layer_profile_compatibility_flag[i][5] == 1 
+			or sub_layer_profile_idc[i] == 6 or sub_layer_profile_compatibility_flag[i][6] == 1 
+			or sub_layer_profile_idc[i] == 7 or sub_layer_profile_compatibility_flag[i][7] == 1 then
+				rbit("sub_layer_max_12bit_constraint_flag[i]",         1) -- u(1)
+				rbit("sub_layer_max_10bit_constraint_flag[i]",         1) -- u(1)
+				rbit("sub_layer_max_8bit_constraint_flag[i]",          1) -- u(1)
+				rbit("sub_layer_max_422chroma_constraint_flag[i]",     1) -- u(1)
+				rbit("sub_layer_max_420chroma_constraint_flag[i]",     1) -- u(1)
+				rbit("sub_layer_max_monochrome_constraint_flag[i]",    1) -- u(1)
+				rbit("sub_layer_intra_constraint_flag[i]",             1) -- u(1)
+				rbit("sub_layer_one_picture_only_constraint_flag[i]",  1) -- u(1)
+				rbit("sub_layer_lower_bit_rate_constraint_flag[i]",    1) -- u(1)
+				rbit("sub_layer_reserved_zero_34bits[i]",              34) -- u(34)
+			else                                           
+					rbit("sub_layer_reserved_zero_43bits[i]",          43) -- u(43)
+			end
+			
+			if (sub_layer_profile_idc[i] >= 1 and sub_layer_profile_idc[i] <= 5) 
+			or sub_layer_profile_compatibility_flag[1]  == 1 
+			or sub_layer_profile_compatibility_flag[2]  == 1 
+			or sub_layer_profile_compatibility_flag[3]  == 1 
+			or sub_layer_profile_compatibility_flag[4]  == 1 
+			or sub_layer_profile_compatibility_flag[5]  == 1 then
+				rbit("sub_layer_inbld_flag[i]",                        1) -- u(1)
+			else
+				rbit("sub_layer_reserved_zero_bit[i]",                 1) -- u(1)
+			end
+		end
+		if get(sub_layer_level_present_flag[i]) == 1then                                    
+			rbit("sub_layer_level_idc[i]",                                 8) -- u(8)
+		end
+	end
+end
+
 function seq_parameter_set_rbsp()
 print("seq_parameter_set_rbsp")
 	rbit("profile_idc",                                    8)
@@ -478,21 +652,7 @@ function buffering_period(payloadSize)
 --	end
 end
 
-function nal_unit(rbsp, NumBytesInNALunit)
-	rbit("forbidden_zero_bit",                          1)
-	rbit("nal_ref_idc",                                 2)
-    rbit("nal_unit_type",                               5)
-	
-	if get("nal_unit_type") == 14
-	or get("nal_unit_type") == 20
-	or get("nal_unit_type") == 21 then
-		rbit("svc_extension_flag",                      1)
-		if get("svc_extension_flag") then
-			nal_unit_header_svc_extension()
-		else
-			nal_unit_header_mvc_extension()
-		end
-	end
+function nal_unit_264(rbsp, NumBytesInNALunit)
 
 	local total = 1
 	local ofs
@@ -508,38 +668,129 @@ function nal_unit(rbsp, NumBytesInNALunit)
 			total = total + ofs + 2 + 1
 		end
 	end
+end
 
+function nal_unit(rbsp, NumBytesInNALunit)
+	local total
+	local ofs
 
+	if __stream_ext__ == ".h264" then
+		total = nal_unit_header_h264()
+	elseif __stream_ext__ == ".h265" then
+		total = nal_unit_header_h265()
+	end
+
+	while true do
+		ofs = math.min(fstr("00 00 03", false), NumBytesInNALunit - total)
+		if ofs >= NumBytesInNALunit - total then 
+			tbyte("rbsp end", ofs, rbsp)
+			break
+		else
+			tbyte("rbsp", ofs+2, rbsp)
+			rbyte("dummy", 1)
+			total = total + ofs + 2 + 1
+		end
+	end
+
+	if __stream_ext__ == ".h264" then
+		rbsp_h264(rbsp, get("nal_unit_type"))
+	elseif __stream_ext__ == ".h265" then
+		rbsp_h265(rbsp, get("nal_unit_type"))
+	end
+end
+
+function nal_unit_header_h264()
+	local begin = cur()
+	cbit("forbidden_zero_bit", 1, 0)
+	rbit("nal_ref_idc",        2)
+    rbit("nal_unit_type",      5)
+	
+	if get("nal_unit_type") == 14
+	or get("nal_unit_type") == 20
+	or get("nal_unit_type") == 21 then
+		rbit("svc_extension_flag",                      1)
+		if get("svc_extension_flag") then
+			nal_unit_header_svc_extension()
+		else
+			nal_unit_header_mvc_extension()
+		end
+	end
+	
+	return cur() - begin
+end
+
+function rbsp_h264(rbsp, nal_unit_type)
 	local file = swap(rbsp)
 	
-	if file:get("nal_unit_type") == 0 then
+	if nal_unit_type == 0 then
 		print("Unspecified RBSP")
-	elseif file:get("nal_unit_type") == 1 then
-		--print("[non-IDR] picture slice_layer_without_partitioning_rbsp( )")
+	elseif nal_unit_type == 1 
+	or     nal_unit_type == 2
+	or     nal_unit_type == 3
+	or     nal_unit_type == 4
+	or     nal_unit_type == 5 then
 		slice_header()
-	elseif file:get("nal_unit_type") == 2 then
-		--print("[slice A] slice_data_partition_a_layer_rbsp( )")
-		slice_header()
-	elseif file:get("nal_unit_type") == 3 then
-		--print("[slice B] slice_data_partition_b_layer_rbsp( )")
-		slice_header()
-	elseif file:get("nal_unit_type") == 4 then
-		--print("[slice C] slice_data_partition_c_layer_rbsp( )")
-		slice_header()
-	elseif file:get("nal_unit_type") == 5 then
-		--print("[IDR] slice_layer_without_partitioning_rbsp( )")
-		slice_header()
-	elseif file:get("nal_unit_type") == 6 then
+	elseif nal_unit_type == 6 then
 		sei_rbsp()
-	elseif file:get("nal_unit_type") == 7 then
+	elseif nal_unit_type == 7 then
 		seq_parameter_set_rbsp()
-	elseif file:get("nal_unit_type") == 8 then
+	elseif nal_unit_type == 8 then
 		pic_parameter_set_rbsp()
-	elseif file:get("nal_unit_type") == 9 then
+	elseif nal_unit_type == 9 then
 		access_unit_delimiter_rbsp()
-	else
-		seekoff(1, 0)
-		--rbyte("rbsp_byte",                              1)
+	end
+	
+	-- とりあえず余ったデータを読み捨てる
+	seek(get_size())
+
+	swap(file)
+end
+
+function nal_unit_header_h265()
+	cbit("forbidden_zero_bit",    1, 0) -- f(1)
+	rbit("nal_unit_type",         6) -- u(6)
+	rbit("nuh_layer_id",          6) -- u(6)
+	rbit("nuh_temporal_id_plus1", 3) -- u(3)
+	return 2
+end
+
+function rbsp_h265(rbsp, nal_unit_type)
+	local file = swap(rbsp)
+
+	if     nal_unit_type == 0  then print("TRAIL_N")
+    elseif nal_unit_type == 1  then print("TRAIL_R")
+    elseif nal_unit_type == 2  then print("TSA_N") 
+    elseif nal_unit_type == 3  then print("TSA_R")
+    elseif nal_unit_type == 4  then print("STSA_N")
+    elseif nal_unit_type == 5  then print("STSA_R")
+    elseif nal_unit_type == 6  then print("RADL_N")
+    elseif nal_unit_type == 7  then print("RADL_R")
+    elseif nal_unit_type == 8  then print("RASL_N")
+    elseif nal_unit_type == 9  then print("RASL_R")
+    elseif nal_unit_type == 10 then print("RSV_VCL_N10")
+    elseif nal_unit_type == 12 then print("RSV_VCL_N12") 
+    elseif nal_unit_type == 14 then print("RSV_VCL_N14")
+    elseif nal_unit_type == 11 then print("RSV_VCL_R11")
+    elseif nal_unit_type == 13 then print("RSV_VCL_R13")
+    elseif nal_unit_type == 15 then print("RSV_VCL_R15")
+    elseif nal_unit_type == 16 then print("BLA_W_LP")
+    elseif nal_unit_type == 17 then print("BLA_W_RADL")
+    elseif nal_unit_type == 18 then print("BLA_N_LP")
+    elseif nal_unit_type == 19 then print("IDR_W_RADL")
+    elseif nal_unit_type == 20 then print("IDR_N_LP")
+    elseif nal_unit_type == 21 then print("CRA_NUT")
+		slice_header()
+	elseif nal_unit_type == 32 then
+		video_parameter_set_rbsp()
+	elseif nal_unit_type == 33 then
+		seq_parameter_set_rbsp()
+	elseif nal_unit_type == 34 then
+		pic_parameter_set_rbsp()
+	elseif nal_unit_type == 35 then
+		access_unit_delimiter_rbsp()
+	elseif nal_unit_type == 39
+	or     nal_unit_type == 40 then
+		sei_rbsp()
 	end
 	
 	-- とりあえず余ったデータを読み捨てる
@@ -586,7 +837,7 @@ end
 
 open(__stream_path__)
 print_status()
-enable_print(false)
+enable_print(true)
 stdout_to_file(false)
 h264_byte_stream(get_size())
 

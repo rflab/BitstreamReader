@@ -2,10 +2,10 @@
 
 ビット単位、可変長でバイナリデータを構造体解析できるコンソールツール、Lua言語ベース
 
-MPEG-2 TS(PES)、MP4、JPEG(Exif)、h.264(ES)、bmp、wav、を解析するサンプル、及びbmpを作成するサンプルを含みます。
+MPEG-2 TS(PES)、MP4、JPEG(Exif)、h.265/HEVC(ES)、h.264/MPEG-4 AVC(ES)、bmp、wav、を解析するサンプル、及びbmpを作成するサンプルを含みます。
 TS/MP4は主にタイムスタンプを解析してESを出力します、h.264、bmp、wav、jpgは各種フラグを見ることができます。 
 
-対応拡張子:.wav, .bmp, .jpg, .ts, .tts, .m2ts, .mpg, .mp4, .pes, .h264, など
+現在の対応拡張子:.wav, .bmp, .jpg, .ts, .tts, .m2ts, .mpg, .mp4, .pes, .h264, h265, など
 
 ## 実行ファイル
 Windows用の実行ファイルはfiles/bin/streamreader.exeです。
@@ -61,9 +61,8 @@ print(get("flagC"))           -- 取得済みのデータを参照する
 -- その他
 local next16bit = lbit(16)           -- 16bit先読み、ポインタは進まない
 local ofs = fstr("00 00 03", false)  -- 00 00 03のバイナリ列を検索、リードポインタは進めない
-local s = sub_stream("payload", ofs) -- ↑で検索したところまでを部分ストリームにする                
-store(rbyte("size_audio_data", 4))   -- csvファイル用データの記憶、書き方1
-store("data", get("flagA"))          -- csvファイル用データの記憶、書き方2
+local s = sub_stream("payload", ofs) -- ↑で検索したところまでを部分ストリームにする
+store("data", get("flagA"))          -- csvファイル用データの記憶
 save_as_csv(result.csv)              -- csvファイルに書き出す
 ```
 C++側からは以下のような関数・クラスがバインドされています。

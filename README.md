@@ -102,17 +102,17 @@ lua->def_class<LuaGlueFileBitstream>("FileBitstream")->
 	def("read_bit",         &LuaGlueFileBitstream::read_bit).          // ビット単位で読み込み
 	def("read_byte",        &LuaGlueFileBitstream::read_byte).         // バイト単位で読み込み
 	def("read_string",      &LuaGlueFileBitstream::read_string).       // バイト単位で文字列として読み込み
-	def("read_expgolomb",   &LuaGlueFileBitstream::read_expgolomb).    // 指数ごロムとしてビットを読む
+	def("read_expgolomb",   &LuaGlueFileBitstream::read_expgolomb).    // 指数ゴロムとしてビットを読む
 	def("comp_bit",         &LuaGlueFileBitstream::compare_bit).       // ビット単位で比較
 	def("comp_byte",        &LuaGlueFileBitstream::compare_byte).      // バイト単位で比較
 	def("comp_string",      &LuaGlueFileBitstream::compare_string).    // バイト単位で文字列として比較
-	def("comp_expgolomb",   &LuaGlueFileBitstream::compare_expgolomb). // バイト単位で文字列として比較
-	def("look_bit",         &LuaGlueFileBitstream::look_bit).          // ポインタを進めないで値を取得、4byteまで
-	def("look_byte",        &LuaGlueFileBitstream::look_byte).         // ポインタを進めないで値を取得、4byteまで
-	def("look_expgolomb",   &LuaGlueFileBitstream::look_expgolomb).    // バイト単位で文字列として比較
+	def("comp_expgolomb",   &LuaGlueFileBitstream::compare_expgolomb). // 指数ゴロムとして比較
+	def("look_bit",         &LuaGlueFileBitstream::look_bit).          // ポインタを進めないでビット値を取得、4byteまで
+	def("look_byte",        &LuaGlueFileBitstream::look_byte).         // ポインタを進めないでバイト値を取得、4byteまで
+	def("look_expgolomb",   &LuaGlueFileBitstream::look_expgolomb).    // ポインタを進めないで指数ゴロム値を取得、4byteまで
 	def("find_byte",        &LuaGlueFileBitstream::find_byte).         // １バイトの一致を検索
 	def("find_byte_string", &LuaGlueFileBitstream::find_byte_string).  // 数バイト分の一致を検索
-	def("transfer_byte",    &LuaGlueFileBitstream::transfer_byte).     // 別ストリームの終端に転送
+	def("transfer_byte",    &LuaGlueFileBitstream::transfer_byte).     // 部分ストリーム(Bitstream)を作成
 	def("write",            &LuaGlueFileBitstream::write_byte_string). // ビットストリームの終端に書き込む
 	def("put_char",         &LuaGlueFileBitstream::put_char).          // ビットストリームの終端に書き込む
 	def("dump",
@@ -134,14 +134,14 @@ lua->def_class<LuaGlueBufBitstream>("Buffer")->
 	def("read_bit",         &LuaGlueBufBitstream::read_bit).          // ビット単位で読み込み
 	def("read_byte",        &LuaGlueBufBitstream::read_byte).         // バイト単位で読み込み
 	def("read_string",      &LuaGlueBufBitstream::read_string).       // バイト単位で文字列として読み込み
-	def("read_expgolomb",   &LuaGlueBufBitstream::read_expgolomb).    // 指数ごロムとしてビットを読む
+	def("read_expgolomb",   &LuaGlueBufBitstream::read_expgolomb).    // 指数ゴロムとしてビットを読む
 	def("comp_bit",         &LuaGlueBufBitstream::compare_bit).       // ビット単位で比較
 	def("comp_byte",        &LuaGlueBufBitstream::compare_byte).      // バイト単位で比較
 	def("comp_string",      &LuaGlueBufBitstream::compare_string).    // バイト単位で文字列として比較
-	def("comp_expgolomb",   &LuaGlueBufBitstream::compare_expgolomb). // バイト単位で文字列として比較
-	def("look_bit",         &LuaGlueBufBitstream::look_bit).          // ポインタを進めないで値を取得、4byteまで
-	def("look_byte",        &LuaGlueBufBitstream::look_byte).         // ポインタを進めないで値を取得、4byteまで
-	def("look_expgolomb",   &LuaGlueBufBitstream::look_expgolomb).    // バイト単位で文字列として比較
+	def("comp_expgolomb",   &LuaGlueBufBitstream::compare_expgolomb). // 指数ゴロムとして比較
+	def("look_bit",         &LuaGlueBufBitstream::look_bit).          // ポインタを進めないでビット値を取得、4byteまで
+	def("look_byte",        &LuaGlueBufBitstream::look_byte).         // ポインタを進めないでバイト値を取得、4byteまで
+	def("look_expgolomb",   &LuaGlueBufBitstream::look_expgolomb).    // ポインタを進めないで指数ゴロム値を取得、4byteまで
 	def("find_byte",        &LuaGlueBufBitstream::find_byte).         // １バイトの一致を検索
 	def("find_byte_string", &LuaGlueBufBitstream::find_byte_string).  // 数バイト分の一致を検索
 	def("transfer_byte",    &LuaGlueBufBitstream::transfer_byte).     // 部分ストリーム(Bitstream)を作成
@@ -168,14 +168,14 @@ lua->def_class<LuaGlueFifoBitstream>("Fifo")->
 	def("read_bit",         &LuaGlueFifoBitstream::read_bit).          // ビット単位で読み込み
 	def("read_byte",        &LuaGlueFifoBitstream::read_byte).         // バイト単位で読み込み
 	def("read_string",      &LuaGlueFifoBitstream::read_string).       // バイト単位で文字列として読み込み
-	def("read_expgolomb",   &LuaGlueFifoBitstream::read_expgolomb).    // 指数ごロムとしてビットを読む
+	def("read_expgolomb",   &LuaGlueFifoBitstream::read_expgolomb).    // 指数ゴロムとしてビットを読む
 	def("comp_bit",         &LuaGlueFifoBitstream::compare_bit).       // ビット単位で比較
 	def("comp_byte",        &LuaGlueFifoBitstream::compare_byte).      // バイト単位で比較
 	def("comp_string",      &LuaGlueFifoBitstream::compare_string).    // バイト単位で文字列として比較
-	def("comp_expgolomb",   &LuaGlueFifoBitstream::compare_expgolomb). // バイト単位で文字列として比較
-	def("look_bit",         &LuaGlueFifoBitstream::look_bit).          // ポインタを進めないで値を取得、4byteまで
-	def("look_byte",        &LuaGlueFifoBitstream::look_byte).         // ポインタを進めないで値を取得、4byteまで
-	def("look_expgolomb",   &LuaGlueFifoBitstream::look_expgolomb).    // バイト単位で文字列として比較
+	def("comp_expgolomb",   &LuaGlueFifoBitstream::compare_expgolomb). // 指数ゴロムとして比較
+	def("look_bit",         &LuaGlueFifoBitstream::look_bit).          // ポインタを進めないでビット値を取得、4byteまで
+	def("look_byte",        &LuaGlueFifoBitstream::look_byte).         // ポインタを進めないでバイト値を取得、4byteまで
+	def("look_expgolomb",   &LuaGlueFifoBitstream::look_expgolomb).    // ポインタを進めないで指数ゴロム値を取得、4byteまで
 	def("find_byte",        &LuaGlueFifoBitstream::find_byte).         // １バイトの一致を検索
 	def("find_byte_string", &LuaGlueFifoBitstream::find_byte_string).  // 数バイト分の一致を検索
 	def("transfer_byte",    &LuaGlueFifoBitstream::transfer_byte).     // 部分ストリーム(Bitstream)を作成

@@ -62,6 +62,13 @@ end
 function get(name)
 	--local value = gs_stream:get(name)
 	--return value or gs_tbl[name]
+	local val = gs_tbl[name]
+	assert(val, "get nil value \""..name.."\"")
+	return val
+end
+
+-- nilが返ることをいとわない場合はこちらでget
+function peek(name)
 	return gs_tbl[name]
 end
 
@@ -135,6 +142,13 @@ function cstr(name, size, comp)
 	return value
 end
 
+-- 指数ゴロムとして読み込み
+function cexp(name)
+	local value = gs_stream:cexp(name)
+	gs_tbl[name] = value
+	return value
+end
+
 -- bit単位で読み込むがポインタは進めない
 function lbit(size)
 	return gs_stream:lbit(size)
@@ -143,6 +157,11 @@ end
 -- バイト単位で読み込むがポインタは進めない
 function lbyte(size)
 	return gs_stream:lbyte(size)
+end
+
+-- バイト単位で読み込むがポインタは進めない
+function lexp(size)
+	return gs_stream:lexp(size)
 end
 
 -- １バイト検索
@@ -356,5 +375,11 @@ function check(size)
 		io.read()
 		--coroutine.yield()
 	end
+end
+
+
+-- ストリーム状態表示
+function get_tbl()
+	return gs_tbl
 end
 

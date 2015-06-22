@@ -297,9 +297,8 @@ function pmt()
 		local buf = stream:new(1024*1024*3)
 		buf:enable_print(false)
 	    pes_buf_array[get("elementary_PID")] = buf
-		print("", stream_type_to_string(get("stream_type"), get("format_identifier"))..
+		print("", stream_type_to_string(get("stream_type"), peek("format_identifier"))..
 			" = "..hexstr(get("elementary_PID")))
-		reset("format_identifier")
 
 		total = total + get("ES_info_length") + 5
 	end

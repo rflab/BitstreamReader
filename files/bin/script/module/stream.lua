@@ -96,7 +96,13 @@ function _m:cur()
 end
 
 function _m:get(name)	
-	return self.tbl[name]
+	local val = self.tbl[name]
+	assert(val, "get nil value \""..name.."\"")
+	return val
+end
+
+function _m:peek(name)
+	return gs_tbl[name]
 end
 
 function _m:reset(name, value)	
@@ -143,6 +149,10 @@ function _m:cstr(name, size, comp)
  	return self.stream:comp_string(name, size, comp)
 end
 
+function _m:cexp(name, size, comp)
+ 	return self.stream:comp_expgolomb(name, size, comp)
+end
+
 function _m:lbyte(size)	
  	local val = self.stream:look_byte(size)
 	check(self, val, "lbyte:")
@@ -151,6 +161,12 @@ end
 
 function _m:lbit(size)	
  	local val = self.stream:look_bit(size)
+	check(self, val, "lbit:")
+	return val
+end
+
+function _m:lexp(size)	
+ 	local val = self.stream:look_expgolomb(size)
 	check(self, val, "lbit:")
 	return val
 end

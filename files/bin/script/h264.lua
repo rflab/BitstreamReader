@@ -839,6 +839,6 @@ open(__stream_path__)
 print_status()
 enable_print(true)
 stdout_to_file(false)
-h264_byte_stream(get_size())
-
+h264_byte_stream(get_size() / 100)
+print_status()
 

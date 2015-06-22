@@ -1,5 +1,6 @@
 -- ライブラリロード
 dofile(__exec_dir__.."script/module/include.lua")
+dofile(__exec_dir__.."script/cmd.lua")
 
 -- 各種値定義
 assert(argv[0], "no file name in argv[0]") 
@@ -31,9 +32,6 @@ if ext == ".wav" then
 	
 elseif ext == ".bmp" then
 	dofile(__exec_dir__.."script/bmp.lua")
-	
-elseif ext == ".tobmp" then
-	dofile(__exec_dir__.."script/tobmp.lua")
 	
 elseif ext == ".jpg"
 or     ext == ".JPG" then
@@ -70,3 +68,5 @@ elseif string.match(argv[1], "[0-9a-f][0-9a-f]") ~= nil then
 else
 	print("not found extension")
 end
+
+cmd()

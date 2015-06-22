@@ -29,14 +29,13 @@ Lua5.3.0＆VC++12＆gcc version 4.9.2 (Ubuntu 4.9.2-10ubuntu13) でもたまに�
     S./a.out --help
     S./a.out --lua script/wav.lua
     S./a.out "01 23 45 67 79" -l script/dat.lua
-    
 
-起動時のオプションでluaファイルを指定しなかった場合はscript/default.luaが起動されます。
-現状のdefault.luaはarg[1]をファイル名とみなして拡張子による解析の切り分けを行っています。
 実行時引数はすべてluaでargc、argv[]としてアクセスできます。
+起動時のオプションでluaファイルを指定しなかった場合はscript/default.luaが起動されます。
+現状のdefault.luaはarg[1]をファイル名とみなして拡張子による解析の切り分けが実行されます。
 default.luaを通して解析が正常終了した場合はcmd.luaが起動され、簡易コマンドで値を参照できます。
 
-    -- とりあえず全部見る
+    -- とりあえず取得した値を全部見る
     all
     -- 名前に foo もしくは bar を含む値を列挙
     get foo bar

@@ -1522,7 +1522,7 @@ end
 function sei_payload(payloadType, payloadSize)
 	local begin = cur()
 	
-	if get("nul_unit_type") == PREFIX_SEI_NUT then
+	if get("nal_unit_type") == PREFIX_SEI_NUT then
 		if payloadType == 0 then
 			buffering_period(payloadSize)
 		elseif payloadType == 1 then

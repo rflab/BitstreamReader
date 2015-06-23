@@ -128,6 +128,40 @@ namespace rf
 			return 1;
 		}
 
+		// 引数インデックス用シーケンス
+
+		template<typename T, T ... N>
+		struct intetgral_sequence
+		{};
+
+		template<typename T, typename S>
+		struct push_back;
+
+		template<template<typename T, T ... V> class Seq,
+			template<typename T, T V> class Val,
+			typename T, T ... V1, T V2>
+		struct push_back < Seq<T, V1...>, Val<T, V2> >
+		{
+			typedef Seq<T, V1..., V2> type;
+		};
+
+		template<typename T, T V1, T V2>
+		struct make_integral_sequence;
+
+		template<typename T, T V1, T V2>
+		struct make_integral_sequence
+		{
+			typedef typename
+				push_back < typename make_integral_sequence<T, V1, V2 - 1>::type,
+				std::integral_constant<T, V2 - 1 > > ::type type;
+		};
+
+		template<typename T, T V>
+		struct make_integral_sequence < T, V, V >
+		{
+			typedef intetgral_sequence<T> type;
+		};
+
 		// Lua型判定
 
 		template<typename T>
@@ -259,49 +293,21 @@ namespace rf
 			return *obj;
 		}
 
-		// 引数インデックス用シーケンス
-
-		template<typename T, T ... N>
-		struct intetger_sequence
-		{};
-
-		template<typename T, typename S>
-		struct push_back;
-
-		template<template<typename T, T ... V> class Seq,
-			template<typename T, T V> class Val,
-			typename T, T ... V1, T V2>
-		struct push_back < Seq<T, V1...>, Val<T, V2> >
+		template<typename...Args, size_t...Ixs>
+		static tuple<Args...> get_tuple(lua_State* L, intetgral_sequence<size_t, Ixs...>)
 		{
-			typedef Seq<T, V1..., V2> type;
-		};
+			return tuple<Args...>(get_stack<Args>(L, Ixs)...);
+		}
 
-		template<typename T, T V1, T V2>
-		struct make_integral_sequence;
-
-		template<typename T, T V1, T V2>
-		struct make_integral_sequence
-		{
-			typedef typename
-				push_back < typename make_integral_sequence<T, V1, V2 - 1>::type,
-				std::integral_constant<T, V2 - 1 > > ::type type;
-		};
-
-		template<typename T, T V>
-		struct make_integral_sequence < T, V, V >
-		{
-			typedef intetger_sequence<T> type;
-		};
 		
 		// 引数型情報とLuaから呼び出す関数をもつスタブのようなオブジェクト
 		// 関数、void関数、メンバ関数、voidメンバ関数を特殊化する
 		template<typename Func, typename Seq, typename IsMember = void>
 		struct invoker;
 
-		// invokerの特殊化
-
+		// 戻り値がある関数
 		template<typename Ret, typename... Args, size_t ... Ixs>
-		struct invoker < Ret(*)(Args...), intetger_sequence<size_t, Ixs...> >
+		struct invoker < Ret(*)(Args...), intetgral_sequence<size_t, Ixs...> >
 		{
 			static int apply(lua_State* L)
 			{
@@ -342,8 +348,9 @@ namespace rf
 			}
 		};
 
+		// 戻り値がvoidの関数
 		template<typename... Args, size_t ... Ixs>
-		struct invoker < void(*)(Args...), intetger_sequence<size_t, Ixs...> >
+		struct invoker < void(*)(Args...), intetgral_sequence<size_t, Ixs...> >
 		{
 			static int apply(lua_State* L)
 			{
@@ -385,7 +392,7 @@ namespace rf
 
 		//// 面倒なのでやめ
 		//template<template<class, class> class Tuple, typename Ret, typename... Args, size_t ... Ixs>
-		//struct invoker < Tuple<Ret, bool>(*)(Args...), intetger_sequence<size_t, Ixs...> >
+		//struct invoker < Tuple<Ret, bool>(*)(Args...), intetgral_sequence<size_t, Ixs...> >
 		//{
 		//	static int apply(lua_State* L)
 		//	{
@@ -405,8 +412,9 @@ namespace rf
 		//	}
 		//};
 
+		// 戻り値があるメンバ関数
 		template<typename Ret, class T, typename ... Args, size_t ... Ixs>
-		struct invoker< Ret(T::*)(Args...), intetger_sequence<size_t, Ixs...>,
+		struct invoker< Ret(T::*)(Args...), intetgral_sequence<size_t, Ixs...>,
 			typename enable_if<std::is_member_function_pointer<Ret(T::*)(Args...)>::value && !std::is_void<Ret>::value>::type>
 		{
 			static int apply(lua_State* L)
@@ -456,8 +464,9 @@ namespace rf
 			}
 		};
 		
+		// 戻り値がvoidのメンバ関数
 		template<typename Ret, class T, typename ... Args, size_t ... Ixs>
-		struct invoker< Ret(T::*)(Args...), intetger_sequence<size_t, Ixs...>,
+		struct invoker< Ret(T::*)(Args...), intetgral_sequence<size_t, Ixs...>,
 			typename enable_if<std::is_member_function_pointer<void(T::*)(Args...)>::value && std::is_void<Ret>::value>::type>
 		{
 			static int apply(lua_State* L)
@@ -508,7 +517,7 @@ namespace rf
 
 		//// 面倒なのでやめ
 		//template<class T, typename Ret, typename ... Args, size_t ... Ixs>
-		//struct invoker< tuple<Ret, bool>(T::*)(Args...), intetger_sequence<size_t, Ixs...>,
+		//struct invoker< tuple<Ret, bool>(T::*)(Args...), intetgral_sequence<size_t, Ixs...>,
 		//	typename enable_if<std::is_member_function_pointer<Ret(T::*)(Args...)>::value>::type>
 		//{
 		//	static int apply(lua_State* L)
@@ -540,7 +549,7 @@ namespace rf
 
 		// 引数なしコンストラクタ
 		template<class T>
-		static int new_instance(lua_State* L)
+		static int default_constructor(lua_State* L)
 		{
 			void *p = lua_newuserdata(L, sizeof(T));
 			int userdata = lua_gettop(L);
@@ -554,13 +563,20 @@ namespace rf
 			return 1; // インスタンス1つを返す
 		}
 
+
 		template<class T>
-		static int delete_instance(lua_State* L)
+		static int destructor(lua_State* L)
 		{
 			// ポインタ指定の配置newなのでdeleteしない
 			T* instance = static_cast<T*>(lua_touserdata(L, -1));
 			instance->~T();
 			return 0;
+		}
+
+		template<typename T, typename ... Args, size_t ... Ixs>
+		static void* call_constructor(void* p, intetgral_sequence<size_t, Ixs...>, tuple<Args...>& args)
+		{
+			return new(p)T(std::get<Ixs>(args)...);
 		}
 
 	public:
@@ -592,7 +608,6 @@ namespace rf
 		}
 
 		// Luaスクリプト文字列を実行
-
 		bool dostring(const string& str)
 		{
 			int top = lua_gettop(L_);
@@ -618,7 +633,6 @@ namespace rf
 		//	lua.def("func2", func2);
 		//	lua.def("func3", (int(*)(int))    overload_func);
 		//	lua.def("func4", (int(*)(string)) overload_func);
-		
 		template<typename R, typename ... Args>
 		void def(const string& func_name, R(*f)(Args...))
 		{
@@ -640,7 +654,6 @@ namespace rf
 		//	def("func2", &Test::func2).
 		//	def("func3", (int(Test::*)(int))    &Test::overload_func).
 		//	def("func4", (int(Test::*)(string)) &Test::overload_func);
-
 		template<class T> class class_chain;
 
 		template<class T>
@@ -648,6 +661,55 @@ namespace rf
 		{
 			return make_unique<class_chain<T> >(L_, name);
 		}
+		
+		// コンストラクタ登録用オブジェクト
+		// 通常はdefに渡す
+		template<class T>
+		struct constructor;
+
+		template<typename T, typename ... Args>
+		struct constructor<T(Args...)>
+		{
+			static int apply(lua_State* L)
+			{
+				void* p = lua_newuserdata(L, sizeof(T));
+				int userdata = lua_gettop(L);
+
+				try
+				{
+					// 1～top手前が引数、topはnewuserdataで今積んだばっかり。
+					typedef typename make_integral_sequence<size_t, 1, sizeof...(Args)+1>::type lua_index_seq;
+					auto args = get_tuple<Args...>(L, lua_index_seq());
+
+					typedef typename make_integral_sequence<size_t, 0, sizeof...(Args)>::type cpp_index_seq;
+					call_constructor<T>(p, cpp_index_seq(), args);
+				}
+				catch (const string s)
+				{
+					LuaBinder::push_stack(L, s);
+					return 1;
+				}
+				catch (const std::exception &e)
+				{
+					push_stack(L, e.what());
+					traceback(L);
+					lua_pop(L, 1);
+					return luaL_error(L, e.what()); // longjmp
+				}
+				catch (...)
+				{
+					push_stack(L, "unknown error.");
+					traceback(L);
+					lua_pop(L, 1);
+					return luaL_error(L, "unknown exception");
+				}
+
+				lua_pushvalue(L, lua_upvalueindex(1)); // クラスを取り出す
+				lua_setmetatable(L, userdata); // メタテーブルに追加する
+
+				return 1; //インスタンスを返す
+			}
+		};
 
 		// メンバ関数登録用オブジェクト
 		// 通常はdef_classを使えばいいはず
@@ -684,13 +746,15 @@ namespace rf
 
 				// metatable[__gc] = delete
 				lua_pushliteral(L_, "__gc");
-				lua_pushcfunction(L_, &delete_instance<T>);
+				lua_pushcfunction(L_, &destructor<T>);
 				lua_settable(L_, metatable);
 
+				// デフォルトコンストラクタ、引数なしのnew関数でクラスを生成するようにする
+				// ためのメンバ関数メタテーブル、コンストラクタをluaに登録する
 				// table.new = new(metatable)
 				lua_pushliteral(L_, "new");
 				lua_pushvalue(L_, metatable);
-				lua_pushcclosure(L_, new_instance<T>, 1);
+				lua_pushcclosure(L_, default_constructor<T>, 1);
 				lua_settable(L_, table);
 
 				// _G[name] = table
@@ -701,10 +765,49 @@ namespace rf
 				lua_pop(L_, 2);
 			}
 
+			// コンストラクタ、引数ありコンストラクタでクラスを生成するようにする
+			// メンバ関数メタテーブル、コンストラクタをluaに登録する
+			template<class S, typename ... Args>
+			const class_chain<T>& def(const string &name, constructor<S(Args...)>) const
+			{
+				// C++側引数->スタックの参照テーブル
+				lua_CFunction f = constructor<S(Args...)>::apply;
+	
+				// クラスをpush
+				lua_getglobal(L_, name_.c_str());
+				int c = lua_gettop(L_);
+
+				// c[name] = constructor
+				lua_pushstring(L_, name.c_str());
+				lua_pushcfunction(L_, f);
+				lua_settable(L_, c);
+	
+				// クラスのメタテーブルをプッシュ
+				luaL_getmetatable(L_, name_.c_str());
+				int metatable = lua_gettop(L_);
+	
+				// metatable[__index]をプッシュ
+				lua_getfield(L_, metatable, "__index");
+				int methodtable = lua_gettop(L_);
+	
+				// metatable[__index] = constructor
+				lua_pushstring(L_, name.c_str());
+				lua_pushcfunction(L_, f);
+				lua_settable(L_, methodtable);
+	
+				// スタッククリア
+				lua_pop(L_, 2);
+	
+				return *this;
+			}
+
+			// メンバ関数登録
+			// 関数と実体(クラスの元となるオブジェクト)をluaに登録する
 			template<class S, typename Ret, typename... Args>
 			const class_chain<T>& def(const string & method_name, Ret(S::*f)(Args...),
 				typename enable_if<std::is_member_function_pointer<Ret(S::*)(Args...)>::value>::type* = 0) const
 			{
+				// C++側引数->スタックの参照テーブル
 				typedef typename make_integral_sequence<size_t, 2, sizeof...(Args)+2>::type seq;
 				lua_CFunction upvalue = invoker<Ret(S::*)(Args...), seq>::apply;
 

@@ -11,6 +11,8 @@
 #include <map>
 #include <memory>
 #include <utility>
+//#include <thread>
+//#include <future>
 #include <sstream>
 #include <fstream>
 #include <algorithm>
@@ -1306,6 +1308,8 @@ namespace rf
 
 		LuaGlueFileBitstream() :LuaGlueBitstream(){}
 
+		LuaGlueFileBitstream(int i) :LuaGlueBitstream(){ cout << i << endl; }
+
 		bool open(string file_name, string mode = "rb")
 		{
 			//auto del = [](filebuf* p){p->close(); delete p; };
@@ -1374,6 +1378,7 @@ unique_ptr<LuaBinder> init_lua(int argc, char** argv)
 
 	// std::filebufによるビットストリームクラス
 	lua->def_class<LuaGlueFileBitstream>("FileBitstream")->
+		def("hoge",              LuaBinder::constructor<LuaGlueFileBitstream(int)>()).              // ファイルオープン
 		def("open",             &LuaGlueFileBitstream::open).              // ファイルオープン
 		def("size",             &LuaGlueFileBitstream::size).              // ファイルサイズ取得
 		def("enable_print",     &LuaGlueFileBitstream::enable_print).      // 解析ログのON/OFF

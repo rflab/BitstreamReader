@@ -1,6 +1,7 @@
 #
 Debug/
 Release/
+streamreader_d.exe
 *.txt
 *.csv
 *.zip
@@ -19,11 +20,15 @@ files/visual_studio_solution/visual_studio_solution/script/
 *.tts
 *.pes
 *.h264
+*.h265
 *.pat
 *.pmt
 *.es
 *.jpg
+*.test
 *.bmp
+*.ilk
+*.pdb
 
 # Windows image file caches
 Thumbs.db

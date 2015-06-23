@@ -1307,8 +1307,7 @@ namespace rf
 	public:
 
 		LuaGlueFileBitstream() :LuaGlueBitstream(){}
-
-		LuaGlueFileBitstream(int i) :LuaGlueBitstream(){ cout << i << endl; }
+		LuaGlueFileBitstream(string file_name, string mode = "rb") :LuaGlueBitstream(){ open(file_name, mode); }
 
 		bool open(string file_name, string mode = "rb")
 		{
@@ -1378,7 +1377,7 @@ unique_ptr<LuaBinder> init_lua(int argc, char** argv)
 
 	// std::filebufによるビットストリームクラス
 	lua->def_class<LuaGlueFileBitstream>("FileBitstream")->
-		def("hoge",              LuaBinder::constructor<LuaGlueFileBitstream(int)>()).              // ファイルオープン
+		def("new",              LuaBinder::constructor<LuaGlueFileBitstream(string, string)>()). // 引数ありコンストラクタでオーバーライド
 		def("open",             &LuaGlueFileBitstream::open).              // ファイルオープン
 		def("size",             &LuaGlueFileBitstream::size).              // ファイルサイズ取得
 		def("enable_print",     &LuaGlueFileBitstream::enable_print).      // 解析ログのON/OFF

@@ -313,7 +313,7 @@ namespace rf
 			{
 				if (lua_gettop(L) != sizeof...(Ixs))
 				{
-					return luaL_error(L, "argument number error　expected=%d, top=%d",
+					return luaL_error(L, "argument number error expected=%d, top=%d",
 						sizeof...(Ixs), lua_gettop(L)); // longjmp
 				}
 
@@ -356,7 +356,7 @@ namespace rf
 			{
 				if (lua_gettop(L) != sizeof...(Ixs))
 				{
-					return luaL_error(L, "argument number error　expected=%d, top=%d",
+					return luaL_error(L, "argument number error expected=%d, top=%d",
 						sizeof...(Ixs), lua_gettop(L)); // longjmp
 				}
 
@@ -398,7 +398,7 @@ namespace rf
 		//	{
 		//		if (lua_gettop(L) != sizeof...(Ixs))
 		//		{
-		//			return luaL_error(L, "argument number error　expected=%d, top=%d",
+		//			return luaL_error(L, "argument number error expected=%d, top=%d",
 		//				sizeof...(Ixs), lua_gettop(L)); // longjmp
 		//		}
 		//
@@ -421,7 +421,7 @@ namespace rf
 			{
 				if (lua_gettop(L) != sizeof...(Ixs)+1)
 				{
-					return luaL_error(L, "argument number error　expected=%d, top=%d",
+					return luaL_error(L, "argument number error expected=%d, top=%d",
 						sizeof...(Ixs)+1, lua_gettop(L)); // longjmp
 				}
 
@@ -473,7 +473,7 @@ namespace rf
 			{
 				if (lua_gettop(L) != sizeof...(Ixs)+1)
 				{
-					return luaL_error(L, "argument number error　expected=%d, top=%d",
+					return luaL_error(L, "argument number error expected=%d, top=%d",
 						sizeof...(Ixs)+1, lua_gettop(L)); // longjmp
 				}
 
@@ -524,7 +524,7 @@ namespace rf
 		//	{
 		//		if (lua_gettop(L) != sizeof...(Ixs)+1)
 		//		{
-		//			return luaL_error(L, "argument number error　expected=%d, top=%d",
+		//			return luaL_error(L, "argument number error expected=%d, top=%d",
 		//				sizeof...(Ixs)+1, lua_gettop(L)); // longjmp
 		//		}
 		//
@@ -672,13 +672,19 @@ namespace rf
 		{
 			static int apply(lua_State* L)
 			{
+				if (lua_gettop(L) != sizeof...(Args)+1)
+				{
+					return luaL_error(L, "constructor argument number error expected=%d, top=%d",
+						sizeof...(Args)+1, lua_gettop(L)); // longjmp
+				}
+
 				void* p = lua_newuserdata(L, sizeof(T));
 				int userdata = lua_gettop(L);
 
 				try
 				{
-					// 1～top手前が引数、topはnewuserdataで今積んだばっかり。
-					typedef typename make_integral_sequence<size_t, 1, sizeof...(Args)+1>::type lua_index_seq;
+					// 1がself、2～top-1が引数、topはnewuserdataで今積んだばっかり。
+					typedef typename make_integral_sequence<size_t, 2, sizeof...(Args)+2>::type lua_index_seq;
 					auto args = get_tuple<Args...>(L, lua_index_seq());
 
 					typedef typename make_integral_sequence<size_t, 0, sizeof...(Args)>::type cpp_index_seq;
@@ -704,8 +710,10 @@ namespace rf
 					return luaL_error(L, "unknown exception");
 				}
 
-				lua_pushvalue(L, lua_upvalueindex(1)); // クラスを取り出す
-				lua_setmetatable(L, userdata); // メタテーブルに追加する
+				lua_pushvalue(L, lua_upvalueindex(1)); // クラス名を取り出す
+				luaL_getmetatable(L, lua_tostring(L, -1)); // メタテーブルをプッシュ
+				lua_setmetatable(L, userdata); // インスタンスにメタテーブルを追加する
+				lua_pop(L, 1); // クラス名をポップ
 
 				return 1; //インスタンスを返す
 			}
@@ -790,9 +798,10 @@ namespace rf
 				lua_getfield(L_, metatable, "__index");
 				int methodtable = lua_gettop(L_);
 	
-				// metatable[__index] = constructor
+				// metatable[__index] = constructor と name 
 				lua_pushstring(L_, name.c_str());
-				lua_pushcfunction(L_, f);
+				lua_pushstring(L_, name_.c_str());
+				lua_pushcclosure(L_, f, 1);
 				lua_settable(L_, methodtable);
 	
 				// スタッククリア
@@ -809,7 +818,7 @@ namespace rf
 			{
 				// C++側引数->スタックの参照テーブル
 				typedef typename make_integral_sequence<size_t, 2, sizeof...(Args)+2>::type seq;
-				lua_CFunction upvalue = invoker<Ret(S::*)(Args...), seq>::apply;
+				lua_CFunction closure = invoker<Ret(S::*)(Args...), seq>::apply;
 
 				luaL_getmetatable(L_, name_.c_str());
 				int metatable = lua_gettop(L_);
@@ -828,7 +837,7 @@ namespace rf
 				auto a = static_cast<std::array<mf_type, 1>*>(buf);
 				(*a)[0] = f;
 
-				lua_pushcclosure(L_, upvalue, 1);
+				lua_pushcclosure(L_, closure, 1);
 				lua_settable(L_, methodtable);
 
 				lua_pop(L_, 2);

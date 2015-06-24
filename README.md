@@ -17,7 +17,7 @@ Lua5.3.0＆VC++12＆gcc version 4.9.2 (Ubuntu 4.9.2-10ubuntu13) でもたまに�
 
 ## 実行方法
 
-引数にファイル名を入れると解析が始まります。
+実行時引数にファイル名を入れると解析が始まります。
 ```
     // windowsの場合はbin/streamreader.exeにファイルをドロップとおなじ。
     S./a.out test.wav
@@ -37,7 +37,7 @@ Lua5.3.0＆VC++12＆gcc version 4.9.2 (Ubuntu 4.9.2-10ubuntu13) でもたまに�
     S./a.out "01 23 45 67 79" -l script/dat.lua
 ```
 * 引数なしで起動した場合はLuaのコマンドインタプリタとして起動されます。
-* 起動時のオプションでluaのファイルを指定しなかった場合はscript/default.luaが起動されます。
+* 実行時引数でluaのファイルを指定しなかった場合はscript/default.luaが起動されます。
 * 実行時引数はすべてluaでargc、argv[]としてアクセスできます。
 * 現状のdefault.luaはarg[1]をファイル名とみなして拡張子による解析の切り分けが実行されます。
 * default.luaを通して解析が正常終了した場合はcmd.luaが起動され、簡易コマンドで値を参照できます。

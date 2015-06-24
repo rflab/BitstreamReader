@@ -49,8 +49,8 @@ default.luaを通して解析が正常終了した場合はcmd.luaが起動さ�
 -- ストリーム解析例 --
 
 -- 準備
-dofile("script/util.lua")     -- Luaに関数登録ロード
-open("test.dat")              -- ファイルオープン＆初期化
+dofile("script/module/util.lua") -- Luaに関数登録ロード
+open("test.dat")                 -- ファイルオープン＆初期化
 
 -- 基本的な読み込み
 dump()                        -- 現在位置から数バイト表示してみる

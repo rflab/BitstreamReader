@@ -22,7 +22,7 @@ Lua5.3.0＆VC++12＆gcc version 4.9.2 (Ubuntu 4.9.2-10ubuntu13) でもたまに�
     // windowsの場合はbin/streamreader.exeにファイルをドロップとおなじ。
     S./a.out test.wav
 ```
-解析が完了したら幾つかのコマンドで結果を参照できます。
+解析が完了したら幾つかの簡易コマンドで結果を参照できます。
 ```
     -- とりあえず取得した値を全部見る
     all
@@ -33,14 +33,14 @@ Lua5.3.0＆VC++12＆gcc version 4.9.2 (Ubuntu 4.9.2-10ubuntu13) でもたまに�
 * 以下のようなコマンドライン引数が指定可能です。
 ```
     S./a.out --help
-    S./a.out --lua script/wav.lua
-    S./a.out "01 23 45 67 79" -l script/dat.lua
+    S./a.out "01 23 45 67 79" -lua script/dat.lua
 ```
 * コマンドライン引数なしで起動した場合はLuaのコマンドインタプリタとして起動されます。
-* コマンドライン引数でluaのファイルを指定しなかった場合はscript/default.luaが起動されます。
-* コマンドライン引数はすべてluaでargc、argv[]としてアクセスできます。
+* コマンドライン引数でluaのファイルを指定しなかった場合はscript/default.luaが先に実行され、
+  終了後コマンドインタプリタに戻ります。
+* コマンドライン引数はLua側でもargc、argv[]としてアクセスできます。
 * 現状のdefault.luaはarg[1]をファイル名とみなして拡張子による解析の切り分けが実行されます。
-* default.luaを通して解析が正常終了した場合はcmd.luaが起動され、簡易コマンドで値を参照できます。
+* default.luaが終了時にコールするcmd()が簡易コマンドを受け付けています。
 
 ### 定義ファイルの書き方
 

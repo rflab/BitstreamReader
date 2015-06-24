@@ -74,18 +74,24 @@ util.luaのよく使う関数の使用は以下の通りです。
 ```lua
 -- 表記： "戻り値 = 関数名(引数...)) -- 機能"
 
-open(file_name)                  -- ストリームファイルを開く
-prev_file = swap(stream)         -- ストリームを入れ替える
+-- 読み込み設定
+stream      = open(file_name)    -- ファイルストリームを作成し、解析対象として登録
+stream      = open(size)         -- 固定長のバッファストリームを作成し、解析対象として登録
+stream      = open()             -- 可変長のバッファストリームを作成、解析対象として登録
+prev_stream = swap(stream)       -- ストリームを解析対象として登録し、先に登録されていたストリームを返す
 print_status()                   -- ストリーム状態表示
 size = get_size()                -- ストリームファイルサイズ取得
-dump(size)                       -- ストリームを最大256バイト出力
 enable_print(b)                  -- 解析結果表示のON/OFF
 little_endian(enable)            -- ２バイト/４バイトの読み込みでエンディアンを変換する
-reset(name, value)               -- これまでに読み込んだ値を破棄する
+
+-- シーク系
+byte, bit = cur()                -- 現在のバイトオフセット、ビットオフセットを取得
 seek(byte, bit)                  -- 絶対位置シーク
 seekoff(byte, bit)               -- 相対位置シーク
-byte, bit = cur()                -- 現在のバイトオフセット、ビットオフセットを取得
-val = get(name)                  -- これまでに読み込んだ値を取得する
+
+-- 解析
+val = get(name)                  -- 値を取得する
+reset(name, value)               -- 値を設定する
 val = peek(name)                 -- nilが返ることをいとわない場合はこちらでget
 val = rbit(name, size)           -- ビット単位読み込み
 val = rbyte(name, size)          -- バイト単位読み込み
@@ -94,26 +100,29 @@ val = rexp(name)                 -- 指数ゴロムとして読み込み
 val = cbit(name, size, comp)     -- ビット単位で読み込み、compとの一致を確認
 val = cbyte(name, size, comp)    -- バイト単位で読み込み、compとの一致を確認
 val = cstr(name, size, comp)     -- 文字列として読み込み、compとの一致を確認
-val = cexp(name)                 -- 指数ゴロムとして読み込み
+val = cexp(name)                 -- 指数ゴロムとして読み込み、compとの一致を確認
 val = lbit(size)                 -- bit単位で読み込むがポインタは進めない
 val = lbyte(size)                -- バイト単位で読み込むがポインタは進めない
-val = lexp(size)                 -- バイト単位で読み込むがポインタは進めない
-fbyte(char, advance)             -- １バイト検索
-fstr(pattern, advance)           -- 文字列を検索、もしくは"00 11 22"のようなバイナリパターンで追記
+val = lexp(size)                 -- 指数ゴロムとして読み込むがポインタは進めない
+offset = fbyte(char, advance)    -- 指定の１バイト検索、advance=trueでポインタを移動
+offset = fstr(pattern, advance)  -- 文字列を検索、もしくは"00 11 22"のようなバイナリパターンで追記
 tbyte(name, size, target)        -- ストリームからtargetにデータを転送
+dump(size)                       -- ストリームを最大256バイト出力
+
+-- その他
 stream = sub_stream(name, size)  -- 現在位置からsize文のデータをストリームとして切り出す
 do_until(closure, offset)        -- cur()==offsetまでclosure()を実行する
 store(key, value)                -- csv保存用に値を記憶する
 save_as_csv(file_name)           -- store()した値をcsvに書き出す
-hexstr(value)                    -- 16進数をHHHH(DDDD)な感じの文字列にする
-find(array, value)               -- 配列の中に値があればそのインデックスを返す
+hexstr(value)                    -- 値をHHHH(DDDD)な感じの文字列にする
 print_table(tbl, indent)         -- テーブルをダンプする
 store_to_table(tbl, name, value) -- tbl[name].tblの末尾とtbl[name].valに値を入れる
-str2val(buf_str, little_endian)  -- 4文字までのchar配列を数値にキャストする
+str2val(buf_str, little_endian)  -- 4文字までの16進数文字列を数値に変換
 pat2str(pattern)                 -- 00 01 ... のような文字列パターンをchar配列に変換する
 hex2str(val, size, le)           -- 数値をchar配列に変える
-write(filename, pattern)         -- ファイルを開いて文字列もしくは"00 11 22"のようなバイナリパターンで追記
+write(filename, pattern)         -- ファイルを開いてchar配列もしくは"00 11 22"のようなバイナリパターンで追記
 putchar(filename, char)          -- ファイルに一文字追記
+
 ```
 C++側からは以下のような関数・クラスがバインドされています。
 細かい拡張はこちら。

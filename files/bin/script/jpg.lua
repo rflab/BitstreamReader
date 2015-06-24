@@ -743,20 +743,20 @@ function ifd(origin, offset, indent)
 		
 		if ty == "byte" then
 			for j=1, get("Count") do
-				local _, val = rbyte("Byte",                     1)
+				local val = rbyte("Byte",                     1)
 				print(tab..(select(2, get_tag(get("Tag")))), val)
 			end
 		elseif ty == "ascii" then
-			local _, val = rstr("Ascii",                         get("Count"))
+			local val = rstr("Ascii",                         get("Count"))
 			print(tab..(select(2, get_tag(get("Tag")))), val)
 		elseif ty == "short" then
 			for j=1, get("Count") do
-				local _, val = rbyte("Short",                    2)
+				local val = rbyte("Short",                    2)
 				print(tab..(select(2, get_tag(get("Tag")))), val)
 			end
 		elseif ty == "long" then
 			for j=1, get("Count") do
-				local _, val = rbyte("Long",                           4)
+				local val = rbyte("Long",                           4)
 				print(tab..(select(2, get_tag(get("Tag")))), val)
 				
 				-- ŽŸ‚ÌŠK‘w
@@ -770,22 +770,22 @@ function ifd(origin, offset, indent)
 			end
 		elseif ty == "rational" then
 			for j=1, get("Count") do
-				local _, num = rbyte("Number",                   4)
-				local _, den = rbyte("Denom",                    4)
+				local num = rbyte("Number",                   4)
+				local den = rbyte("Denom",                    4)
 				print(tab..(select(2, get_tag(get("Tag")))),  num/den)
 			end
 		elseif ty == "undefined" then
-			local _, val = rbyte("Undefined",                    get("Count"))
+			local val = rbyte("Undefined",                    get("Count"))
 			print(tab..(select(2, get_tag(get("Tag")))), val)
 		elseif ty == "slong" then
 			for j=1, get("Count") do
-				local _, val = rbyte("Slong",                    4)
+				local val = rbyte("Slong",                    4)
 				print(tab..(select(2, get_tag(get("Tag")))), val)
 			end
 		elseif ty == "srational" then
 			for j=1, get("Count") do
-				local _, num = rbyte("SNumber",                  4)
-				local _, den = rbyte("SDenom",                   4)
+				local num = rbyte("SNumber",                  4)
+				local den = rbyte("SDenom",                   4)
 				print(tab..(select(2, get_tag(get("Tag")))), num/den)
 			end
 		end

@@ -51,19 +51,16 @@ function _m:new(param, mode)
 
 	if type(param) == "string" then
 		print("open stream ("..param..")")
-		--obj.stream = FileBitstream.new(param, mode)
-		--assert(obj.stream:open(param, mode))
 		obj.stream = FileBitstream:new(param, mode)
 		obj.file_name = param
 		obj.name = "file stream"
 	elseif type(param) == "number" then
 		print("create fifo stream ("..hexstr(param)..")")
-		obj.stream = Fifo.new()
-		obj.stream:reserve(param)
+		obj.stream = Fifo:new(param)
 		obj.name = "fifo stream"
 	else
 		print("create buffer ()")
-		obj.stream = Buffer.new()
+		obj.stream = Buffer:new()
 		obj.name = "buffer stream"
 	end
 

@@ -31,9 +31,11 @@ Lua5.3.0＆VC++12＆gcc version 4.9.2 (Ubuntu 4.9.2-10ubuntu13) でもたまに�
 
 より正確には以下の挙動となります。
 * 以下のような起動オプションが指定可能です。
+
     S./a.out --help
     S./a.out --lua script/wav.lua
     S./a.out "01 23 45 67 79" -l script/dat.lua
+
 * 引数なしで起動した場合はLuaのコマンドインタプリタとして起動されます。
 * 起動時のオプションでluaのファイルを指定しなかった場合はscript/default.luaが起動されます。
 * 実行時引数はすべてluaでargc、argv[]としてアクセスできます。

@@ -45,10 +45,8 @@ default.luaを通して解析が正常終了した場合はcmd.luaが起動さ�
 解析方法はLuaスクリプトで記述します。
 （Luaの文法は http://milkpot.sakura.ne.jp/lua/lua52_manual_ja.html あたり参照のこと。）
 
-通常はfiles/bin/script/module/util.luaに書いた関数を利用したほうが簡単です。
-
 ```lua
---test.lua--
+-- ストリーム解析例 --
 
 -- 準備
 dofile("script/util.lua")     -- Luaに関数登録ロード
@@ -70,10 +68,56 @@ local ofs = fstr("00 00 03", false)  -- 00 00 03のバイナリ列を検索、�
 store("data", get("flagA"))          -- csvファイル用データの記憶
 save_as_csv(result.csv)              -- csvファイルに書き出す
 ```
+
+通常はfiles/bin/script/module/util.luaにある関数や、files/module内の各種クラス利用すると簡単です。
+util.luaのよく使う関数の使用は以下の通りです。
+```lua
+-- 表記： "戻り値 = 関数名(引数...)) -- 機能"
+
+open(file_name)                  -- ストリームファイルを開く
+prev_file = swap(stream)         -- ストリームを入れ替える
+print_status()                   -- ストリーム状態表示
+size = get_size()                -- ストリームファイルサイズ取得
+dump(size)                       -- ストリームを最大256バイト出力
+enable_print(b)                  -- 解析結果表示のON/OFF
+little_endian(enable)            -- ２バイト/４バイトの読み込みでエンディアンを変換する
+reset(name, value)               -- これまでに読み込んだ値を破棄する
+seek(byte, bit)                  -- 絶対位置シーク
+seekoff(byte, bit)               -- 相対位置シーク
+byte, bit = cur()                -- 現在のバイトオフセット、ビットオフセットを取得
+val = get(name)                  -- これまでに読み込んだ値を取得する
+val = peek(name)                 -- nilが返ることをいとわない場合はこちらでget
+val = rbit(name, size)           -- ビット単位読み込み
+val = rbyte(name, size)          -- バイト単位読み込み
+val = rstr(name, size)           -- 文字列として読み込み
+val = rexp(name)                 -- 指数ゴロムとして読み込み
+val = cbit(name, size, comp)     -- ビット単位で読み込み、compとの一致を確認
+val = cbyte(name, size, comp)    -- バイト単位で読み込み、compとの一致を確認
+val = cstr(name, size, comp)     -- 文字列として読み込み、compとの一致を確認
+val = cexp(name)                 -- 指数ゴロムとして読み込み
+val = lbit(size)                 -- bit単位で読み込むがポインタは進めない
+val = lbyte(size)                -- バイト単位で読み込むがポインタは進めない
+val = lexp(size)                 -- バイト単位で読み込むがポインタは進めない
+fbyte(char, advance)             -- １バイト検索
+fstr(pattern, advance)           -- 文字列を検索、もしくは"00 11 22"のようなバイナリパターンで追記
+tbyte(name, size, target)        -- ストリームからtargetにデータを転送
+stream = sub_stream(name, size)  -- 現在位置からsize文のデータをストリームとして切り出す
+do_until(closure, offset)        -- cur()==offsetまでclosure()を実行する
+store(key, value)                -- csv保存用に値を記憶する
+save_as_csv(file_name)           -- store()した値をcsvに書き出す
+hexstr(value)                    -- 16進数をHHHH(DDDD)な感じの文字列にする
+find(array, value)               -- 配列の中に値があればそのインデックスを返す
+print_table(tbl, indent)         -- テーブルをダンプする
+store_to_table(tbl, name, value) -- tbl[name].tblの末尾とtbl[name].valに値を入れる
+str2val(buf_str, little_endian)  -- 4文字までのchar配列を数値にキャストする
+pat2str(pattern)                 -- 00 01 ... のような文字列パターンをchar配列に変換する
+hex2str(val, size, le)           -- 数値をchar配列に変える
+write(filename, pattern)         -- ファイルを開いて文字列もしくは"00 11 22"のようなバイナリパターンで追記
+putchar(filename, char)          -- ファイルに一文字追記
+```
 C++側からは以下のような関数・クラスがバインドされています。
 細かい拡張はこちら。
 （関数・クラスの仕様はfiles/src/streamreader.cpp参照のこと。）
-
 ```cpp
 // streamreader.cpp
 
@@ -83,104 +127,51 @@ lua->def("write_to_file",    FileManager::write_to_file);         // 指定し�
 lua->def("transfer_to_file", LuaGlueBitstream::transfer_to_file); // 指定したストリームををファイルに出力
 lua->def("reverse_16",       reverse_endian_16);                  // 16ビットエンディアン変換
 lua->def("reverse_32",       reverse_endian_32);                  // 32ビットエンディアン変換
-//lua->def("cpp_do_file",    cpp_do_file);                        // 32ビットエンディアン変換
+
+// クラスインターフェース
+lua->def_class<LuaGlueBitstream>("IBitstream")->
+	def("size",             &LuaGlueBitstream::size).              // ファイルサイズ取得
+	def("enable_print",     &LuaGlueBitstream::enable_print).      // 解析ログのON/OFF
+	def("little_endian",    &LuaGlueBitstream::little_endian).     // ２バイト/４バイトの読み込み時はエンディアンを変換する
+	def("seekpos_bit",      &LuaGlueBitstream::seekpos_bit).       // 先頭からファイルポインタ移動
+	def("seekpos_byte",     &LuaGlueBitstream::seekpos_byte).      // 先頭からファイルポインタ移動
+	def("seekpos",          &LuaGlueBitstream::seekpos).           // 先頭からファイルポインタ移動
+	def("seekoff_bit",      &LuaGlueBitstream::seekoff_bit).       // 現在位置からファイルポインタ移動
+	def("seekoff_byte",     &LuaGlueBitstream::seekoff_byte).      // 現在位置からファイルポインタ移動
+	def("seekoff",          &LuaGlueBitstream::seekoff).           // 現在位置からファイルポインタ移動
+	def("bit_pos",          &LuaGlueBitstream::bit_pos).           // 現在のビットオフセットを取得
+	def("byte_pos",         &LuaGlueBitstream::byte_pos).          // 現在のバイトオフセットを取得
+	def("read_bit",         &LuaGlueBitstream::read_bit).          // ビット単位で読み込み
+	def("read_byte",        &LuaGlueBitstream::read_byte).         // バイト単位で読み込み
+	def("read_string",      &LuaGlueBitstream::read_string).       // バイト単位で文字列として読み込み
+	def("read_expgolomb",   &LuaGlueBitstream::read_expgolomb).    // 指数ゴロムとしてビットを読む
+	def("comp_bit",         &LuaGlueBitstream::compare_bit).       // ビット単位で比較
+	def("comp_byte",        &LuaGlueBitstream::compare_byte).      // バイト単位で比較
+	def("comp_string",      &LuaGlueBitstream::compare_string).    // バイト単位で文字列として比較
+	def("comp_expgolomb",   &LuaGlueBitstream::compare_expgolomb). // 指数ゴロムとして比較
+	def("look_bit",         &LuaGlueBitstream::look_bit).          // ポインタを進めないでビット値を取得、4byteまで
+	def("look_byte",        &LuaGlueBitstream::look_byte).         // ポインタを進めないでバイト値を取得、4byteまで
+	def("look_expgolomb",   &LuaGlueBitstream::look_expgolomb).    // ポインタを進めないで指数ゴロム値を取得、4byteまで
+	def("find_byte",        &LuaGlueBitstream::find_byte).         // １バイトの一致を検索
+	def("find_byte_string", &LuaGlueBitstream::find_byte_string).  // 数バイト分の一致を検索
+	def("transfer_byte",    &LuaGlueBitstream::transfer_byte).     // 部分ストリーム(Bitstream)を作成
+	def("write",            &LuaGlueBitstream::write_byte_string). // ビットストリームの終端に書き込む
+	def("put_char",         &LuaGlueBitstream::put_char).          // ビットストリームの終端に書き込む
+	def("dump",
+		(bool(LuaGlueBitstream::*)(int)) &LuaGlueBitstream::dump); // 現在位置からバイト表示
 
 // std::filebufによるビットストリームクラス
-lua->def_class<LuaGlueFileBitstream>("FileBitstream")->
-	def("open",             &LuaGlueFileBitstream::open).              // ファイルオープン
-	def("size",             &LuaGlueFileBitstream::size).              // ファイルサイズ取得
-	def("enable_print",     &LuaGlueFileBitstream::enable_print).      // 解析ログのON/OFF
-	def("little_endian",    &LuaGlueFileBitstream::little_endian).     // ２バイト/４バイトの読み込み時はエンディアンを変換する
-	def("seekpos_bit",      &LuaGlueFileBitstream::seekpos_bit).       // 先頭からファイルポインタ移動
-	def("seekpos_byte",     &LuaGlueFileBitstream::seekpos_byte).      // 先頭からファイルポインタ移動
-	def("seekpos",          &LuaGlueFileBitstream::seekpos).           // 先頭からファイルポインタ移動
-	def("seekoff_bit",      &LuaGlueFileBitstream::seekoff_bit).       // 現在位置からファイルポインタ移動
-	def("seekoff_byte",     &LuaGlueFileBitstream::seekoff_byte).      // 現在位置からファイルポインタ移動
-	def("seekoff",          &LuaGlueFileBitstream::seekoff).           // 現在位置からファイルポインタ移動
-	def("bit_pos",          &LuaGlueFileBitstream::bit_pos).           // 現在のビットオフセットを取得
-	def("byte_pos",         &LuaGlueFileBitstream::byte_pos).          // 現在のバイトオフセットを取得
-	def("read_bit",         &LuaGlueFileBitstream::read_bit).          // ビット単位で読み込み
-	def("read_byte",        &LuaGlueFileBitstream::read_byte).         // バイト単位で読み込み
-	def("read_string",      &LuaGlueFileBitstream::read_string).       // バイト単位で文字列として読み込み
-	def("read_expgolomb",   &LuaGlueFileBitstream::read_expgolomb).    // 指数ゴロムとしてビットを読む
-	def("comp_bit",         &LuaGlueFileBitstream::compare_bit).       // ビット単位で比較
-	def("comp_byte",        &LuaGlueFileBitstream::compare_byte).      // バイト単位で比較
-	def("comp_string",      &LuaGlueFileBitstream::compare_string).    // バイト単位で文字列として比較
-	def("comp_expgolomb",   &LuaGlueFileBitstream::compare_expgolomb). // 指数ゴロムとして比較
-	def("look_bit",         &LuaGlueFileBitstream::look_bit).          // ポインタを進めないでビット値を取得、4byteまで
-	def("look_byte",        &LuaGlueFileBitstream::look_byte).         // ポインタを進めないでバイト値を取得、4byteまで
-	def("look_expgolomb",   &LuaGlueFileBitstream::look_expgolomb).    // ポインタを進めないで指数ゴロム値を取得、4byteまで
-	def("find_byte",        &LuaGlueFileBitstream::find_byte).         // １バイトの一致を検索
-	def("find_byte_string", &LuaGlueFileBitstream::find_byte_string).  // 数バイト分の一致を検索
-	def("transfer_byte",    &LuaGlueFileBitstream::transfer_byte).     // 部分ストリーム(Bitstream)を作成
-	def("write",            &LuaGlueFileBitstream::write_byte_string). // ビットストリームの終端に書き込む
-	def("put_char",         &LuaGlueFileBitstream::put_char).          // ビットストリームの終端に書き込む
-	def("dump",
-		(bool(LuaGlueFileBitstream::*)(int)) &LuaGlueFileBitstream::dump); // 現在位置からバイト表示
+lua->def_subclass<LuaGlueFileBitstream>("FileBitstream", "IBitstream")->
+	def("new",     LuaBinder::constructor<LuaGlueFileBitstream(string, string)>()).
+	def("open",    &LuaGlueFileBitstream::open); // ファイルオープン
 
 // std::stringbufによるビットストリームクラス
-lua->def_class<LuaGlueBufBitstream>("Buffer")->
-	def("size",             &LuaGlueBufBitstream::size).              // バッファサイズ取得
-	def("enable_print",     &LuaGlueBufBitstream::enable_print).      // 解析ログのON/OFF
-	def("little_endian",    &LuaGlueBufBitstream::little_endian).     // ２バイト/４バイトの読み込み時はエンディアンを変換する
-	def("seekpos_bit",      &LuaGlueBufBitstream::seekpos_bit).       // 先頭からファイルポインタ移動
-	def("seekpos_byte",     &LuaGlueBufBitstream::seekpos_byte).      // 先頭からファイルポインタ移動
-	def("seekpos",          &LuaGlueBufBitstream::seekpos).           // 先頭からファイルポインタ移動
-	def("seekoff_bit",      &LuaGlueBufBitstream::seekoff_bit).       // 現在位置からファイルポインタ移動
-	def("seekoff_byte",     &LuaGlueBufBitstream::seekoff_byte).      // 現在位置からファイルポインタ移動
-	def("seekoff",          &LuaGlueBufBitstream::seekoff).           // 現在位置からファイルポインタ移動
-	def("bit_pos",          &LuaGlueBufBitstream::bit_pos).           // 現在のビットオフセットを取得
-	def("byte_pos",         &LuaGlueBufBitstream::byte_pos).          // 現在のバイトオフセットを取得
-	def("read_bit",         &LuaGlueBufBitstream::read_bit).          // ビット単位で読み込み
-	def("read_byte",        &LuaGlueBufBitstream::read_byte).         // バイト単位で読み込み
-	def("read_string",      &LuaGlueBufBitstream::read_string).       // バイト単位で文字列として読み込み
-	def("read_expgolomb",   &LuaGlueBufBitstream::read_expgolomb).    // 指数ゴロムとしてビットを読む
-	def("comp_bit",         &LuaGlueBufBitstream::compare_bit).       // ビット単位で比較
-	def("comp_byte",        &LuaGlueBufBitstream::compare_byte).      // バイト単位で比較
-	def("comp_string",      &LuaGlueBufBitstream::compare_string).    // バイト単位で文字列として比較
-	def("comp_expgolomb",   &LuaGlueBufBitstream::compare_expgolomb). // 指数ゴロムとして比較
-	def("look_bit",         &LuaGlueBufBitstream::look_bit).          // ポインタを進めないでビット値を取得、4byteまで
-	def("look_byte",        &LuaGlueBufBitstream::look_byte).         // ポインタを進めないでバイト値を取得、4byteまで
-	def("look_expgolomb",   &LuaGlueBufBitstream::look_expgolomb).    // ポインタを進めないで指数ゴロム値を取得、4byteまで
-	def("find_byte",        &LuaGlueBufBitstream::find_byte).         // １バイトの一致を検索
-	def("find_byte_string", &LuaGlueBufBitstream::find_byte_string).  // 数バイト分の一致を検索
-	def("transfer_byte",    &LuaGlueBufBitstream::transfer_byte).     // 部分ストリーム(Bitstream)を作成
-	def("write",            &LuaGlueBufBitstream::write_byte_string). // ビットストリームの終端に書き込む
-	def("put_char",         &LuaGlueBufBitstream::put_char).          // ビットストリームの終端に書き込む
-	def("dump",
-		(bool(LuaGlueBufBitstream::*)(int)) &LuaGlueBufBitstream::dump); // 現在位置からバイト表示
+lua->def_subclass<LuaGlueBufBitstream>("Buffer", "IBitstream")->
+	def("new",     LuaBinder::constructor<LuaGlueBufBitstream()>());
 
 // FIFO（リングバッファ）によるビットストリームクラスクラス
 // ヘッド/テールの監視がなく挙動が特殊なのでメモリに余裕がある処理なら"Buffer"クラスを使ったほうが良い
-lua->def_class<LuaGlueFifoBitstream>("Fifo")->
-	def("size",             &LuaGlueFifoBitstream::size).              // 書き込み済みサイズ取得
-	def("reserve",          &LuaGlueFifoBitstream::reserve).           // バッファサイズ設定、使う前に必須
-	def("enable_print",     &LuaGlueFifoBitstream::enable_print).      // コンソール出力ON/OFF
-	def("little_endian",    &LuaGlueFifoBitstream::little_endian).     // ２バイト/４バイトの読み込み時はエンディアンを変換する
-	def("seekpos_bit",      &LuaGlueFifoBitstream::seekpos_bit).       // 先頭からファイルポインタ移動
-	def("seekpos_byte",     &LuaGlueFifoBitstream::seekpos_byte).      // 先頭からファイルポインタ移動
-	def("seekpos",          &LuaGlueFifoBitstream::seekpos).           // 先頭からファイルポインタ移動
-	def("seekoff_bit",      &LuaGlueFifoBitstream::seekoff_bit).       // 現在位置からファイルポインタ移動
-	def("seekoff_byte",     &LuaGlueFifoBitstream::seekoff_byte).      // 現在位置からファイルポインタ移動
-	def("seekoff",          &LuaGlueFifoBitstream::seekoff).           // 現在位置からファイルポインタ移動
-	def("bit_pos",          &LuaGlueFifoBitstream::bit_pos).           // 現在のビットオフセットを取得
-	def("byte_pos",         &LuaGlueFifoBitstream::byte_pos).          // 現在のバイトオフセットを取得
-	def("read_bit",         &LuaGlueFifoBitstream::read_bit).          // ビット単位で読み込み
-	def("read_byte",        &LuaGlueFifoBitstream::read_byte).         // バイト単位で読み込み
-	def("read_string",      &LuaGlueFifoBitstream::read_string).       // バイト単位で文字列として読み込み
-	def("read_expgolomb",   &LuaGlueFifoBitstream::read_expgolomb).    // 指数ゴロムとしてビットを読む
-	def("comp_bit",         &LuaGlueFifoBitstream::compare_bit).       // ビット単位で比較
-	def("comp_byte",        &LuaGlueFifoBitstream::compare_byte).      // バイト単位で比較
-	def("comp_string",      &LuaGlueFifoBitstream::compare_string).    // バイト単位で文字列として比較
-	def("comp_expgolomb",   &LuaGlueFifoBitstream::compare_expgolomb). // 指数ゴロムとして比較
-	def("look_bit",         &LuaGlueFifoBitstream::look_bit).          // ポインタを進めないでビット値を取得、4byteまで
-	def("look_byte",        &LuaGlueFifoBitstream::look_byte).         // ポインタを進めないでバイト値を取得、4byteまで
-	def("look_expgolomb",   &LuaGlueFifoBitstream::look_expgolomb).    // ポインタを進めないで指数ゴロム値を取得、4byteまで
-	def("find_byte",        &LuaGlueFifoBitstream::find_byte).         // １バイトの一致を検索
-	def("find_byte_string", &LuaGlueFifoBitstream::find_byte_string).  // 数バイト分の一致を検索
-	def("transfer_byte",    &LuaGlueFifoBitstream::transfer_byte).     // 部分ストリーム(Bitstream)を作成
-	def("write",            &LuaGlueFifoBitstream::write_byte_string). // ビットストリームの終端に書き込む
-	def("put_char",         &LuaGlueFifoBitstream::put_char).          // ビットストリームの終端に書き込む
-	def("dump",
-		(bool(LuaGlueFifoBitstream::*)(int)) &LuaGlueFifoBitstream::dump); // 現在位置からバイト表示
+lua->def_subclass<LuaGlueFifoBitstream>("Fifo", "IBitstream")->
+	def("new",     LuaBinder::constructor<LuaGlueFifoBitstream(int)>()).
+	def("reserve", &LuaGlueFifoBitstream::reserve); // バッファを再確保、書き込み済みデータは破棄
 ```

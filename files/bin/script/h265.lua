@@ -1972,6 +1972,6 @@ open(__stream_path__)
 print_status()
 enable_print(false)
 stdout_to_file(false)
-h265_byte_stream(get_size() /1000)
+h265_byte_stream(get_size() /10)
 print_status()
 

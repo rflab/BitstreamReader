@@ -63,6 +63,7 @@ namespace rf
 			return true;
 		}
 		
+		// 今のスタック状態をprintf（スタティック関数版）
 		static bool  dump_stack(lua_State *L)
 		{
 			int stack_size = lua_gettop(L);
@@ -98,11 +99,13 @@ namespace rf
 			return true;
 		}
 
+		// 今のスタック状態をprintf（メンバ関数版）
 		bool dump_stack()
 		{
 			return dump_stack(L_);
 		}
 
+		// luaのエラーコードを判定してboolに変換
 		bool luaresult(int lua_ret)
 		{			
 			if (lua_ret != LUA_OK)
@@ -114,6 +117,7 @@ namespace rf
 			return true;
 		}
 
+		// lua_pcallに乗せるべき関数
 		static int traceback(lua_State* L)
 		{
 			dump_stack(L);
@@ -178,13 +182,24 @@ namespace rf
 				&& ((std::is_integral<T>::value)
 				|| (std::is_floating_point<T>::value)));
 		};
-
+	public:
 		template<typename T>
 		struct is_string
 		{
+# if 0
+			// うまくいかない理由がわからんorz
 			static const bool value =
-				((std::is_same<T, string>::value)
-				|| (std::is_same<T, char const*>::value));
+				// referenceとconstの順番が逆だとしくじる、なんでだーorz
+				// ((std::is_same <typename std::remove_reference<typename std::remove_const<T>::type >::type, string >::value)
+				((std::is_same <typename std::remove_const<typename std::remove_reference<T>::type >::type, string >::value)
+				|| (std::is_same<typename std::remove_const<T>::type, char*>::value));
+#else
+			static const bool value =
+				((std::is_same <T, const string& >::value)
+				|| (std::is_same <T, string >::value)
+				|| (std::is_same <T, const char* >::value)
+				|| (std::is_same <T, char* >::value));
+#endif
 		};
 
 		template<typename T>
@@ -220,25 +235,35 @@ namespace rf
 		}
 
 		// どうすりゃいいかわからん
-		//template<typename T>
-		//static void push_stack(lua_State* L, T a, enable_if<is_number<T>::value>::type* = 0)
-		//{
-		//	lua_pushnumber(L, static_cast<lua_Number>(a));
-		//}
-		//
-		//template<typename T>
-		//static void push_stack(lua_State* L, T a, enable_if<!is_basic_type<T>::value>::type* = 0)
-		//{
-		//	void* p = lua_newuserdata(L, sizeof(T));
-		//	new(p) T(a);
-		//
-		//	lua_pushvalue(L, lua_upvalueindex(1)); // クラスを取り出す
-		//	lua_setmetatable(L, userdata); // メタテーブルに追加する
-		//
-		//	return 1; // インスタンス1つを返す
-		//
-		//	lua_pushnumber(L, static_cast<lua_Number>(a));
-		//}
+		// template<typename T>
+		// static void get_stack(lua_State* L, const T &userdata)
+		// {
+		// }
+		// 
+		// template<typename T>
+		// static void push_stack(lua_State* L, std::reference_wrapper<T> const& a)
+		// {
+		// }
+		// 
+		// template<typename T>
+		// static void push_stack(lua_State* L, T a, typedef Dummy = enable_if<is_number<T>::value>::type)
+		// {
+		// 	lua_pushnumber(L, static_cast<lua_Number>(a));
+		// }
+		// 
+		// template<typename T>
+		// static void push_stack(lua_State* L, T a, typename Dummy = enable_if<!is_basic_type<T>::value>::type)
+		// {
+		// 	void* p = lua_newuserdata(L, sizeof(T));
+		// 	new(p) T(a);
+		// 
+		// 	lua_pushvalue(L, lua_upvalueindex(1)); // クラスを取り出す
+		// 	lua_setmetatable(L, userdata); // メタテーブルに追加する
+		// 
+		// 	return 1; // インスタンス1つを返す
+		// 
+		// 	lua_pushnumber(L, static_cast<lua_Number>(a));
+		// }
 
 		// スタック操作 型推論でLua->C++
 		
@@ -293,9 +318,9 @@ namespace rf
 		}
 
 		template<typename...Args, size_t...Ixs>
-		static tuple<Args...> get_tuple(lua_State* L, intetgral_sequence<size_t, Ixs...>, typename enable_if<sizeof...(Args) != 0>::type* = 0)
+		static tuple<typename std::remove_reference<Args>::type...> get_tuple(lua_State* L, intetgral_sequence<size_t, Ixs...>, typename enable_if<sizeof...(Args) != 0>::type* = 0)
 		{
-			return tuple<Args...>(get_stack<Args>(L, Ixs)...);
+			return tuple<typename std::remove_reference<Args>::type...>(get_stack<Args>(L, Ixs)...);
 		}
 
 		template<typename...Args>
@@ -389,6 +414,7 @@ namespace rf
 				auto self = static_cast<T*>(lua_touserdata(L, 1));
 				if (self == nullptr){
 					cout << "no self specified" << endl;
+					throw LUA_RUNTIME_ERROR("self is nil");// 多分ありえない
 				}
 
 				typedef typename std::remove_reference<Ret(T::*)(Args...)>::type mf_type;
@@ -419,6 +445,7 @@ namespace rf
 				auto self = static_cast<T*>(lua_touserdata(L, 1));
 				if (self == nullptr){
 					cout << "no self specified" << endl;
+					throw LUA_RUNTIME_ERROR("self is nil");// 多分ありえない
 				}
 		
 				typedef typename std::remove_reference<void(T::*)(Args...)>::type mf_type;
@@ -592,6 +619,42 @@ namespace rf
 			return true;
 		}
 
+		// Lua関数をC++からコール
+		// 例外を投げるのでtry必須
+		// 基本はdofileの中で呼ばれるコールバック関数に使い、dofileに例外を任せる
+		template<typename Ret, typename ... Args, typename enable_if<!std::is_same<Ret, void>::value>::type* = 0>
+		Ret call_function(const string &name, Args ... args)
+		{
+			// func = _G[name]
+			lua_getglobal(L_, name.c_str());
+
+			// func(args...)
+			auto i = { (push_stack(L_, args), 0)... };
+			bool ret = luaresult(lua_pcall(L_, sizeof...(Args), 1, 0));
+			if (!ret)
+				throw LUA_RUNTIME_ERROR("call_function() error");
+
+			return get_stack<Ret>(L_, -1);
+		}
+		
+		// Lua関数をC++からコール（戻り値void版）
+		// 例外を投げるのでtry必須
+		// 基本はdofileの中で呼ばれるコールバック関数に使い、dofileに例外を任せる
+		template<typename Ret, typename ... Args, typename Dummy = enable_if<std::is_same<Ret, void>::value>::type>
+		void call_function(const string &name, Args ... args)
+		{
+			// func = _G[name]
+			lua_getglobal(L_, name.c_str());
+
+			// func(args...)
+			auto i = { (push_stack(L_, args), 0)... };
+			bool ret = luaresult(lua_pcall(L_, sizeof...(Args), 1, 0));
+			if (!ret)
+				throw LUA_RUNTIME_ERROR("call_function() error");
+
+			return;
+		}
+
 		// 関数バインド
 		//
 		// ＜使用例＞
@@ -613,24 +676,29 @@ namespace rf
 		}
 
 		// クラスバインド
-		//
-		// ＜使用例＞
-		// LuaBinder lua;
-		// lua.def_class<Test>("Test")->
-		//	def("func1", &Test::func).
-		//	def("func2", &Test::func2).
-		//	def("func3", (int(Test::*)(int))    &Test::overload_func).
-		//	def("func4", (int(Test::*)(string)) &Test::overload_func);
 		template<class T> class class_chain;
 
+		// 基底クラスバインド
+		//
+		// ＜使用例＞
+		// lua->def_class<Base>("Base")->
+		// 	def("new", rf::LuaBinder::constructor<Base()>()).
+		// 	def("mem1", &Base::m1).
+		// 	def("mem2", (void(Base::*)(int))    &Base::m2).
+		// 	def("mem3", (void(Base::*)(string)) &Base::m2);
 		template<class T>
 		unique_ptr<class_chain<T> > def_class(const string& name)
 		{
 			return make_unique<class_chain<T> >(L_, name);
 		}
 
+		// 派生クラスバインド
+		// lua->def_class<Derived>("Derived", "Base")->
+		// 	def("new", rf::LuaBinder::constructor<Derived(int)>()).
+		// 	def("mem1", &Derived::m1).
+		// 	def("mem4", &Derived::m2);
 		template<class T>
-		unique_ptr<class_chain<T> > def_subclass(const string& sub_name, const string& super_name)
+		unique_ptr<class_chain<T> > def_class(const string& sub_name, const string& super_name/* =""*/)
 		{
 			auto p = make_unique<class_chain<T> >(L_, sub_name);
 
@@ -700,7 +768,7 @@ namespace rf
 		};
 		
 		// メンバ関数登録用オブジェクト
-		// 通常はdef_classを使えばいいはず
+		// def_classで生成し、defを呼び出して関数を登録するのに使ってる
 		template<class T> // class Super = T>
 		class class_chain
 		{
@@ -741,15 +809,6 @@ namespace rf
 				lua_pushliteral(L_, "__gc");
 				lua_pushcfunction(L_, &destructor<T>);
 				lua_settable(L_, metatable);
-
-#if 0
-				// デフォルトコンストラクタ
-				// class_def.new = function () metatable.. end
-				lua_pushliteral(L_, "new");
-				lua_pushvalue(L_, metatable);
-				lua_pushcclosure(L_, default_constructor<T>, 1);
-				lua_settable(L_, class_def);
-#endif
 
 #if 1
 				// class_def.metatable = (class_def, metatable)
@@ -812,7 +871,7 @@ namespace rf
 			// メンバ関数登録
 			// 関数と実体(クラスの元となるオブジェクト)をluaに登録する
 			template<class S, typename Ret, typename... Args>
-			const class_chain<T>& def(const string & method_name, Ret(S::*f)(Args...),
+			const class_chain<T>& def(const string &method_name, Ret(S::*f)(Args...),
 				typename enable_if<std::is_member_function_pointer<Ret(S::*)(Args...)>::value>::type* = 0) const
 			{
 				// C++側引数->スタックの参照テーブル

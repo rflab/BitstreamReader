@@ -143,7 +143,7 @@ namespace rf
 		}
 
 		// 指定したバイト列を指定したファイル名に出力、二度目以降は追記
-		static bool write_to_file(string file_name, const char* address, int size)
+		static bool write_to_file(const char* file_name, const char* address, int size)
 		{
 			if (FAILED(valid_ptr(address)))
 				return false;
@@ -817,7 +817,7 @@ namespace rf
 
 		// ストリームからファイルに転送
 		// 現状オーバーヘッド多め
-		static bool transfer_to_file(string file_name, LuaGlueBitstream &stream, int size, bool advance = false)
+		static bool transfer_to_file(const char* file_name, LuaGlueBitstream &stream, int size, bool advance = false)
 		{
 			if (FAILED(size >= 0))
 				return false;
@@ -834,7 +834,7 @@ namespace rf
 			{
 				stringstream ss;
 				ss << " >> " << file_name;
-				stream.read_byte(ss.str(), size);
+				stream.read_byte(ss.str().c_str(), size);
 			}
 
 			return true;
@@ -914,7 +914,7 @@ namespace rf
 
 		// ビット単位で読み込み
 		// 32bit以上は0を返す
-		uint32_t read_bit(string name, int size) throw(...)
+		uint32_t read_bit(const char* name, int size) throw(...)
 		{
 			if (FAILED(size >= 0))
 				throw LUA_RUNTIME_ERROR((print_status(), string("size < 0, size=") + to_string(size)));
@@ -936,7 +936,7 @@ namespace rf
 				if (printf_on_ || (name[0] == '#'))
 				{
 					printf(" adr=0x%08x(+%d)| siz=0x%08x(+%d)| %-40s | ",
-						prev_byte, prev_bit, size / 8, size % 8, name.c_str());
+						prev_byte, prev_bit, size / 8, size % 8, name);
 					dump_line(buf, 0, dump_size);
 
 					if (16 > (size + 7) / 8)
@@ -963,7 +963,7 @@ namespace rf
 				if (printf_on_ || (name[0] == '#'))
 				{
 					printf(" adr=0x%08x(+%d)| siz=0x%08x(+%d)| %-40s | val=0x%-8x (%d%s)\n",
-						prev_byte, prev_bit, size / 8, size % 8, name.c_str(), v, v,
+						prev_byte, prev_bit, size / 8, size % 8, name, v, v,
 						((size == 32 || size == 16) && little_endian_) ? ", \"little\"" : "");
 				}
 
@@ -973,7 +973,7 @@ namespace rf
 
 		// バイト単位で読み込み
 		// 32bit以上は0を返す
-		uint32_t read_byte(string name, int size) throw(...)
+		uint32_t read_byte(const char* name, int size) throw(...)
 		{
 			if (FAILED(bs_.check_offset_byte(size)))
 				throw LUA_RUNTIME_ERROR((print_status(), string("overflow, size=") + to_string(size)));
@@ -982,7 +982,7 @@ namespace rf
 
 		// バイト単位で文字列として読み込み
 		// むちゃくちゃ長い文字列はまずい。
-		string read_string(string name, int max_length) throw(...)
+		string read_string(const char* name, int max_length) throw(...)
 		{
 			int prev_byte = bs_.byte_pos();
 			int prev_bit = bs_.bit_pos();
@@ -994,7 +994,7 @@ namespace rf
 			if (printf_on_ || (name[0] == '#'))
 			{
 				printf(" adr=0x%08x(+%d)| siz=0x%08x(+0)| %-40s | str=\"%s\"\n",
-					prev_byte, prev_bit, static_cast<unsigned int>(str.length()), name.c_str(), str.c_str());
+					prev_byte, prev_bit, static_cast<unsigned int>(str.length()), name, str.c_str());
 				if (max_length < static_cast<int>(str.length() - 1))
 					ERR << "max_length > str.length() - 1 (" << str.length()
 						<< " != " << max_length << ")" << endl;
@@ -1004,7 +1004,7 @@ namespace rf
 		}
 
 		// 指数ゴロムとして読み込み
-		uint32_t read_expgolomb(string name) throw(...)
+		uint32_t read_expgolomb(const char* name) throw(...)
 		{
 			int prev_byte = bs_.byte_pos();
 			int prev_bit = bs_.bit_pos();
@@ -1017,7 +1017,7 @@ namespace rf
 			if (printf_on_ || (name[0] == '#'))
 			{
 				printf(" adr=0x%08x(+%d)| siz=0x%08x(+%d)| %-40s | exp=0x%-8x (%d%s)\n",
-					prev_byte, prev_bit, size / 8, size % 8, name.c_str(), v, v,
+					prev_byte, prev_bit, size / 8, size % 8, name, v, v,
 					((size == 32 || size == 16) && little_endian_) ? ", \"little\"" : "");
 			}
 
@@ -1058,7 +1058,7 @@ namespace rf
 		}
 
 		// ビット単位で比較
-		bool compare_bit(string name, int size, uint32_t compvalue) throw(...)
+		bool compare_bit(const char* name, int size, uint32_t compvalue) throw(...)
 		{
 			if (FAILED(bs_.check_offset_bit(size)))
 				throw LUA_RUNTIME_ERROR((print_status(), string("overflow, size=") + to_string(size)));
@@ -1067,7 +1067,7 @@ namespace rf
 			if (value != compvalue)
 			{
 				printf("# compare value [%s] : 0x%08x(%d) != 0x%08x(%d)\n",
-					name.c_str(), value, value, compvalue, compvalue);
+					name, value, value, compvalue, compvalue);
 
 				return false;
 			}
@@ -1075,7 +1075,7 @@ namespace rf
 		}
 
 		// バイト単位で比較
-		bool compare_byte(string name, int size, uint32_t compvalue) throw(...)
+		bool compare_byte(const char* name, int size, uint32_t compvalue) throw(...)
 		{
 			if (FAILED(bs_.check_offset_byte(size)))
 				throw LUA_RUNTIME_ERROR((print_status(), "overflow"));
@@ -1084,7 +1084,7 @@ namespace rf
 		}
 
 		// バイト単位で文字列として比較
-		bool compare_string(string name, int max_length, string comp_str) throw(...)
+		bool compare_string(const char* name, int max_length, const char* comp_str) throw(...)
 		{
 			if (FAILED(bs_.check_offset_byte(max_length)))
 				throw LUA_RUNTIME_ERROR((print_status(), string("overflow, size=") + to_string(max_length)));
@@ -1092,20 +1092,20 @@ namespace rf
 			string str = read_string(name, max_length);
 			if (str != comp_str)
 			{
-				printf("# compare string [%s]: \"%s\" != \"%s\"\n", name.c_str(), str.c_str(), comp_str.c_str());
+				printf("# compare string [%s]: \"%s\" != \"%s\"\n", name, str.c_str(), comp_str);
 				return false;
 			}
 			return true;
 		}
 
 		// 指数ゴロムとして比較
-		bool compare_expgolomb(string name, uint32_t compvalue) throw(...)
+		bool compare_expgolomb(const char* name, uint32_t compvalue) throw(...)
 		{
 			uint32_t value = read_expgolomb(name);
 			if (value != compvalue)
 			{
 				printf("# compare value [%s] : 0x%08x(%d) != 0x%08x(%d)\n",
-					name.c_str(), value, value, compvalue, compvalue);
+					name, value, value, compvalue, compvalue);
 
 				return false;
 			}
@@ -1186,7 +1186,7 @@ namespace rf
 
 		// 別のストリームに転送
 		// 現状オーバーヘッド多め
-		bool transfer_byte(string name, LuaGlueBitstream &stream, int size, bool advance)
+		bool transfer_byte(const char* name, LuaGlueBitstream &stream, int size, bool advance)
 		{
 			if (FAILED(bs_.check_offset_byte(size)))
 				return false;
@@ -1201,7 +1201,7 @@ namespace rf
 			{
 				stringstream ss;
 				ss << " >> transfer: " << name;
-				read_byte(ss.str(), size);
+				read_byte(ss.str().c_str(), size);
 			}
 
 			return true;
@@ -1277,29 +1277,6 @@ namespace rf
 
 			return true;
 		}
-
-		//// 指定の値が見つかるまで読み込み
-		//int next_byte(char c)
-		//{
-		//	return LuaGlueBitstream::find_byte(c, true);
-		//}
-		//
-		//// 指定バイト列が見つかるまで読み込み
-		//int next_byte_string(const char* address, int size)
-		//{
-		//	return LuaGlueBitstream::find_byte_string(address, size, true);
-		//}
-
-		// リングバッファではサポート不能
-		//bool seekoff_bit(int offset) = delete;
-		//bool seekoff_byte(int offset) = delete;
-		//bool seekpos_bit(int byte) = delete;
-		//bool seekpos_byte(int byte) = delete;
-		//bool seekpos(int byte, int bit) = delete;
-		//uint32_t look_bit(int size) = delete;
-		//uint32_t look_byte(int size) = delete;
-		//int find_byte(char c, bool advance = false) = delete;
-		//find_byteint find_byte_string(const char* address, int size, bool advance = false) = delete;
 	};
 
 
@@ -1308,9 +1285,9 @@ namespace rf
 	public:
 
 		LuaGlueFileBitstream() :LuaGlueBitstream(){}
-		LuaGlueFileBitstream(string file_name, string mode = "rb") :LuaGlueBitstream(){ open(file_name, mode); }
+		LuaGlueFileBitstream(const string& file_name, const string& mode = "rb") :LuaGlueBitstream(){ open(file_name, mode); }
 
-		bool open(string file_name, string mode = "rb")
+		bool open(const string& file_name, const string& mode = "rb")
 		{
 			//auto del = [](filebuf* p){p->close(); delete p; };
 			//unique_ptr<filebuf, decltype(del)> fb(new filebuf, del);
@@ -1325,7 +1302,11 @@ namespace rf
 			else if (mode.find('a') != string::npos)
 				m = (ios::out | ios::app);
 			else
+			{
 				ERR << "file open mode" << mode << endl;
+				return false;
+			}
+
 
 			if (mode.find('+') != string::npos)
 				m |= (ios::in | ios::out);
@@ -1396,17 +1377,17 @@ unique_ptr<LuaBinder> init_lua(int argc, char** argv)
 			(bool(LuaGlueBitstream::*)(int)) &LuaGlueBitstream::dump); // 現在位置からバイト表示
 
 	// std::filebufによるビットストリームクラス
-	lua->def_subclass<LuaGlueFileBitstream>("FileBitstream", "IBitstream")->
-		def("new",     LuaBinder::constructor<LuaGlueFileBitstream(string, string)>()).
+	lua->def_class<LuaGlueFileBitstream>("FileBitstream", "IBitstream")->
+		def("new",     LuaBinder::constructor<LuaGlueFileBitstream(const string&, const string&)>()).
 		def("open",    &LuaGlueFileBitstream::open); // ファイルオープン
 
 	// std::stringbufによるビットストリームクラス
-	lua->def_subclass<LuaGlueBufBitstream>("Buffer", "IBitstream")->
+	lua->def_class<LuaGlueBufBitstream>("Buffer", "IBitstream")->
 		def("new",     LuaBinder::constructor<LuaGlueBufBitstream()>());
 
 	// FIFO（リングバッファ）によるビットストリームクラスクラス
 	// ヘッド/テールの監視がなく挙動が特殊なのでメモリに余裕がある処理なら"Buffer"クラスを使ったほうが良い
-	lua->def_subclass<LuaGlueFifoBitstream>("Fifo", "IBitstream")->
+	lua->def_class<LuaGlueFifoBitstream>("Fifo", "IBitstream")->
 		def("new",     LuaBinder::constructor<LuaGlueFifoBitstream(int)>()).
 		def("reserve", &LuaGlueFifoBitstream::reserve); // バッファを再確保、書き込み済みデータは破棄
 

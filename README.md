@@ -122,7 +122,7 @@ store_to_table(tbl, name, value) -- tbl[name].tblの末尾とtbl[name].valに値
 str2val(buf_str, little_endian)  -- 4文字までの16進数文字列を数値に変換
 pat2str(pattern)                 -- 00 01 ... のような文字列パターンをchar配列に変換する
 hex2str(val, size, le)           -- 数値をchar配列に変える
-write(filename, pattern)         -- char配列もしくは"00 11 22"のような文字列でバイナリ追記
+write(filename, pattern)         -- char配列 or "00 11 22" 形式でファイル追記
 putchar(filename, char)          -- ファイルに一文字追記
 
 ```

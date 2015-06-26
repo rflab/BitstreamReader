@@ -161,9 +161,9 @@ lua->def_class<LuaGlueBitstream>("IBitstream")->
 	def("comp_byte",        &LuaGlueBitstream::compare_byte).      // バイト単位で比較
 	def("comp_string",      &LuaGlueBitstream::compare_string).    // バイト単位で文字列として比較
 	def("comp_expgolomb",   &LuaGlueBitstream::compare_expgolomb). // 指数ゴロムとして比較
-	def("look_bit",         &LuaGlueBitstream::look_bit).          // ポインタを進めないでビット値を取得、4byteまで
-	def("look_byte",        &LuaGlueBitstream::look_byte).         // ポインタを進めないでバイト値を取得、4byteまで
-	def("look_expgolomb",   &LuaGlueBitstream::look_expgolomb).    // ポインタを進めないで指数ゴロム値を取得、4byteまで
+	def("look_bit",         &LuaGlueBitstream::look_bit).          // ポインタを進めないでビット値を取得
+	def("look_byte",        &LuaGlueBitstream::look_byte).         // ポインタを進めないでバイト値を取得
+	def("look_expgolomb",   &LuaGlueBitstream::look_expgolomb).    // ポインタを進めないで指数ゴロム値を取得
 	def("find_byte",        &LuaGlueBitstream::find_byte).         // １バイトの一致を検索
 	def("find_byte_string", &LuaGlueBitstream::find_byte_string).  // 数バイト分の一致を検索
 	def("transfer_byte",    &LuaGlueBitstream::transfer_byte).     // 部分ストリーム(Bitstream)を作成

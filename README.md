@@ -127,8 +127,9 @@ putchar(filename, char)          -- ファイルに一文字追記
 
 ```
 C++側からは以下のような関数・クラスがバインドされています。
-細かい拡張はこちら。
-（関数・クラスの仕様はfiles/src/streamreader.cpp参照のこと。）
+細かい拡張はこちらを使用します。
+* https://github.com/rflab/lua_binderによりバインド
+* 関数・クラスの仕様はfiles/src/streamreader.cpp参照のこと
 ```cpp
 // streamreader.cpp
 

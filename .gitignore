@@ -2,7 +2,6 @@
 Debug/
 Release/
 streamreader_d.exe
-*.txt
 *.csv
 *.zip
 *.opensdf

@@ -200,6 +200,7 @@ function pes(buf, pid)
 	or     buf:get("stream_id") == ITU_T_Rec_H_222_0_ISO_IEC_13818_1_Annex_B_or_ISO_IEC_13818_6_DSMCC_stream
 	or     buf:get("stream_id") == ITU_T_Rec_H_222_1_type_E then
 	    buf:tbyte("PES_packet_data_byte",                                   buf:get("PES_packet_length"), __stream_dir__.."out/pid.es")
+	    --buf:rbyte("PES_packet_data_byte",                                   buf:get("PES_packet_length"))
 	elseif ( stream_id == padding_stream) then
         buf:rbyte("padding_byte",                                           buf:get("PES_packet_length"))
 	end

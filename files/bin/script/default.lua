@@ -16,12 +16,12 @@ print("__stream_dir__ :"..__stream_dir__)
 print("__stream_name__:"..__stream_name__)
 print("__stream_ext__ :"..__stream_ext__)
 -- 解析結果出力先ディレクトリ作成
+print("os.execute", os.execute())
 if windows then
-	print("os.execute", os.execute())
 	local win_dir = string.gsub(__stream_dir__, "/", "\\")
 	print("mkdir out", os.execute("mkdir \""..win_dir.."out\""))
 else
-	print("mkdir out", os.execute("mkdir out"))
+	print("mkdir out", os.execute("mkdir \""..__stream_dir__.."out\""))
 end
 
 -- 拡張子にあわせてスクリプト実行

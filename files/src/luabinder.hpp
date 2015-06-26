@@ -14,22 +14,27 @@
 #include "lua.hpp"
 
 // コンパイラ依存？
-#define nullptr NULL
-#define final
-#define throw(x)
 
 // これをC++関数内でthrowするとLua関数の戻り値をfalseになる
 // 古いコンパイラだとto_stringが使えない
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && (_MSC_VER >= 1800)
+	#define LUA_RUNTIME_ERROR(x) std::runtime_error(std::string("c++ runtime exception. L") + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
+	#define LUA_DOMEIN_ERROR(x) std::domain_error(std::string("c++ domein error exception. L") + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
+	#define LUA_ARGUMENT_ERROR(x) std::invalid_argument(std::string("c++ invalid argument exception. L") + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
+#elif defined(__GNUC__) && __cplusplus >= 201300L // __GNUC_PREREQ(4, 9)
 	#define LUA_RUNTIME_ERROR(x) std::runtime_error(std::string("c++ runtime exception. L") + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
 	#define LUA_DOMEIN_ERROR(x) std::domain_error(std::string("c++ domein error exception. L") + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
 	#define LUA_ARGUMENT_ERROR(x) std::invalid_argument(std::string("c++ invalid argument exception. L") + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
 #else
+	// unsupported
 	#define LUA_RUNTIME_ERROR(x) std::runtime_error("c++ runtime exception.")
 	#define LUA_DOMEIN_ERROR(x) std::domain_error("c++ omein error exception.")
 	#define LUA_ARGUMENT_ERROR(x) std::invalid_argument("c++ invalid argument exception.")
 	#define make_unique make_shared
 	#define unique_ptr shared_ptr
+	#define nullptr NULL
+	#define final
+	#define throw(x)
 #endif
 
 namespace rf
@@ -622,7 +627,7 @@ namespace rf
 		// Lua関数をC++からコール
 		// 例外を投げるのでtry必須
 		// 基本はdofileの中で呼ばれるコールバック関数に使い、dofileに例外を任せる
-		template<typename Ret, typename ... Args, typename enable_if<!std::is_same<Ret, void>::value>::type* = 0>
+		template<typename Ret, typename ... Args, typename Dummy = typename enable_if<!std::is_same<Ret, void>::value>::type*>
 		Ret call_function(const string &name, Args ... args)
 		{
 			// func = _G[name]
@@ -640,7 +645,7 @@ namespace rf
 		// Lua関数をC++からコール（戻り値void版）
 		// 例外を投げるのでtry必須
 		// 基本はdofileの中で呼ばれるコールバック関数に使い、dofileに例外を任せる
-		template<typename Ret, typename ... Args, typename Dummy = enable_if<std::is_same<Ret, void>::value>::type>
+		template<typename Ret, typename ... Args, typename Dummy = typename enable_if<std::is_same<Ret, void>::value>::type*>
 		void call_function(const string &name, Args ... args)
 		{
 			// func = _G[name]
@@ -916,4 +921,17 @@ namespace rf
 	};
 }
 
+
+#if defined(_MSC_VER) && (_MSC_VER >= 1800)
+#elif defined(__GNUC__) && __cplusplus >= 201300L // __GNUC_PREREQ(4, 9)
+	#undef nullptr
+	#undef final
+	#undef throw
+#else
+	#define make_unique
+	#define unique_ptr
+	#define nullptr
+	#define final
+	#define throw
+#endif
 #endif

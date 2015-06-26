@@ -22,18 +22,21 @@
 
 #include "luabinder.hpp"
 
-// config、デバッグ、環境依存
-//#define FAILED(...) __VA_ARGS__
-#define FAILED(...) ::rf::failed((__VA_ARGS__), __LINE__, __FUNCTION__, #__VA_ARGS__)
-#define ERR cerr << "# c++ error. L" << dec << __LINE__ << " " << __FUNCTION__ << ": "
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && (_MSC_VER >= 1800)
+#elif defined(__GNUC__) && __cplusplus >= 201300L // __GNUC_PREREQ(4, 9)
+#define throw(x)
 #else
+// unsupported
 #define nullptr NULL
 #define final
 #define throw(x)
 #define make_unique make_shared
 #define unique_ptr shared_ptr
 #endif
+
+//#define FAILED(...) __VA_ARGS__
+#define FAILED(...) ::rf::failed((__VA_ARGS__), __LINE__, __FUNCTION__, #__VA_ARGS__)
+#define ERR cerr << "# c++ error. L" << dec << __LINE__ << " " << __FUNCTION__ << ": "
 
 namespace rf
 {
@@ -602,9 +605,11 @@ namespace rf
 		{
 			int ofs = 0;
 			int c;
+			auto buf = buf_.get(); // パフォーマンス改善のためキャスト
 			for (; byte_pos_ + ofs < size_; ++ofs)
 			{
-				c = buf_->sbumpc();
+				//c = buf_->sbumpc(); operator -> が重かった
+				c = buf->sbumpc();
 				if (static_cast<char>(c) == sc)
 				{
 					break;
@@ -688,13 +693,15 @@ namespace rf
 
 	private:
 
-		unique_ptr<char[]> buf_;
+		unique_ptr<char[]> buf_; //shared_ptrとmake_sharedにdefineで変換したいので配列指定しない
+		//unique_ptr<char> buf_;
 		int size_;
 
 	protected:
 
 		int overflow(int c) override
 		{
+			cout << buf_[0] << endl;
 			setp(buf_.get(), buf_.get() + size_);
 			return sputc(static_cast<char>(c));
 		}
@@ -734,7 +741,7 @@ namespace rf
 			if (FAILED(0 <= size))
 				return false;
 
-			buf_ = unique_ptr<char[]>(new char[size]);
+			buf_ = unique_ptr<char[]>(new char[size]); //, std::default_delete<char[]>() );
 			size_ = size;
 			setp(buf_.get(), buf_.get() + size);
 			setg(buf_.get(), buf_.get(), buf_.get() + size);
@@ -1450,6 +1457,11 @@ void show_help()
 
 int main(int argc, char** argv)
 {
+	
+	for (int i=0;i< argc; i++)
+	{
+		cout << argv[i] << endl;
+	}
 	auto lua = init_lua(argc, argv);
 
 	// windowsのドラッグアンドドロップに対応するため、
@@ -1460,8 +1472,13 @@ int main(int argc, char** argv)
 	string lua_file_name = "script/default.lua";
 	if (argc>0)
 	{
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && (_MSC_VER >= 1800)
 		exe_path = std::regex_replace(argv[0], std::regex(R"(\\)"), "/");
+		std::smatch result;
+		std::regex_search(exe_path, result, std::regex("(.*)/"));
+		exe_dir = result.str();
+#elif defined(__GNUC__) && __cplusplus >= 201300L
+		exe_path = argv[0];
 		std::smatch result;
 		std::regex_search(exe_path, result, std::regex("(.*)/"));
 		exe_dir = result.str();

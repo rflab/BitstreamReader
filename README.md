@@ -144,7 +144,7 @@ lua->def("reverse_32",       reverse_endian_32);                  // 32ビット
 lua->def_class<LuaGlueBitstream>("IBitstream")->
 	def("size",             &LuaGlueBitstream::size).              // ファイルサイズ取得
 	def("enable_print",     &LuaGlueBitstream::enable_print).      // 解析ログのON/OFF
-	def("little_endian",    &LuaGlueBitstream::little_endian).     // ２バイト/４バイトの読み込み時はエンディアンを変換する
+	def("little_endian",    &LuaGlueBitstream::little_endian).     // ２,４バイトの読み込みでエンディアンを変換
 	def("seekpos_bit",      &LuaGlueBitstream::seekpos_bit).       // 先頭からファイルポインタ移動
 	def("seekpos_byte",     &LuaGlueBitstream::seekpos_byte).      // 先頭からファイルポインタ移動
 	def("seekpos",          &LuaGlueBitstream::seekpos).           // 先頭からファイルポインタ移動

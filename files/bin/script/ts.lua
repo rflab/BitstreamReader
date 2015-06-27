@@ -7,6 +7,11 @@ dofile(__exec_dir__.."script/pes.lua")
 local ts_packet_size = 188
 local pmt_pid = nil
 local pes_buf_array = {}
+local analyse_data_byte = true
+local TYPE_PES = 0
+local TYPE_PAT = 1
+local TYPE_PMT = 2
+local pes_print = false
 
 function descriptor()
 	local begin = cur()
@@ -295,7 +300,7 @@ function pmt()
 		
 		-- 初めて見るPIDなら追加
 		local buf = stream:new(1024*1024*3)
-		buf:enable_print(false)
+		buf:enable_print(pes_print)
 	    pes_buf_array[get("elementary_PID")] = buf
 		print("", stream_type_to_string(get("stream_type"), peek("format_identifier"))..
 			" = "..hexstr(get("elementary_PID")))
@@ -323,7 +328,7 @@ function ts(size, target)
 	while total < size do
 		no = no + 1
 		begin = cur()
-		progress:check()
+		check_progress()
 	
 		if ts_packet_size == 192 then
 			rbyte("ATS", 4)
@@ -349,7 +354,7 @@ function ts(size, target)
 		rbit("adaptation_field_control",     2)
 		rbit("continuity_counter",           4)
 		
-		if get("payload_unit_start_indicator") == 1 then
+		if get("payload_unit_start_indicator") == 1 and analyse_data_byte then
 			payload(get("PID"))
 		end
 		
@@ -358,8 +363,8 @@ function ts(size, target)
 		end
 		
 		if get("adaptation_field_control") & 1 == 1 then
-			if  data_byte(target, get("PID"), ts_packet_size - (cur() - begin)) == true then
-				if target=="pat" or target=="pmt" then
+			if data_byte(target, get("PID"), ts_packet_size - (cur() - begin)) == true then
+				if target==TYPE_PAT or target==TYPE_PMT then
 					return
 				end
 			end
@@ -370,7 +375,19 @@ function ts(size, target)
 end
 
 function data_byte(target, pid, size)
-	if target == "pat" then
+	if target == TYPE_PES then
+		if analyse_data_byte == false then
+			rbyte("data data_byte", size)
+			return true
+		elseif pes_buf_array[pid] ~= nil then
+			-- バッファにデータ転送
+			tbyte("data_byte", size, pes_buf_array[pid])
+			return true
+		else
+			rbyte("unknown data", size)
+			return false
+		end
+	elseif target == TYPE_PAT then
 		if pid == 0 then
 			if get("payload_unit_start_indicator")==1 then
 				rbit("pointer_field", 8)
@@ -384,7 +401,7 @@ function data_byte(target, pid, size)
 			rbyte("data_byte", size)
 			return false
 		end
-	elseif target == "pmt" then 
+	elseif target == TYPE_PMT then 
 		if pid == pmt_pid then
 			if get("payload_unit_start_indicator")==1 then
 				rbit("pointer_field", 8)
@@ -398,28 +415,21 @@ function data_byte(target, pid, size)
 			rbyte("data_byte", size)
 			return false
 		end
-	elseif target == "pes" then
-		if pes_buf_array[pid] ~= nil then
-			-- バッファにデータ転送
-			tbyte("data_byte", size, pes_buf_array[pid])
-			return true
-		else
-			rbyte("unknown data", size)
-			return false
-		end
 	end
 end
 
 function payload(pid)
-	local buf = pes_buf_array[pid]
-	if  buf ~= nil then
-		if buf:get_size() ~= buf:cur() then
+	local pes_buf = pes_buf_array[pid]
+	if  pes_buf ~= nil then
+		local ts_file = swap(pes_buf)
+		if get_size() ~= cur() then
 			local size, PTS, DTS = pes(buf, pid)
 			store_recode(pid, cur(), size, false, PTS, DTS)
-			if buf:get_size() ~= buf:cur() then
-				buf:rbyte("#unknown remain data", buf:get_size() - buf:cur())
+			if get_size() ~= cur() then
+				rbyte("#unknown remain data", get_size() - cur())
 			end
 		end
+		swap(ts_file)
 	end
 end
 
@@ -437,23 +447,26 @@ function store_recode(pid, offset, size, PCR, PTS, DTS)
 end
 
 function analyze()
+	ts_print = false
+	pes_print = false
+
 	print("analyze PAT")
 	seek(0)
-	enable_print(false)
-	stdout_to_file(false)
-	ts(1024*1024, "pat")
+	enable_print(ts_print)
+	ts(1024*1024, TYPE_PAT)
 
 	print("analyze PMT")
 	seek(0)
-	enable_print(false)
-	stdout_to_file(false)
-	ts(1024*1024, "pmt")
+	enable_print(ts_print)
+	ts(1024*1024, TYPE_PMT)
 
 	print("analyze PES")
+	-- print("analyse data_byte? [y/n]")
+	-- analyse_data_byte = io.read() == "y"
+	analyse_data_byte = true
 	seek(0)
-	enable_print(false)
-	stdout_to_file(false)
-	ts(get_size()-200, "pes")
+	enable_print(ts_print)
+	ts(get_size()-200, TYPE_PES)
 end
 
 open(__stream_path__)

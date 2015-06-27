@@ -28,185 +28,184 @@ local fast_reverse = 0x3;
 local slow_reverse = 0x4;
 
 function pes(buf, pid)
-	local begin = buf:cur()
+	local begin = cur()
 	local PTS = false
 	local DTS = false
 	local start_code
 	local ofs
-	progress:check()
 	
-    ofs = buf:fstr("00 00 01", true)
+    ofs = fstr("00 00 01", true)
     start_code = lbyte(4)
     assert(ofs == 0)
 
-	buf:cbit("packet_start_code_prefix",                                    24, 1)
-	buf:rbit("stream_id",                                                   8)
-	buf:rbit("PES_packet_length",                                           16)
+	cbit("packet_start_code_prefix",                                    24, 1)
+	rbit("stream_id",                                                   8)
+	rbit("PES_packet_length",                                           16)
 	
-	if buf:get("PES_packet_length") == 0 then
+	if get("PES_packet_length") == 0 then
 		no_packet_length = true
 	end
 		
-	if  buf:get("stream_id") ~= program_stream_map
-	and buf:get("stream_id") ~= padding_stream
-	and buf:get("stream_id") ~= private_stream_2
-	and buf:get("stream_id") ~= ECM_stream
-	and buf:get("stream_id") ~= EMM_stream
-	and buf:get("stream_id") ~= program_stream_directory
-	and buf:get("stream_id") ~= ITU_T_Rec_H_222_0_ISO_IEC_13818_1_Annex_B_or_ISO_IEC_13818_6_DSMCC_stream
-	and buf:get("stream_id") ~= ITU_T_Rec_H_222_1_type_E then
-	    buf:rbit("'10'",                                                    2)
-	    buf:rbit("PES_scrambling_control",                                  2)
-	    buf:rbit("PES_priority",                                            1)
-	    buf:rbit("data_alignment_indicator",                                1)
-	    buf:rbit("copyright",                                               1)
-	    buf:rbit("original_or_copy",                                        1)
-	    buf:rbit("PTS_DTS_flags",                                           2)
-	    buf:rbit("ESCR_flag",                                               1)
-	    buf:rbit("ES_rate_flag",                                            1)
-	    buf:rbit("DSM_trick_mode_flag",                                     1)
-	    buf:rbit("additional_copy_info_flag",                               1)
-	    buf:rbit("PES_CRC_flag",                                            1)
-	    buf:rbit("PES_extension_flag",                                      1)
-	    buf:rbit("PES_header_data_length",                                  8)
-	    if buf:get("PTS_DTS_flags") & 2 == 2 then
-	        buf:rbit("’0010’",                                            4)
-	        buf:rbit("PTS [32..30]",                                        3)
-	        buf:rbit("marker_bit",                                          1)
-	        buf:rbit("PTS [29..15]",                                        15)
-	        buf:rbit("marker_bit",                                          1)
-	        buf:rbit("PTS [14..0]",                                         15)
-	        buf:rbit("marker_bit",                                          1)
+	if  get("stream_id") ~= program_stream_map
+	and get("stream_id") ~= padding_stream
+	and get("stream_id") ~= private_stream_2
+	and get("stream_id") ~= ECM_stream
+	and get("stream_id") ~= EMM_stream
+	and get("stream_id") ~= program_stream_directory
+	and get("stream_id") ~= ITU_T_Rec_H_222_0_ISO_IEC_13818_1_Annex_B_or_ISO_IEC_13818_6_DSMCC_stream
+	and get("stream_id") ~= ITU_T_Rec_H_222_1_type_E then
+	    rbit("'10'",                                                    2)
+	    rbit("PES_scrambling_control",                                  2)
+	    rbit("PES_priority",                                            1)
+	    rbit("data_alignment_indicator",                                1)
+	    rbit("copyright",                                               1)
+	    rbit("original_or_copy",                                        1)
+	    rbit("PTS_DTS_flags",                                           2)
+	    rbit("ESCR_flag",                                               1)
+	    rbit("ES_rate_flag",                                            1)
+	    rbit("DSM_trick_mode_flag",                                     1)
+	    rbit("additional_copy_info_flag",                               1)
+	    rbit("PES_CRC_flag",                                            1)
+	    rbit("PES_extension_flag",                                      1)
+	    rbit("PES_header_data_length",                                  8)
+	    if get("PTS_DTS_flags") & 2 == 2 then
+	        rbit("’0010’",                                            4)
+	        rbit("PTS [32..30]",                                        3)
+	        rbit("marker_bit",                                          1)
+	        rbit("PTS [29..15]",                                        15)
+	        rbit("marker_bit",                                          1)
+	        rbit("PTS [14..0]",                                         15)
+	        rbit("marker_bit",                                          1)
 	        
 		    -- PTS値を計算
-			PTS = buf:get("PTS [32..30]")*0x40000000
-				+ buf:get("PTS [29..15]")*0x8000
-				+ buf:get("PTS [14..0]")
+			PTS = get("PTS [32..30]")*0x40000000
+				+ get("PTS [29..15]")*0x8000
+				+ get("PTS [14..0]")
 		    -- printf("# PTS=0x%09x (%10.3f sec)", PTS, PTS/90000)
 	    end
-	    if buf:get("PTS_DTS_flags") & 1 == 1 then
-	        buf:rbit("’0001’",                                            4)
-	        buf:rbit("DTS [32..30]",                                        3)
-	        buf:rbit("marker_bit",                                          1)
-	        buf:rbit("DTS [29..15]",                                        15)
-	        buf:rbit("marker_bit",                                          1)
-	        buf:rbit("DTS [14..0]",                                         15)
-	        buf:rbit("marker_bit",                                          1)
+	    if get("PTS_DTS_flags") & 1 == 1 then
+	        rbit("’0001’",                                            4)
+	        rbit("DTS [32..30]",                                        3)
+	        rbit("marker_bit",                                          1)
+	        rbit("DTS [29..15]",                                        15)
+	        rbit("marker_bit",                                          1)
+	        rbit("DTS [14..0]",                                         15)
+	        rbit("marker_bit",                                          1)
 
 		    -- DTS値を計算
-			DTS = buf:get("DTS [32..30]")*0x40000000
-				+ buf:get("DTS [29..15]")*0x8000
-				+ buf:get("DTS [14..0]")
+			DTS = get("DTS [32..30]")*0x40000000
+				+ get("DTS [29..15]")*0x8000
+				+ get("DTS [14..0]")
 		    -- printf("# DTS=0x%09x (%10.3f sec)", DTS, DTS/90000)
 	    end
-   	    if buf:get("ESCR_flag") == 1 then
-	        buf:rbit("reserved",                                            2)
-	        buf:rbit("ESCR_base[32..30]",                                   3)
-	        buf:rbit("marker_bit",                                          1)
-	        buf:rbit("ESCR_base[29..15]",                                   15)
-	        buf:rbit("marker_bit",                                          1)
-	        buf:rbit("ESCR_base[14..0]",                                    15)
-	        buf:rbit("marker_bit",                                          1)
-	        buf:rbit("ESCR_extension",                                      9)
-	        buf:rbit("marker_bit",                                          1)
+   	    if get("ESCR_flag") == 1 then
+	        rbit("reserved",                                            2)
+	        rbit("ESCR_base[32..30]",                                   3)
+	        rbit("marker_bit",                                          1)
+	        rbit("ESCR_base[29..15]",                                   15)
+	        rbit("marker_bit",                                          1)
+	        rbit("ESCR_base[14..0]",                                    15)
+	        rbit("marker_bit",                                          1)
+	        rbit("ESCR_extension",                                      9)
+	        rbit("marker_bit",                                          1)
 	    end
-   	    if buf:get("ES_rate_flag") == 1 then
-	        buf:rbit("marker_bit",                                          1)
-	        buf:rbit("ES_rate",                                             22)
-	        buf:rbit("marker_bit",                                          1)
+   	    if get("ES_rate_flag") == 1 then
+	        rbit("marker_bit",                                          1)
+	        rbit("ES_rate",                                             22)
+	        rbit("marker_bit",                                          1)
 	    end
-   	    if buf:get("DSM_trick_mode_flag") == 1 then
-	        buf:rbit("trick_mode_control",                                  3)
-			if buf:get("trick_mode_control") == fast_forward then
-				buf:rbit("field_id",                                        2)
-				buf:rbit("intra_slice_refresh",                             1)
-				buf:rbit("frequency_truncation",                            2)
-			elseif buf:get("trick_mode_control") == slow_motion then
-				buf:rbit("rep_cntrl",                                       5)
-			elseif buf:get("trick_mode_control") == freeze_frame then
-				buf:rbit("field_id",                                        2)
-				buf:rbit("reserved",                                        3)
-			elseif buf:get("trick_mode_control") == fast_reverse then 
-				buf:rbit("field_id",                                        2)
-				buf:rbit("intra_slice_refresh",                             1)
-				buf:rbit("frequency_truncation",                            2)
-			elseif buf:get("trick_mode_control") == slow_reverse then
-				buf:rbit("rep_cntrl",                                       2)
+   	    if get("DSM_trick_mode_flag") == 1 then
+	        rbit("trick_mode_control",                                  3)
+			if get("trick_mode_control") == fast_forward then
+				rbit("field_id",                                        2)
+				rbit("intra_slice_refresh",                             1)
+				rbit("frequency_truncation",                            2)
+			elseif get("trick_mode_control") == slow_motion then
+				rbit("rep_cntrl",                                       5)
+			elseif get("trick_mode_control") == freeze_frame then
+				rbit("field_id",                                        2)
+				rbit("reserved",                                        3)
+			elseif get("trick_mode_control") == fast_reverse then 
+				rbit("field_id",                                        2)
+				rbit("intra_slice_refresh",                             1)
+				rbit("frequency_truncation",                            2)
+			elseif get("trick_mode_control") == slow_reverse then
+				rbit("rep_cntrl",                                       2)
 			else
-				buf:rbit("reserved",                                        5)
+				rbit("reserved",                                        5)
 			end
 	    end
-   	    if buf:get("additional_copy_info_flag") == 1 then
-	        buf:rbit("marker_bit",                                          1)
-	        buf:rbit("additional_copy_info",                                7)
+   	    if get("additional_copy_info_flag") == 1 then
+	        rbit("marker_bit",                                          1)
+	        rbit("additional_copy_info",                                7)
 	    end
-   	    if buf:get("PES_CRC_flag") == 1 then
-	        buf:rbit("previous_PES_packet_CRC",                             16)
+   	    if get("PES_CRC_flag") == 1 then
+	        rbit("previous_PES_packet_CRC",                             16)
 	    end
-   	    if buf:get("PES_extension_flag") == 1 then
-	        buf:rbit("PES_private_data_flag",                               1)
-	        buf:rbit("pack_header_field_flag",                              1)
-	        buf:rbit("program_packet_sequence_counter_flag",                1)
-	        buf:rbit("P-STD_buffer_flag",                                   1)
-	        buf:rbit("reserved",                                            3)
-	        buf:rbit("PES_extension_flag_2",                                1)
-   	  		if buf:get("PES_private_data_flag") == 1 then
-	            buf:rbit("PES_private_data",                                128)
+   	    if get("PES_extension_flag") == 1 then
+	        rbit("PES_private_data_flag",                               1)
+	        rbit("pack_header_field_flag",                              1)
+	        rbit("program_packet_sequence_counter_flag",                1)
+	        rbit("P-STD_buffer_flag",                                   1)
+	        rbit("reserved",                                            3)
+	        rbit("PES_extension_flag_2",                                1)
+   	  		if get("PES_private_data_flag") == 1 then
+	            rbit("PES_private_data",                                128)
 	        end
-   	  		if buf:get("pack_header_field_flag") == 1 then
-	            buf:rbit("pack_field_length",                               8)
-	            buf:rbit("pack_header()",                                   buf:get("pack_field_length"))
+   	  		if get("pack_header_field_flag") == 1 then
+	            rbit("pack_field_length",                               8)
+	            rbit("pack_header()",                                   get("pack_field_length"))
 	        end
-   	  		if buf:get("program_packet_sequence_counter_flag") == 1 then
-	            buf:rbit("marker_bit",                                      1)
-	            buf:rbit("program_packet_sequence_counter",                 7)
-	            buf:rbit("marker_bit",                                      1)
-	            buf:rbit("MPEG1_MPEG2_identifier",                          1)
-	            buf:rbit("original_stuff_length",                           6)
+   	  		if get("program_packet_sequence_counter_flag") == 1 then
+	            rbit("marker_bit",                                      1)
+	            rbit("program_packet_sequence_counter",                 7)
+	            rbit("marker_bit",                                      1)
+	            rbit("MPEG1_MPEG2_identifier",                          1)
+	            rbit("original_stuff_length",                           6)
 	        end
-   	  		if buf:get("STD_buffer_flag") == 1 then
-	            buf:rbit("'01'",                                            2)
-	            buf:rbit("P-STD_buffer_scale",                              1)
-	            buf:rbit("P-STD_buffer_size",                               13)
+   	  		if get("STD_buffer_flag") == 1 then
+	            rbit("'01'",                                            2)
+	            rbit("P-STD_buffer_scale",                              1)
+	            rbit("P-STD_buffer_size",                               13)
 	        end
-   	  		if buf:get("PES_extension_flag_2") == 1 then
-	            buf:rbit("marker_bit",                                      1)
-	            buf:rbit("PES_extension_field_length",                      7)
- 	            buf:rbyte("reserved",                                       buf:get("PES_extension_field_length"))
+   	  		if get("PES_extension_flag_2") == 1 then
+	            rbit("marker_bit",                                      1)
+	            rbit("PES_extension_field_length",                      7)
+ 	            rbyte("reserved",                                       get("PES_extension_field_length"))
 	        end
 	    end
 	    
 	    --for i = 0; i < N1; i++) do
-	    --    buf:rbit("stuffing_byte",                                     N1) -- 0xFFデータ、デコーダがすてるはずでここではパースしない
+	    --    rbit("stuffing_byte",                                     N1) -- 0xFFデータ、デコーダがすてるはずでここではパースしない
 	    --end
 
-	    local N = buf:get("PES_packet_length") - (cur() - begin) + 6
+	    local N = get("PES_packet_length") - (cur() - begin) + 6
         if no_packet_length then
-			buf:seek(buf:cur()+4)
-			local ofs = buf:fstr(hex2str(start_code), false)
-			buf:seek(buf:cur()-4)
-	        buf:tbyte("PES_packet_data_byte", ofs + 4,
+			seek(cur()+4)
+			local ofs = fstr(hex2str(start_code), false)
+			seek(cur()-4)
+	        tbyte("PES_packet_data_byte", ofs + 4,
 	        	__stream_dir__.."out/pid"..hexstr(pid)..".es")
         else
-	        buf:tbyte("PES_packet_data_byte", N,
+	        tbyte("PES_packet_data_byte", N,
 	        	__stream_dir__.."out/pid"..hexstr(pid)..".es")
         end
         
-	elseif buf:get("stream_id") == program_stream_map
-	or     buf:get("stream_id") == private_stream_2
-	or     buf:get("stream_id") == ECM_stream
-	or     buf:get("stream_id") == EMM_stream
-	or     buf:get("stream_id") == program_stream_directory
-	or     buf:get("stream_id") == ITU_T_Rec_H_222_0_ISO_IEC_13818_1_Annex_B_or_ISO_IEC_13818_6_DSMCC_stream
-	or     buf:get("stream_id") == ITU_T_Rec_H_222_1_type_E then
-	    buf:tbyte("PES_packet_data_byte",                                   buf:get("PES_packet_length"), __stream_dir__.."out/pid.es")
-	    --buf:rbyte("PES_packet_data_byte",                                   buf:get("PES_packet_length"))
+	elseif get("stream_id") == program_stream_map
+	or     get("stream_id") == private_stream_2
+	or     get("stream_id") == ECM_stream
+	or     get("stream_id") == EMM_stream
+	or     get("stream_id") == program_stream_directory
+	or     get("stream_id") == ITU_T_Rec_H_222_0_ISO_IEC_13818_1_Annex_B_or_ISO_IEC_13818_6_DSMCC_stream
+	or     get("stream_id") == ITU_T_Rec_H_222_1_type_E then
+	    tbyte("PES_packet_data_byte",                                   get("PES_packet_length"), __stream_dir__.."out/pid.es")
+	    --rbyte("PES_packet_data_byte",                                   get("PES_packet_length"))
 	elseif ( stream_id == padding_stream) then
-        buf:rbyte("padding_byte",                                           buf:get("PES_packet_length"))
+        rbyte("padding_byte",                                           get("PES_packet_length"))
 	end
 
-	-- return buf:get("PES_packet_length")
-	return buf:cur() - begin, PTS, DTS
+	-- return get("PES_packet_length")
+	return cur() - begin, PTS, DTS
 end
 
 function pes_stream(size)

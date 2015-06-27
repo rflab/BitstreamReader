@@ -1,9 +1,16 @@
+-- ライブラリロード
+package.path = __exec_dir__.."script/module/?.lua"
+require("profiler")
+require("stream")
+require("csv")
+
 local gs_stream
+local gs_progress
+local gs_perf
 local gs_csv
 local gs_vals = {}
 local gs_tbls = {}
 local gs_store_to_table = true
-
 
 --------------------------------------------
 -- ストリーム解析用関数
@@ -121,7 +128,7 @@ end
 function rstr(name, size)
 	local value = gs_stream:rstr(name, size)
 	on_read_value(name, value)
-	return name, value
+	return value
 end
 
 -- 指数ゴロムとして読み込み
@@ -233,8 +240,8 @@ end
 -- その他ユーティリティ
 --------------------------------------------
 -- 性能計測用
-perf = profiler:new()
-progress = {
+gs_perf = profiler:new()
+gs_progress = {
 	prev = 10,
 	check = function (self)
 		local cur = math.modf(cur()/get_size() * 100)
@@ -243,11 +250,16 @@ progress = {
 			print("--------------------------")
 			print(cur.."%", os.clock().."sec.\n")
 			print_status()
-			perf:print()
+			gs_perf:print()
 			print("--------------------------")
 		end
 	end
 }
+
+function check_progress()
+	gs_progress:check()
+end
+	
 
 -- ファイルパスを path = dir..name..ext に分解して
 -- path, dir, name, extの順に返す

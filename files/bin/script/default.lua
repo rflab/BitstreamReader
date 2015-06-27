@@ -1,10 +1,10 @@
 -- ライブラリロード
-dofile(__exec_dir__.."script/module/include.lua")
+dofile(__exec_dir__.."script/module/util.lua")
 dofile(__exec_dir__.."script/cmd.lua")
 
 -- 各種値定義
-assert(argv[0], "no file name in argv[0]") 
-assert(argv[1], "no file name in argv[1]") 
+assert(argv[0], "no file name in argv[0]")
+assert(argv[1], "no file name in argv[1]")
 __exec_path__, __exec_dir__, __exec_name__, __exec_ext__ = split_file_name(argv[0])
 print("__exec_path__  :"..__exec_path__)
 print("__exec_dir__   :"..__exec_dir__)

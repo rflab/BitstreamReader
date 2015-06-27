@@ -18,13 +18,19 @@
 // これをC++関数内でthrowするとLua関数の戻り値をfalseになる
 // 古いコンパイラだとto_stringが使えない
 #if defined(_MSC_VER) && (_MSC_VER >= 1800)
-	#define LUA_RUNTIME_ERROR(x) std::runtime_error(std::string("c++ runtime exception. L") + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
-	#define LUA_DOMEIN_ERROR(x) std::domain_error(std::string("c++ domein error exception. L") + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
-	#define LUA_ARGUMENT_ERROR(x) std::invalid_argument(std::string("c++ invalid argument exception. L") + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
+	#define LUA_RUNTIME_ERROR(x) std::runtime_error(std::string("c++ runtime exception. L")\
+		+ ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
+	#define LUA_DOMEIN_ERROR(x) std::domain_error(std::string("c++ domein error exception. L")\
+		+ ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
+	#define LUA_ARGUMENT_ERROR(x) std::invalid_argument(std::string("c++ invalid argument exception. L")\
+		 + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
 #elif defined(__GNUC__) && __cplusplus >= 201300L // __GNUC_PREREQ(4, 9)
-	#define LUA_RUNTIME_ERROR(x) std::runtime_error(std::string("c++ runtime exception. L") + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
-	#define LUA_DOMEIN_ERROR(x) std::domain_error(std::string("c++ domein error exception. L") + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
-	#define LUA_ARGUMENT_ERROR(x) std::invalid_argument(std::string("c++ invalid argument exception. L") + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
+	#define LUA_RUNTIME_ERROR(x) std::runtime_error(std::string("c++ runtime exception. L")\
+		 + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
+	#define LUA_DOMEIN_ERROR(x) std::domain_error(std::string("c++ domein error exception. L")\
+		 + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
+	#define LUA_ARGUMENT_ERROR(x) std::invalid_argument(std::string("c++ invalid argument exception. L")\
+		 + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
 #else
 	// unsupported
 	#define LUA_RUNTIME_ERROR(x) std::runtime_error("c++ runtime exception.")
@@ -195,8 +201,10 @@ namespace rf
 			// うまくいかない理由がわからんorz
 			static const bool value =
 				// referenceとconstの順番が逆だとしくじる、なんでだーorz
-				// ((std::is_same <typename std::remove_reference<typename std::remove_const<T>::type >::type, string >::value)
-				((std::is_same <typename std::remove_const<typename std::remove_reference<T>::type >::type, string >::value)
+				// ((std::is_same <typename std::remove_reference<typename std::remove_const<
+				//	T>::type >::type, string >::value)
+				((std::is_same <typename std::remove_const<typename std::remove_reference<
+					T>::type >::type, string >::value)
 				|| (std::is_same<typename std::remove_const<T>::type, char*>::value));
 #else
 			static const bool value =
@@ -251,13 +259,15 @@ namespace rf
 		// }
 		// 
 		// template<typename T>
-		// static void push_stack(lua_State* L, T a, typedef Dummy = enable_if<is_number<T>::value>::type)
+		// static void push_stack(lua_State* L, T a,
+		//	typedef Dummy = enable_if<is_number<T>::value>::type)
 		// {
 		// 	lua_pushnumber(L, static_cast<lua_Number>(a));
 		// }
 		// 
 		// template<typename T>
-		// static void push_stack(lua_State* L, T a, typename Dummy = enable_if<!is_basic_type<T>::value>::type)
+		// static void push_stack(lua_State* L, T a,
+		//	typename Dummy = enable_if<!is_basic_type<T>::value>::type)
 		// {
 		// 	void* p = lua_newuserdata(L, sizeof(T));
 		// 	new(p) T(a);
@@ -273,7 +283,8 @@ namespace rf
 		// スタック操作 型推論でLua->C++
 		
 		template<typename T>
-		static T get_stack(lua_State* L, int index, typename enable_if<is_number<T>::value>::type* = 0)
+		static T get_stack(lua_State* L, int index,
+			typename enable_if<is_number<T>::value>::type* = 0)
 		{
 			if (lua_type(L, index) != LUA_TNUMBER)
 				throw LUA_ARGUMENT_ERROR(string("not a number arg:") + std::to_string(index));
@@ -281,7 +292,8 @@ namespace rf
 		}
 
 		template<typename T>
-		static bool get_stack(lua_State* L, int index, typename enable_if<is_boolean<T>::value>::type* = 0)
+		static bool get_stack(lua_State* L, int index,
+			typename enable_if<is_boolean<T>::value>::type* = 0)
 		{
 			if (lua_type(L, index) != LUA_TBOOLEAN)
 				throw LUA_ARGUMENT_ERROR(string("not a boolean arg:") + std::to_string(index));
@@ -290,7 +302,8 @@ namespace rf
 
 
 		template<typename T>
-		static const char *get_stack(lua_State* L, int index, typename enable_if<is_string<T>::value>::type* = 0)
+		static const char *get_stack(lua_State* L, int index,
+			typename enable_if<is_string<T>::value>::type* = 0)
 		{
 			if (lua_type(L, index) != LUA_TSTRING)
 				throw LUA_ARGUMENT_ERROR(string("not a string arg:") + std::to_string(index));
@@ -301,19 +314,22 @@ namespace rf
 		}
 
 		//template<typename T>
-		//static const char *get_stack(lua_State* L, int index, typename enable_if<std::is_same<T, char const*>::value>::type* = 0)
+		//static const char *get_stack(lua_State* L, int index,
+		//	typename enable_if<std::is_same<T, char const*>::value>::type* = 0)
 		//{
 		//	return lua_tostring(L, index);
 		//}
 		//
 		//template<typename T>
-		//static const string get_stack(lua_State* L, int index, typename enable_if<std::is_same<T, string>::value>::type* = 0)
+		//static const string get_stack(lua_State* L, int index,
+		//	typename enable_if<std::is_same<T, string>::value>::type* = 0)
 		//{
 		//	return lua_tostring(L, index);
 		//}
 
 		template<typename T>
-		static T& get_stack(lua_State* L, int index, typename enable_if<!is_basic_type<T>::value>::type* = 0)
+		static T& get_stack(lua_State* L, int index,
+			typename enable_if<!is_basic_type<T>::value>::type* = 0)
 		{
 			if (lua_type(L, index) != LUA_TUSERDATA)
 				throw LUA_ARGUMENT_ERROR(string("not a userdata arg:") + std::to_string(index));
@@ -323,7 +339,9 @@ namespace rf
 		}
 
 		template<typename...Args, size_t...Ixs>
-		static tuple<typename std::remove_reference<Args>::type...> get_tuple(lua_State* L, intetgral_sequence<size_t, Ixs...>, typename enable_if<sizeof...(Args) != 0>::type* = 0)
+		static tuple<typename std::remove_reference<Args>::type...> get_tuple(
+			lua_State* L, intetgral_sequence<size_t, Ixs...>, 
+				typename enable_if<sizeof...(Args) != 0>::type* = 0)
 		{
 			return tuple<typename std::remove_reference<Args>::type...>(get_stack<Args>(L, Ixs)...);
 		}
@@ -406,7 +424,8 @@ namespace rf
 		// 戻り値があるメンバ関数
 		template<typename Ret, class T, typename ... Args, size_t ... Ixs>
 		struct invoker< Ret(T::*)(Args...), intetgral_sequence<size_t, Ixs...>,
-			typename enable_if<std::is_member_function_pointer<Ret(T::*)(Args...)>::value && !std::is_void<Ret>::value>::type>
+			typename enable_if<std::is_member_function_pointer<
+				Ret(T::*)(Args...)>::value && !std::is_void<Ret>::value>::type>
 		{
 			static int apply(lua_State* L)
 			{
@@ -437,7 +456,8 @@ namespace rf
 		// 戻り値がvoidのメンバ関数
 		template<typename Ret, class T, typename ... Args, size_t ... Ixs>
 		struct invoker< Ret(T::*)(Args...), intetgral_sequence<size_t, Ixs...>,
-			typename enable_if<std::is_member_function_pointer<void(T::*)(Args...)>::value && std::is_void<Ret>::value>::type>
+			typename enable_if<std::is_member_function_pointer<
+				void(T::*)(Args...)>::value && std::is_void<Ret>::value>::type>
 		{
 			static int apply(lua_State* L)
 			{
@@ -523,7 +543,8 @@ namespace rf
 		}
 
 		template<class T, typename ... Args, size_t ... Ixs>
-		static void* call_constructor(void* p, intetgral_sequence<size_t, Ixs...>, tuple<Args...>& args)
+		static void* call_constructor(
+			void* p, intetgral_sequence<size_t, Ixs...>, tuple<Args...>& args)
 		{
 			return new(p)T(std::get<Ixs>(args)...);
 		}
@@ -627,7 +648,8 @@ namespace rf
 		// Lua関数をC++からコール
 		// 例外を投げるのでtry必須
 		// 基本はdofileの中で呼ばれるコールバック関数に使い、dofileに例外を任せる
-		template<typename Ret, typename ... Args, typename Dummy = typename enable_if<!std::is_same<Ret, void>::value>::type>
+		template<typename Ret, typename ... Args,
+			typename Dummy = typename enable_if<!std::is_same<Ret, void>::value>::type>
 		Ret call_function(const string &name, Args ... args)
 		{
 			// func = _G[name]
@@ -646,7 +668,8 @@ namespace rf
 		// Lua関数をC++からコール（戻り値void版）
 		// 例外を投げるのでtry必須
 		// 基本はdofileの中で呼ばれるコールバック関数に使い、dofileに例外を任せる
-		template<typename Ret, typename ... Args, typename Dummy = typename enable_if<std::is_same<Ret, void>::value>::type>
+		template<typename Ret, typename ... Args,
+			typename Dummy = typename enable_if<std::is_same<Ret, void>::value>::type>
 		void call_function(const string &name, Args ... args)
 		{
 			// func = _G[name]
@@ -704,7 +727,8 @@ namespace rf
 		// 	def("mem1", &Derived::m1).
 		// 	def("mem4", &Derived::m2);
 		template<class T>
-		unique_ptr<class_chain<T> > def_class(const string& sub_name, const string& super_name/* =""*/)
+		unique_ptr<class_chain<T> > def_class(
+			const string& sub_name, const string& super_name/* =""*/)
 		{
 			auto p = make_unique<class_chain<T> >(L_, sub_name);
 
@@ -749,10 +773,12 @@ namespace rf
 				int userdata = lua_gettop(L);
 
 				// 1がself、2～top-1が引数、topはnewuserdataで今積んだばっかり。
-				typedef typename make_integral_sequence<size_t, 2, sizeof...(Args)+2>::type lua_index_seq;
+				typedef typename make_integral_sequence<
+					size_t, 2, sizeof...(Args)+2>::type lua_index_seq;
 				auto args = get_tuple<Args...>(L, lua_index_seq());
 
-				typedef typename make_integral_sequence<size_t, 0, sizeof...(Args)>::type cpp_index_seq;
+				typedef typename make_integral_sequence<
+					size_t, 0, sizeof...(Args)>::type cpp_index_seq;
 				call_constructor<T>(p, cpp_index_seq(), args);
 #if 1
 				// _G[name].metatable
@@ -878,7 +904,8 @@ namespace rf
 			// 関数と実体(クラスの元となるオブジェクト)をluaに登録する
 			template<class S, typename Ret, typename... Args>
 			const class_chain<T>& def(const string &method_name, Ret(S::*f)(Args...),
-				typename enable_if<std::is_member_function_pointer<Ret(S::*)(Args...)>::value>::type* = 0) const
+				typename enable_if<std::is_member_function_pointer<
+					Ret(S::*)(Args...)>::value>::type* = 0) const
 			{
 				// C++側引数->スタックの参照テーブル
 				typedef typename make_integral_sequence<size_t, 2, sizeof...(Args)+2>::type seq;

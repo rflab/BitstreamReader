@@ -686,7 +686,8 @@ namespace rf
 
 		// 特定のバイト列を検索
 		// 見つからなければファイル終端を返す
-		bool find_byte_string(const char* address, int size, int &ret_offset, bool advance, int end_offset = INT_MAX)
+		bool find_byte_string(
+			const char* address, int size, int &ret_offset,	bool advance, int end_offset = INT_MAX)
 		{
 			//char* contents = new char[size];
 			char contents[256];
@@ -896,7 +897,8 @@ namespace rf
 
 		// ストリームからファイルに転送
 		// 現状オーバーヘッド多め
-		static bool transfer_to_file(const char* file_name, LuaGlueBitstream &stream, int size, bool advance = false)
+		static bool transfer_to_file(
+			const char* file_name, LuaGlueBitstream &stream, int size, bool advance = false)
 		{
 			if (FAILED(size >= 0))
 				throw LUA_RUNTIME_ERROR((stream.print_status(), "size"));
@@ -1377,7 +1379,8 @@ namespace rf
 	public:
 
 		LuaGlueFileBitstream() :LuaGlueBitstream(){}
-		LuaGlueFileBitstream(const string& file_name, const string& mode = "rb") :LuaGlueBitstream(){ open(file_name, mode); }
+		LuaGlueFileBitstream(const string& file_name, const string& mode = "rb")
+			: LuaGlueBitstream(){ open(file_name, mode); }
 
 		bool open(const string& file_name, const string& mode = "rb")
 		{

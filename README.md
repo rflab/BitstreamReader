@@ -107,17 +107,16 @@ val = lbyte(size)                -- バイト単位で読み込むがポイン�
 val = lexp(size)                 -- 指数ゴロムとして読み込むがポインタは進めない
 offset = fbyte(char, advance)    -- 指定の１バイト検索、advance=trueでポインタを移動
 offset = fstr(pattern, advance)  -- 文字列を検索、もしくは"00 11 22"のようなバイナリパターンで追記
-tbyte(name, size, target)        -- ストリームからtargetにデータを転送
+tbyte(name, size, stream)        -- ストリームから別のstreamにデータを転送
+tbyte(name, size, filename)      -- ストリームからからファイルにデータを転送
 dump(size)                       -- ストリームを最大256バイト出力
 
 -- その他
-stream = sub_stream(name, size)  -- 現在位置からsize文のデータをストリームとして切り出す
+print_table(tbl, indent)         -- テーブルの内容を表示する
 do_until(closure, offset)        -- cur()==offsetまでclosure()を実行する
 store(key, value)                -- csv保存用に値を記憶する
 save_as_csv(file_name)           -- store()した値をcsvに書き出す
 hexstr(value)                    -- 値をHHHH(DDDD)な感じの文字列にする
-print_table(tbl, indent)         -- テーブルをダンプする
-store_to_table(tbl, name, value) -- tbl[name].tblの末尾とtbl[name].valに値を入れる
 str2val(buf_str, little_endian)  -- 4文字までの16進数文字列を数値に変換
 pat2str(pattern)                 -- 00 01 ... のような文字列パターンをchar配列に変換する
 hex2str(val, size, le)           -- 数値をchar配列に変える

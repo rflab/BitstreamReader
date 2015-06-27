@@ -1,6 +1,9 @@
 local gs_stream
 local gs_csv
-local gs_tbl = {}
+local gs_vals = {}
+local gs_tbls = {}
+local gs_store_to_table = true
+
 
 --------------------------------------------
 -- ストリーム解析用関数
@@ -24,6 +27,7 @@ function print_status()
 	return gs_stream:print()
 end
 
+-- 全部表示
 function print_status_all()
 	return gs_stream:print_table()
 end
@@ -41,6 +45,11 @@ end
 -- 解析結果表示のON/OFF
 function enable_print(b)
 	return gs_stream:enable_print(b)
+end
+
+-- 解析結果表示のON/OFF
+function enable_store_all(b)
+	gs_store_to_table = b
 end
 
 -- 解析結果表示のON/OFFを問い合わせる
@@ -61,21 +70,22 @@ end
 -- これまでに読み込んだ値を取得する
 function get(name)
 	--local value = gs_stream:get(name)
-	--return value or gs_tbl[name]
-	local val = gs_tbl[name]
+	--return value or gs_vals[name]
+	local val = gs_vals[name]
 	assert(val, "get nil value \""..name.."\"")
 	return val
 end
 
 -- nilが返ることをいとわない場合はこちらでget
 function peek(name)
-	return gs_tbl[name]
+	return gs_vals[name]
 end
 
--- これまでに読み込んだ値を破棄する
+-- 最後に読み込んだ値を破棄する
 function reset(name, value)
 	gs_stream:reset(name, value)
-	gs_tbl[name] = value
+	gs_vals[name] = value
+	gs_tbls[name] = {value}
 end
 
 -- 絶対位置シーク
@@ -96,56 +106,56 @@ end
 -- ビット単位読み込み
 function rbit(name, size)
 	local value = gs_stream:rbit(name, size)
-	gs_tbl[name] = value
+	on_read_value(name, value)
 	return value
 end
 
 -- バイト単位読み込み
 function rbyte(name, size)
 	local value = gs_stream:rbyte(name, size)
-	gs_tbl[name] = value
+	on_read_value(name, value)
 	return value
 end
 
 -- 文字列として読み込み
 function rstr(name, size)
 	local value = gs_stream:rstr(name, size)
-	gs_tbl[name] = value
+	on_read_value(name, value)
 	return name, value
 end
 
 -- 指数ゴロムとして読み込み
 function rexp(name)
 	local value = gs_stream:rexp(name)
-	gs_tbl[name] = value
+	on_read_value(name, value)
 	return value
 end
 
 -- ビット単位で読み込み、compとの一致を確認
 function cbit(name, size, comp)
 	local value = gs_stream:cbit(name, size, comp)
-	gs_tbl[name] = value
+	on_read_value(name, value)
 	return value
 end
 
 -- バイト単位で読み込み、compとの一致を確認
 function cbyte(name, size, comp)
 	local value = gs_stream:cbyte(name, size, comp)
-	gs_tbl[name] = value
+	on_read_value(name, value)
 	return value
 end
 
 -- 文字列として読み込み、compとの一致を確認
 function cstr(name, size, comp)
 	local value = gs_stream:cstr(name, size, comp)
-	gs_tbl[name] = value
+	on_read_value(name, value)
 	return value
 end
 
 -- 指数ゴロムとして読み込み
 function cexp(name)
 	local value = gs_stream:cexp(name)
-	gs_tbl[name] = value
+	on_read_value(name, value)
 	return value
 end
 
@@ -165,13 +175,13 @@ function lexp(size)
 end
 
 -- １バイト検索
-function fbyte(char, advance)
-	return gs_stream:fbyte(char, advance)
+function fbyte(char, advance, end_offset)
+	return gs_stream:fbyte(char, advance, end_offset)
 end
 
 -- 文字列を検索、もしくは"00 11 22"のようなバイナリ文字列で検索
-function fstr(pattern, advance)
-	return gs_stream:fstr(pattern, advance)
+function fstr(pattern, advance, end_offset)
+	return gs_stream:fstr(pattern, advance, end_offset)
 end
 
 -- ストリームからファイルにデータを追記
@@ -378,8 +388,14 @@ function check(size)
 end
 
 
--- ストリーム状態表示
+-- テーブルを取得
 function get_tbl()
-	return gs_tbl
+	return gs_vals, gs_tbls
 end
 
+-- データ読み込み事に記録する処理
+function on_read_value(key, value)
+	gs_vals[key] = value
+	gs_tbls[key] = gs_tbls[key] or {}
+	table.insert(gs_tbls[key], value)
+end

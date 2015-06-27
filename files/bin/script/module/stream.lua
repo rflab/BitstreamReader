@@ -169,17 +169,19 @@ function _m:lexp(size)
 	return val
 end
 
-function _m:fbyte(char, advance)	
+function _m:fbyte(char, advance, end_offset)	
 	if advance == nil then advance = true end
-	local ofs = self.stream:find_byte(char, advance)
+	if end_offset == nil then end_offset = 0x7fffffff end
+	local ofs = self.stream:find_byte(char, advance, end_offset)
 	check(self, ofs, "fbyte:"..char)
 	return ofs
 end
 
-function _m:fstr(pattern, advance)
+function _m:fstr(pattern, advance, end_offset)
 	if advance == nil then advance = true end
+	if end_offset == nil then end_offset = 0x7fffffff end
 	local str = pat2str(pattern)
-	local ofs = self.stream:find_byte_string(str, #str, advance)
+	local ofs = self.stream:find_byte_string(str, #str, advance, end_offset)
 	check(self, ofs, "fstr:"..pattern)
 	return ofs	
 end
@@ -189,8 +191,9 @@ function _m:seek(byte, bit)
 end
 
 function _m:seekoff(byte, bit)
-	if byte ~= nil then assert(self.stream:seekoff_byte(byte)) end
-	if bit  ~= nil then assert(self.stream:seekoff_bit(bit)) end
+	self.stream:seekoff(byte, bit)
+	--if byte ~= nil then assert(self.stream:seekoff_byte(byte)) end
+	--if bit  ~= nil then assert(self.stream:seekoff_bit(bit)) end
 end
 
 function _m:putc(c)

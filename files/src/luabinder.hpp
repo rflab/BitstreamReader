@@ -925,9 +925,6 @@ namespace rf
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1800)
 #elif defined(__GNUC__) && __cplusplus >= 201300L // __GNUC_PREREQ(4, 9)
-	#undef nullptr
-	#undef final
-	#undef throw
 #else
 	#define make_unique
 	#define unique_ptr

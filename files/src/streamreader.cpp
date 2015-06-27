@@ -37,6 +37,7 @@
 //#define FAILED(...) __VA_ARGS__
 #define FAILED(...) ::rf::failed((__VA_ARGS__), __LINE__, __FUNCTION__, #__VA_ARGS__)
 #define ERR cerr << "# c++ error. L" << dec << __LINE__ << " " << __FUNCTION__ << ": "
+#define OUTPUT_POS "at 0x" << hex << byte_pos() <<  "(+" << bit_pos() << ')'
 
 namespace rf
 {
@@ -255,7 +256,10 @@ namespace rf
 		bool write_byte_string(const char *buf, int size)
 		{
 			if (FAILED(size >= 0))
+			{
+				ERR << "write size error, size=" << hex << size << " " << OUTPUT_POS << endl;
 				return false;
+			}
 
 			buf_->sputn(buf, size);
 			size_ += size;
@@ -306,11 +310,18 @@ namespace rf
 		bool seekpos(int byte, int bit)
 		{
 			if (FAILED(check_byte(byte)))
+			{
+				ERR << "byte=" << hex << byte << " " << OUTPUT_POS << endl;
 				return false;
+			}
 
 			if (FAILED((0 >= bit) && (bit < 8)))
+			{
+				ERR << "bit=" << hex << bit << " " << OUTPUT_POS << endl;
 				return false;
+			}
 
+			
 			byte_pos_ = byte;
 			bit_pos_ = bit;
 
@@ -321,7 +332,10 @@ namespace rf
 		bool seekpos_bit(int offset)
 		{
 			if (FAILED(check_bit(offset)))
+			{
+				ERR << "offset=" << hex << offset << " " << OUTPUT_POS << endl;
 				return false;
+			}
 
 			byte_pos_ = offset / 8;
 			bit_pos_ = offset % 8;
@@ -332,14 +346,22 @@ namespace rf
 		// バイト単位で読み込みヘッダを移動
 		bool seekpos_byte(int offset)
 		{
-			return seekpos(offset, 0);
+			if (FAILED(seekpos(offset, 0)))
+			{
+				ERR << "offset=" << hex << offset << " " << OUTPUT_POS << endl;
+				return false;
+			}
+			return true;
 		}
 
 		// 読み込みヘッダを移動
 		bool seekoff(int byte, int bit)
 		{
 			if (FAILED(check_bit(byte * 8 + bit)))
+			{
+				ERR << "byte=" << hex << byte << " bit=" << bit << " " << OUTPUT_POS << endl;
 				return false;
+			}
 
 			byte_pos_ += byte;
 			bit_pos_ += bit;
@@ -351,7 +373,11 @@ namespace rf
 		bool seekoff_bit(int offset)
 		{
 			if (FAILED(check_offset_bit(offset)))
+			{
+				ERR << "offset=" << hex << offset << " " << OUTPUT_POS << endl;
 				return false;
+			}
+
 
 			byte_pos_ += (bit_pos_ + offset) / 8;
 			if ((bit_pos_ + offset) < 0)
@@ -366,10 +392,16 @@ namespace rf
 		bool seekoff_byte(int offset)
 		{
 			if (FAILED((bit_pos_ & 0x7) == 0))
+			{
+				ERR << "bit_pos_ is not aligned. " << OUTPUT_POS << endl;
 				return false;
+			}
 
 			if (FAILED(check_offset_byte(offset)))
+			{
+				ERR << "offset=" << hex << offset << " " << OUTPUT_POS << endl;
 				return false;
+			}
 
 			byte_pos_ += offset;
 
@@ -381,13 +413,15 @@ namespace rf
 		{
 			if (FAILED(0 <= size && size <= 32))
 			{
-				ERR << "read bit > 32. size=" << hex << size << ", at "
-					<< byte_pos_ << "(+" << bit_pos_ << ')' << endl;
+				ERR << "read bit > 32. size=" << hex << size << OUTPUT_POS << endl;
 				return false;
 			}
 
 			if (FAILED(check_offset_bit(size)))
+			{
+				ERR << "size=" << hex << size << OUTPUT_POS << endl;
 				return false;
+			}
 
 			uint32_t value;
 			int already_read = 0;
@@ -438,13 +472,15 @@ namespace rf
 		{
 			if (FAILED(0 <= size && size <= 4))
 			{
-				ERR << "read byte > 4. size=" << hex << size << ", at "
-					<< byte_pos_ << "(+" << bit_pos_ << ')' << endl;
+				ERR << "read byte > 4. size=" << hex << size << OUTPUT_POS << endl;
 				return false;
 			}
 
 			if (FAILED(check_offset_byte(size)))
+			{
+				ERR << "size=" << hex << size << OUTPUT_POS << endl;
 				return false;
+			}
 
 			return read_bit(size * 8, ret_value);
 		}
@@ -491,10 +527,16 @@ namespace rf
 		bool read_string(int max_length, string &ret_str)
 		{
 			if (FAILED(check_offset_byte(max_length)))
+			{
+				ERR << "max_length=" << hex << max_length << OUTPUT_POS << endl;
 				return false;
+			}
 
 			if (FAILED(bit_pos_ == 0))
+			{
+				ERR << "bit_pos_ is not aligned"<< OUTPUT_POS << endl;
 				return false;
+			}
 
 			int ofs = 0;
 			int c;
@@ -526,13 +568,15 @@ namespace rf
 		{
 			if (FAILED(0 <= size && size <= 32))
 			{
-				ERR << "bit size > 32. size=" << hex << size << ", at "
-					<< byte_pos_ << "(+" << bit_pos_ << ')' << endl;
+				ERR << "bit size > 32. size=" << hex << size << OUTPUT_POS << endl;
 				return false;
 			}
 
 			if (FAILED(check_offset_bit(size)))
+			{
+				ERR << "size=" << hex << size << OUTPUT_POS << endl;
 				return false;
+			}
 
 			if (FAILED(read_bit(size, ret_val)))
 				return false;
@@ -548,13 +592,15 @@ namespace rf
 		{
 			if (FAILED(0 <= size && size <= 4))
 			{
-				ERR << "look byte size > 4. size=" << hex << size << ", at "
-					<< byte_pos_ << "(+" << bit_pos_ << ')' << endl;
+				ERR << "look byte size > 4. size=" << hex << size << OUTPUT_POS << endl;
 				return false;
 			}
 
 			if (FAILED(check_offset_byte(size)))
+			{
+				ERR << "size=" << hex << size << OUTPUT_POS << endl;
 				return false;
+			}
 
 			if (FAILED(read_byte(size, ret_val)))
 				return false;
@@ -586,13 +632,15 @@ namespace rf
 		{
 			if (FAILED(0 <= size))
 			{
-				ERR << "look byte size < 0. size = " << hex << size << ", at "
-					<< byte_pos_ << "(+" << bit_pos_ << ')' << endl;
-				return false;
+				ERR << "look byte size < 0. size=" << hex << size << OUTPUT_POS << endl;
+					return false;
 			}
 
 			if (FAILED(check_offset_byte(size)))
+			{
+				ERR << "size=" << hex << size << OUTPUT_POS << endl;
 				return false;
+			}
 
 			buf_->sgetn(address, size);
 
@@ -601,7 +649,7 @@ namespace rf
 
 		// 特定の１バイトの値を検索
 		// 見つからなければファイル終端を返す
-		bool find_byte(char sc, int &ret_offset, bool advance)
+		bool find_byte(char sc, int &ret_offset, bool advance, int end_offset = INT_MAX)
 		{
 			int ofs = 0;
 			int c;
@@ -615,6 +663,10 @@ namespace rf
 					break;
 				}
 				else if (c == EOF)
+				{
+					break;
+				}
+				else if (ofs >= end_offset)
 				{
 					break;
 				}
@@ -634,31 +686,34 @@ namespace rf
 
 		// 特定のバイト列を検索
 		// 見つからなければファイル終端を返す
-		bool find_byte_string(const char* address, int size, int &ret_offset, bool advance)
+		bool find_byte_string(const char* address, int size, int &ret_offset, bool advance, int end_offset = INT_MAX)
 		{
 			//char* contents = new char[size];
 			char contents[256];
 			if (FAILED(sizeof(contents) >= static_cast<size_t>(size)))
 			{
-				ERR << "too long search string. size = " << hex << size << ", at "
-					<< byte_pos_ << "(+" << bit_pos_ << ')' << endl;
-				return false;
+				ERR << "too long search string. size=" << hex << size << OUTPUT_POS << endl;
+					return false;
 			}
 
 			if (FAILED(valid_ptr(address)))
+			{
+				ERR << "invalid address address=" << hex << address << OUTPUT_POS << endl;
 				return false;
+			}
 
-			int offset = 0;
+			int ofs = 0;
+			int end_offset_remain = end_offset;
 			int prev_byte_pos = byte_pos_;
 			for (;;)
 			{
-				if (FAILED(find_byte(address[0], offset, true)))
+				if (FAILED(find_byte(address[0], ofs, true, end_offset_remain)))
 				{
 					seekpos_byte(prev_byte_pos);
 					return false;
 				}
 
-				// 終端
+				// EOS
 				if ((byte_pos_ >= size_)
 					|| (!check_offset_byte(size)))
 				{
@@ -667,6 +722,20 @@ namespace rf
 						return seekpos_byte(prev_byte_pos);
 					else
 						return seekpos_byte(size_);
+				}
+
+				// end_offset
+				if (ofs >= end_offset_remain)
+				{
+					ret_offset = end_offset;
+					if (!advance)
+						return seekpos_byte(prev_byte_pos);
+					else
+						return seekpos_byte(size_);
+				}
+				else
+				{
+					end_offset_remain -= ofs;
 				}
 
 				// 一致
@@ -739,7 +808,10 @@ namespace rf
 		bool reserve(int size)
 		{
 			if (FAILED(0 <= size))
+			{
+				ERR << "buf size error. size=" << hex << size << endl;
 				return false;
+			}
 
 			buf_ = unique_ptr<char[]>(new char[size]); //, std::default_delete<char[]>() );
 			size_ = size;
@@ -827,7 +899,7 @@ namespace rf
 		static bool transfer_to_file(const char* file_name, LuaGlueBitstream &stream, int size, bool advance = false)
 		{
 			if (FAILED(size >= 0))
-				return false;
+				throw LUA_RUNTIME_ERROR((stream.print_status(), "size"));
 
 			char* buf = new char[static_cast<unsigned int>(size)];
 
@@ -1120,12 +1192,12 @@ namespace rf
 		}
 
 		// １バイトの一致を検索
-		int find_byte(char c, bool advance) throw(...)
+		int find_byte(char c, bool advance, int end_offset) throw(...)
 		{
 			int prev_byte = bs_.byte_pos();
 			int offset;
 
-			if (FAILED(bs_.find_byte(c, offset, advance)))
+			if (FAILED(bs_.find_byte(c, offset, advance, end_offset)))
 			{
 				printf("# can not find byte:0x%x\n", static_cast<uint8_t>(c));
 				throw LUA_RUNTIME_ERROR((print_status(), "search fail"));
@@ -1135,7 +1207,9 @@ namespace rf
 			{
 				printf(" adr=0x%08x(+0)| ofs=0x%08x(+0)| search '0x%02x' %s at adr=0x%08x.\n",
 					bs_.byte_pos(), offset, static_cast<uint8_t>(c),
-					offset + prev_byte == this->size() ? "not found [EOF]" : "found",
+					offset + prev_byte == this->size() ? "not found [EOS]"
+						: offset == end_offset ? "not found [end_offset]"
+						: "found",
 					offset + prev_byte);
 			}
 
@@ -1143,16 +1217,16 @@ namespace rf
 		}
 
 		// 数バイト分の一致を検索
-		int find_byte_string(const char* address, int size, bool advance) throw(...)
+		int find_byte_string(const char* address, int size, bool advance, int end_offset) throw(...)
 		{
 			if (FAILED(valid_ptr(address)))
-				return false;
+				throw LUA_RUNTIME_ERROR((print_status(), "invalid address"));
 
 			string s(address, size);
 			int prev_byte = bs_.byte_pos();
 			int offset;
 
-			if (FAILED(bs_.find_byte_string(address, size, offset, advance)))
+			if (FAILED(bs_.find_byte_string(address, size, offset, advance, end_offset)))
 			{
 				printf("# can not find byte string: %s\n", s.c_str());
 				throw LUA_RUNTIME_ERROR((print_status(), "search fail"));
@@ -1167,7 +1241,9 @@ namespace rf
 
 				printf("] (\"%s\") %s at adr=0x%08x.\n",
 					s.c_str(),
-					offset + prev_byte == this->size() ? "not found [EOF]" : "found",
+					offset + prev_byte == this->size() ? "not found [EOS]"
+						: offset == end_offset ? "not found [end_offset]"
+						: "found",
 					offset + prev_byte);
 			}
 
@@ -1178,10 +1254,16 @@ namespace rf
 		bool write_byte_string(const char *buf, int size)
 		{
 			if (FAILED(valid_ptr(buf)))
+			{
+				ERR << "buf=" << hex << buf << OUTPUT_POS << endl;
 				return false;
-
+			}
+			
 			if (FAILED(size >= 0))
+			{
+				ERR << "size=" << hex << size << OUTPUT_POS << endl;
 				return false;
+			}
 
 			return bs_.write_byte_string(buf, size);
 		}
@@ -1196,7 +1278,10 @@ namespace rf
 		bool transfer_byte(const char* name, LuaGlueBitstream &stream, int size, bool advance)
 		{
 			if (FAILED(bs_.check_offset_byte(size)))
+			{
+				ERR << "size=" << hex << size << OUTPUT_POS << endl;
 				return false;
+			}
 
 			char* buf = new char[static_cast<unsigned int>(size)];
 			bs_.look_byte_string(buf, size);

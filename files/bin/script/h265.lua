@@ -1825,43 +1825,47 @@ function mastering_display_colour_volume( payloadSize )
 	rbit("min_display_mastering_luminance", 32) -- u(32)
 end
 
-function nal_unit_264(rbsp, NumBytesInNALunit)
-
-	local total = 1
-	local ofs
-	while true do
-		ofs = math.min(fstr("00 00 03", false), NumBytesInNALunit - total)
-		
-		if ofs >= NumBytesInNALunit - total then 
-			tbyte("rbsp end", ofs, rbsp)
-			break
-		else
-			tbyte("rbsp", ofs+2, rbsp)
-			rbyte("dummy", 1)
-			total = total + ofs + 2 + 1
-		end
-	end
-end
-
 function nal_unit(rbsp, NumBytesInNALunit)
-	local total
-	local ofs
-
-	total = nal_unit_header()
-
-	while true do
-		ofs = math.min(fstr("00 00 03", false), NumBytesInNALunit - total)
-		if ofs >= NumBytesInNALunit - total then 
-			tbyte("rbsp end", ofs, rbsp)
-			break
-		else
-			tbyte("rbsp", ofs+2, rbsp)
-			rbyte("dummy", 1)
-			total = total + ofs + 2 + 1
+	nal_unit_header() -- 2bytes
+	
+	local NumBytesInRbsp = 0
+	if false then
+		local i = 2
+		while i < NumBytesInNALunit do -- for文だと値が変更できない
+			if i+2 < NumBytesInNALunit and lbyte(3) == 3 then
+				tbyte("rbsp", 2, rbsp)
+				NumBytesInRbsp = NumBytesInRbsp + 2
+				i=i+2
+				cbyte("emulation_prevention_three_byte", 1, 3) -- equal to 0x03
+			else
+				tbyte("rbsp", 1, rbsp)
+				NumBytesInRbsp = NumBytesInRbsp + 1
+			end
+			i=i+1
+		end
+	else
+		local i = 2
+		local ofs
+		while true do
+			ofs = fstr("00 00 03", false, NumBytesInNALunit-i)
+			if i + ofs < NumBytesInNALunit then 
+				tbyte("rbsp", ofs+2, rbsp)
+				cbyte("emulation_prevention_three_byte", 1, 3) -- equal to 0x03
+				NumBytesInRbsp = NumBytesInRbsp + ofs + 2
+				i = i + ofs + 2
+			else
+				tbyte("rbsp end", ofs, rbsp)
+				NumBytesInRbsp = NumBytesInRbsp + ofs
+				break
+			end
+			i=i+1
 		end
 	end
 
-	nal_unit_payload(rbsp)
+	-- RBSPを解析
+	local file = swap(rbsp)
+	nal_unit_payload(rbsp, NumBytesInRbsp)
+	swap(file)
 end
 
 function nal_unit_header()
@@ -1869,14 +1873,11 @@ function nal_unit_header()
 	rbit("nal_unit_type",         6) -- u(6)
 	rbit("nuh_layer_id",          6) -- u(6)
 	rbit("nuh_temporal_id_plus1", 3) -- u(3)
-	return 2
 end
 
-function nal_unit_payload(rbsp)
-
+function nal_unit_payload(rbsp, NumBytesInRbsp)
+	local begin = cur()
 	local nal_unit_type = get("nal_unit_type")
-	
-	local file = swap(rbsp)
 
 	if     nal_unit_type == TRAIL_N    then print("TRAIL_N")     slice_segment_layer_rbsp(nal_unit_type)
     elseif nal_unit_type == TRAIL_R    then print("TRAIL_R")     slice_segment_layer_rbsp(nal_unit_type)
@@ -1920,12 +1921,10 @@ function nal_unit_payload(rbsp)
 	end
 	
 	-- とりあえず余ったデータを読み捨てる
-	seek(get_size())
-
-	swap(file)
+	seek(begin + NumBytesInRbsp)
 end
 
-function byte_stream_nal_unit(rbsp, NumBytesInNALunit)
+function byte_stream_nal_unit(rbsp, remain_size)
 print("------------"..hexstr(cur()).."------------")
 
 	local begin = cur()
@@ -1940,12 +1939,13 @@ print("------------"..hexstr(cur()).."------------")
 	end
 	cbyte("start_code_prefix_one_3bytes",               3, 0x000001)
 	
-	local nal_unit_size = math.min(fstr("00 00 00", false), fstr("00 00 01", false), NumBytesInNALunit)
-	nal_unit(rbsp, nal_unit_size)
-	if NumBytesInNALunit == nal_unit_size then
+	local NumBytesInNALunit = math.min(fstr("00 00 00", false), fstr("00 00 01", false), remain_size)
+	if NumBytesInNALunit == remain_size then
 		print("return big size to exit")
 		return 100000
 	end
+
+	nal_unit(rbsp, NumBytesInNALunit)
 
 	while more_data_in_byte_stream()
 	and lbyte(3) ~= 0x000001
@@ -1956,8 +1956,8 @@ print("------------"..hexstr(cur()).."------------")
 	return cur() - begin
 end
 
-function h265_byte_stream(max_length)
-	local rbsp = stream:new(1024*1024*3)
+function byte_stream(max_length)
+	local rbsp = stream:new(1024*1024*5)
 	rbsp:enable_print(false)
 
 	reset_initial_values()
@@ -1972,6 +1972,6 @@ open(__stream_path__)
 print_status()
 enable_print(false)
 stdout_to_file(false)
-h265_byte_stream(get_size() /10)
+byte_stream(get_size()/10)
 print_status()
 

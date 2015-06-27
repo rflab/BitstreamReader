@@ -94,7 +94,6 @@ seekoff(byte, bit)               -- 相対位置シーク
 -- 解析
 val = get(name)                  -- 値を取得する
 reset(name, value)               -- 値を設定する
-val = peek(name)                 -- nilが返ることをいとわない場合はこちらでget
 val = rbit(name, size)           -- ビット単位読み込み
 val = rbyte(name, size)          -- バイト単位読み込み
 val = rstr(name, size)           -- 文字列として読み込み

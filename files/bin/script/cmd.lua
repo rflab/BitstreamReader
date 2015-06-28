@@ -131,7 +131,7 @@ function exec_cmd(c)
 			until io.read() ~= "n"
 		else
 			local data = get_data()
-			local vs, bytes, sizs, streams = data.values, data.bytes, data.sizes, data.streams
+			local vs, ts, bytes, sizs, streams = data.values, data.tables, data.bytes, data.sizes, data.streams
 			local dump_all = nil
 			if c[3] == nil then
 				print("no index. dump for all data? [y/n]")
@@ -147,7 +147,7 @@ function exec_cmd(c)
 						if bytes[k] ~= nil and type(c[3]) == "number" then
 							local ix = toindex(c[3], bytes[k])
 							printf("  %s[%d]=%s size=%d in %s=%s",
-								k, ix, v, sizs[k][ix], streams[k][ix].name, streams[k][ix].file_name)
+								k, ix, ts[k][ix], sizs[k][ix], streams[k][ix].name, streams[k][ix].file_name)
 							swap(streams[k][ix])
 							seek(bytes[k][ix])
 							dump(64)
@@ -160,7 +160,7 @@ function exec_cmd(c)
 						if bytes[k] ~= nil then
 							for i, v in ipairs(bytes[k]) do
 								printf("  %s[%d]=%s size=%d in %s=%s",
-									k, i, v, sizs[k][i], streams[k][i].name, streams[k][i].file_name)
+									k, i, ts[k][i], sizs[k][i], streams[k][i].name, streams[k][i].file_name)
 								swap(streams[k][i])
 								seek(v)
 								dump(64)

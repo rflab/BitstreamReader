@@ -24,6 +24,7 @@ else
 	print("mkdir out", os.execute("mkdir \""..__stream_dir__.."out\""))
 end
 
+
 -- 拡張子にあわせてスクリプト実行
 local ext = __stream_ext__
 

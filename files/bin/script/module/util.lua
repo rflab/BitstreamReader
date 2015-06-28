@@ -5,22 +5,23 @@ require("stream")
 require("csv")
 
 local gs_stream
+local gs_all_streams = {}
 local gs_progress
 local gs_perf
 local gs_csv
-local gs_vals = {}
-local gs_tbls = {}
+local gs_data = {values={}, tables={}, bytes={}, bits={}, sizes={}, streams={}}
 local gs_store_to_table = true
 
 --------------------------------------------
 -- ストリーム解析用関数
 --------------------------------------------
--- ストリームファイルを開く
+-- ストリームを開く
 function open(arg1, openmode)
 	openmode = openmode or "rb"
 	local prev_stream = gs_stream
 	gs_stream = stream:new(arg1, openmode)
 	gs_csv = csv:new()
+	table.insert(gs_all_streams, gs_stream) 
 	return gs_stream, prev_stream
 end
 
@@ -78,23 +79,21 @@ end
 
 -- これまでに読み込んだ値を取得する
 function get(name)
-	--local value = gs_stream:get(name)
-	--return value or gs_vals[name]
-	local val = gs_vals[name]
+	local val = gs_data.values[name]
 	assert(val, "get nil value \""..name.."\"")
 	return val
 end
 
 -- nilが返ることをいとわない場合はこちらでget
 function peek(name)
-	return gs_vals[name]
+	return gs_data.values[name]
 end
 
 -- 最後に読み込んだ値を破棄する
 function reset(name, value)
+	on_prev_set_value(name)
 	gs_stream:reset(name, value)
-	gs_vals[name] = value
-	gs_tbls[name] = {value}
+	on_set_value(name, value, false)
 end
 
 -- 絶対位置シーク
@@ -114,57 +113,65 @@ end
 
 -- ビット単位読み込み
 function rbit(name, size)
+	on_prev_set_value(name)
 	local value = gs_stream:rbit(name, size)
-	on_read_value(name, value)
+	on_set_value(name, value, size)
 	return value
 end
 
 -- バイト単位読み込み
 function rbyte(name, size)
+	on_prev_set_value(name)
 	local value = gs_stream:rbyte(name, size)
-	on_read_value(name, value)
+	on_set_value(name, value, size)
 	return value
 end
 
 -- 文字列として読み込み
 function rstr(name, size)
+	on_prev_set_value(name)
 	local value = gs_stream:rstr(name, size)
-	on_read_value(name, value)
+	on_set_value(name, value, size)
 	return value
 end
 
 -- 指数ゴロムとして読み込み
 function rexp(name)
+	on_prev_set_value(name)
 	local value = gs_stream:rexp(name)
-	on_read_value(name, value)
+	on_set_value(name, value, false)
 	return value
 end
 
 -- ビット単位で読み込み、compとの一致を確認
 function cbit(name, size, comp)
+	on_prev_set_value(name)
 	local value = gs_stream:cbit(name, size, comp)
-	on_read_value(name, value)
+	on_set_value(name, value, size)
 	return value
 end
 
 -- バイト単位で読み込み、compとの一致を確認
 function cbyte(name, size, comp)
+	on_prev_set_value(name)
 	local value = gs_stream:cbyte(name, size, comp)
-	on_read_value(name, value)
+	on_set_value(name, value, size)
 	return value
 end
 
 -- 文字列として読み込み、compとの一致を確認
 function cstr(name, size, comp)
+	on_prev_set_value(name)
 	local value = gs_stream:cstr(name, size, comp)
-	on_read_value(name, value)
+	on_set_value(name, value, size)
 	return value
 end
 
 -- 指数ゴロムとして読み込み
 function cexp(name)
+	on_prev_set_value(name)
 	local value = gs_stream:cexp(name)
-	on_read_value(name, value)
+	on_set_value(name, value, false)
 	return value
 end
 
@@ -349,7 +356,7 @@ end
 -- 00 01 ... のような文字列パターンをchar配列に変換する
 function pat2str(pattern)
 	local str = ""
-	if string.match(pattern, "^[0-9a-f][0-9a-f]") ~= nil then
+	if string.match(pattern, "^[0-9a-fA-F][0-9a-fA-F]") ~= nil then
 		for hex in string.gmatch(pattern, "%w+") do
 			str = str .. string.char(tonumber(hex, 16))
 		end
@@ -403,13 +410,32 @@ end
 
 
 -- テーブルを取得
-function get_tbl()
-	return gs_vals, gs_tbls
+function get_data()
+	return gs_data
+end
+
+function get_streams()
+	return gs_all_streams
+end
+
+function on_prev_set_value(name)
+	if gs_data.tables[name] == nil then
+		gs_data.tables[name]  = {}
+		gs_data.bytes[name]   = {}
+		gs_data.bits[name]    = {}
+		gs_data.sizes[name]   = {}
+		gs_data.streams[name] = {}
+	end
+
+	local byte, bit = cur()
+	table.insert(gs_data.bytes[name], byte)
+	table.insert(gs_data.bits[name], bit)
+	table.insert(gs_data.streams[name], gs_stream)
 end
 
 -- データ読み込み事に記録する処理
-function on_read_value(key, value)
-	gs_vals[key] = value
-	gs_tbls[key] = gs_tbls[key] or {}
-	table.insert(gs_tbls[key], value)
+function on_set_value(name, value, size)
+	gs_data.values[name] = value
+	table.insert(gs_data.tables[name], value)
+	table.insert(gs_data.sizes[name], size)
 end

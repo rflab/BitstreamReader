@@ -845,7 +845,7 @@ namespace rf
 			for (int i = 0; i < size; ++i)
 			{
 				c = buf[offset + i];
-				if (isalpha(c))
+				if (isgraph(c))
 					putchar(c);
 				else
 					putchar('.');

@@ -45,6 +45,8 @@ end
 ------------------------------------------------
 
 function _m:new(param, openmode)
+	self.index = self.index or 0
+	self.index = self.index + 1
 	obj = {tbl={}, name}
 	--_v[obj] = {}
 	setmetatable(obj, _meta )
@@ -52,16 +54,18 @@ function _m:new(param, openmode)
 	if type(param) == "string" then
 		print("open stream ("..param..")")
 		obj.stream = FileBitstream:new(param, openmode)
+		obj.name = "file["..self.index.."]"
 		obj.file_name = param
-		obj.name = "file stream"
 	elseif type(param) == "number" then
 		print("create fifo stream ("..hexstr(param)..")")
 		obj.stream = Fifo:new(param)
-		obj.name = "fifo stream"
+		obj.name = "fifo["..self.index.."]"
+		obj.file_name = "no_file_name"
 	else
 		print("create buffer ()")
 		obj.stream = Buffer:new()
-		obj.name = "buffer stream"
+		obj.name = "buffer["..self.index.."]"
+		obj.file_name = "no_file_name"
 	end
 
 	obj.stream:little_endian(false)
@@ -100,7 +104,8 @@ function _m:get(name)
 end
 
 function _m:peek(name)
-	return gs_tbl[name]
+	local val = self.tbl[name]
+	return val
 end
 
 function _m:reset(name, value)	
@@ -202,7 +207,7 @@ end
 
 function _m:write(pattern)
 	local str = ""
-	if string.match(pattern, "[0-9][0-9] ") ~= nil then
+	if string.match(pattern, "^[0-9a-fA-F][0-9a-fA-F]") ~= nil then
 		for hex in string.gmatch(pattern, "%w+") do
 			str = str .. string.char(tonumber(hex, 16))
 		end

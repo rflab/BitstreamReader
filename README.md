@@ -19,6 +19,7 @@ windowsならfiles/bin/streamreader.exeにファイルをドロップすれば�
     info
     -- 名前に foo もしくは bar を含む値の情報を表示
     grep foo bar
+    list foo bar
 ```
 より正確には以下の挙動となります。
 * コマンドライン引数なしで起動した場合は、Luaのコマンドインタプリタとして起動されます。

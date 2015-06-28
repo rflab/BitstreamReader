@@ -466,7 +466,9 @@ function analyze()
 	analyse_data_byte = true
 	seek(0)
 	enable_print(ts_print)
-	ts(get_size()-200, TYPE_PES)
+	--ts(get_size()-200, TYPE_PES)
+	print("short analyse size/100")
+	ts(get_size()/100, TYPE_PES)
 end
 
 open(__stream_path__)

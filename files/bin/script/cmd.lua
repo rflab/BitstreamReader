@@ -116,12 +116,19 @@ function exec_cmd(c)
 		end
 	elseif c[1] == "dump" then
 		if type(c[2]) == "number" then
-			seek(c[2])
+			local dump_address = touint(c[2])
+			local dump_size 
 			if type(c[3]) == "number" then
-				dump(touint(c[3]))
+				dump_size = touint(c[3])
 			else
-				dump(128)
+				dump_size = 128
 			end
+			repeat
+				seek(dump_address)
+				dump(dump_size)
+				print("n:next")
+				dump_address = dump_address + dump_size
+			until io.read() ~= "n"
 		else
 			local data = get_data()
 			local vs, bytes, sizs, streams = data.values, data.bytes, data.sizes, data.streams

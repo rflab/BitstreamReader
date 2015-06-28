@@ -64,9 +64,8 @@ stream, prev_stream = open()             -- 可変長のバッファストリー
 prev_stream = swap(stream)       -- ストリームを解析対象として登録し、先に登録されていたストリームを返す
 print_status()                   -- ストリーム状態表示
 size = get_size()                -- ストリームファイルサイズ取得
-enable_print(b)                  -- 解析結果表示のON/OFF
-little_endian(b)                 -- 2/4バイト読み込み時のエンディアンを変換ON/OFF
-
+enable_print(b)                  -- 解析結果表示のON/OFF, デフォルトON
+little_endian(b)                 -- 2/4バイト読み込み時のエンディアンを変換ON/OFF, デフォルトOFF
 
 -- シーク系
 byte, bit = cur()                -- 現在のバイトオフセット、ビットオフセットを取得
@@ -76,24 +75,24 @@ seekoff(byte, bit)               -- 相対位置シーク
 -- 解析
 val = get(name)                  -- 値を取得する
 reset(name, value)               -- 値を設定する
-val = rbit(name, size)           -- ビット単位で読み込み
-val = rbyte(name, size)          -- バイト単位で読み込み
-val = rstr(name, size)           -- 文字列として読み込み
-val = rexp(name)                 -- 指数ゴロムで読み込み
-bool = cbit(name, size, comp)    -- ビット単位で読み込み、compとの一致を確認
-bool = cbyte(name, size, comp)   -- バイト単位で読み込み、compとの一致を確認
-bool = cstr(name, size, comp)    -- 文字列として読み込み、compとの一致を確認
-bool = cexp(name)                -- 指数ゴロムで読み込み、compとの一致を確認
-val = lbit(size)                 -- ビット単位で読み込むがポインタは進めない
-val = lbyte(size)                -- バイト単位で読み込むがポインタは進めない
-val = lexp(size)                 -- 指数ゴロムで読み込むがポインタは進めない
+val = rbit(name, size)           -- ビット単位で読み進める
+val = rbyte(name, size)          -- バイト単位で読み進める
+val = rstr(name, size)           -- 文字列として読み進める
+val = rexp(name)                 -- 指数ゴロムで読み進める
+bool = cbit(name, size, comp)    -- ビット単位で読み進め、compとの一致を確認
+bool = cbyte(name, size, comp)   -- バイト単位で読み進め、compとの一致を確認
+bool = cstr(name, size, comp)    -- 文字列として読み進め、compとの一致を確認
+bool = cexp(name)                -- 指数ゴロムで読み進め、compとの一致を確認
+val = lbit(size)                 -- ビット単位で見るが、ポインタは進めない
+val = lbyte(size)                -- バイト単位で見るが、ポインタは進めない
+val = lexp(size)                 -- 指数ゴロムで見るが、ポインタは進めない
 offset = fbyte(char, advance)    -- 指定の１バイト検索、advance=trueでポインタを移動
 offset = fstr(pattern, advance)  -- 文字列を検索、もしくは"00 11 22"のようなバイナリパターンで追記
 tbyte(name, size, stream)        -- ストリームから別のstreamにデータを転送
 tbyte(name, size, filename)      -- ストリームからからファイルにデータを転送
-dump(size)                       -- ストリームを最大256バイト出力
 
 -- その他
+dump(size)                       -- ストリームを最大256バイト出力
 print_table(tbl, indent)         -- テーブルの内容を表示する
 do_until(closure, offset)        -- cur()==offsetまでclosure()を実行する
 store(key, value)                -- csv保存用に値を記憶する
@@ -104,7 +103,6 @@ pat2str(pattern)                 -- 00 01 ... のような文字列パターン�
 hex2str(val, size, le)           -- 数値をchar配列に変える
 write(filename, pattern)         -- char配列 or "00 11 22" 形式でファイル追記
 putchar(filename, char)          -- ファイルに一文字追記
-
 ```
 C++側からは以下のような関数・クラスがバインドされています。
 細かい拡張はこちらを使用します。

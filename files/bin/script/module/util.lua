@@ -16,10 +16,12 @@ local gs_store_to_table = true
 -- ストリーム解析用関数
 --------------------------------------------
 -- ストリームファイルを開く
-function open(file_name)
-	gs_stream = stream:new(file_name, "rb")
+function open(arg1, openmode)
+	openmode = openmode or "rb"
+	local prev_stream = gs_stream
+	gs_stream = stream:new(arg1, openmode)
 	gs_csv = csv:new()
-	return gs_stream
+	return gs_stream, prev_stream
 end
 
 -- ストリームを入れ替える

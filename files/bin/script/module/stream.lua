@@ -44,14 +44,14 @@ end
 -- public
 ------------------------------------------------
 
-function _m:new(param, mode)
+function _m:new(param, openmode)
 	obj = {tbl={}, name}
 	--_v[obj] = {}
 	setmetatable(obj, _meta )
 
 	if type(param) == "string" then
 		print("open stream ("..param..")")
-		obj.stream = FileBitstream:new(param, mode)
+		obj.stream = FileBitstream:new(param, openmode)
 		obj.file_name = param
 		obj.name = "file stream"
 	elseif type(param) == "number" then

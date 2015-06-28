@@ -58,9 +58,9 @@ util.luaのよく使う関数の使用は以下の通りです。
 -- 表記： "戻り値 = 関数名(引数...)) -- 機能"
 
 -- 読み込み設定
-stream      = open(file_name)    -- ファイルストリームを作成し、解析対象として登録
-stream      = open(size)         -- 固定長のバッファストリームを作成し、解析対象として登録
-stream      = open()             -- 可変長のバッファストリームを作成、解析対象として登録
+stream, prev_stream = open(file_name)    -- ファイルストリームを作成し、解析対象として登録
+stream, prev_stream = open(size)         -- 固定長のバッファストリームを作成し、解析対象として登録
+stream, prev_stream = open()             -- 可変長のバッファストリームを作成、解析対象として登録
 prev_stream = swap(stream)       -- ストリームを解析対象として登録し、先に登録されていたストリームを返す
 print_status()                   -- ストリーム状態表示
 size = get_size()                -- ストリームファイルサイズ取得

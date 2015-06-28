@@ -2,32 +2,24 @@
 
 各種ファイルストリームを解析するツールです。Lua言語ベース。（現在の対応拡張子:.wav, .bmp, .jpg, .ts, .tts, .m2ts, .mpg, .mp4, .pes, .h264, h265, など）
 
-windowsなら実行ファイルにファイルをドロップすれば解析が始まります。
+windowsならfiles/bin/streamreader.exeにファイルをドロップすれば解析が始まります。
 
 スクリプトを書けばビット単位、可変長でどんなバイナリデータも解析できます
 
-## 実行ファイル
-Windows用の実行ファイルはfiles/bin/streamreader.exeです。
-
-自分でビルドする場合、
-* gccの場合はfiles/srcでmake build
-* VisualStudio2013の場合は、files/visual_studio_solution/visual_studio_solution.slnを開いてF5
-
-Lua5.3.0＆VC++12＆gcc version 4.9.2 (Ubuntu 4.9.2-10ubuntu13) でもたまにビルド確認しています。
-
-## 実行方法
+## 使い方
 
 実行時引数にファイル名を入れると解析が始まります。
 ```
     // windowsの場合はbin/streamreader.exeにファイルをドロップとおなじ。
     S./a.out test.wav
 ```
-解析が完了したら幾つかの簡易コマンドで結果を参照できます。
+解析が完了したら幾つかの簡易コマンドで結果を参照することが可能です。
 ```
     -- とりあえず取得した値を全部見る
     list
-    -- 名前に foo もしくは bar を含む値を列挙
+    -- 名前に foo もしくは bar を含む値の情報を表示
     grep foo bar
+    dump foo bar
 ```
 より正確には以下の挙動となります。
 * 以下のようなコマンドライン引数が指定可能です。
@@ -180,3 +172,12 @@ lua->def_subclass<LuaGlueFifoBitstream>("Fifo", "IBitstream")->
 	def("new",     LuaBinder::constructor<LuaGlueFifoBitstream(int)>()).
 	def("reserve", &LuaGlueFifoBitstream::reserve); // バッファを再確保、書き込み済みデータは破棄
 ```
+
+## ビルド方法
+
+自分でビルドする場合、
+* gccの場合はfiles/srcでmake build
+* VisualStudio2013の場合は、files/visual_studio_solution/visual_studio_solution.slnを開いてF5
+
+Lua5.3.0＆VC++12でビルド確認済み
+gcc version 4.9.2 (Ubuntu 4.9.2-10ubuntu13) でもたまにビルド確認しています。

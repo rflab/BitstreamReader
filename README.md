@@ -86,8 +86,8 @@ bool = cexp(name)                -- 指数ゴロムで読み進め、compとの�
 val = lbit(size)                 -- ビット単位で見るが、ポインタは進めない
 val = lbyte(size)                -- バイト単位で見るが、ポインタは進めない
 val = lexp(size)                 -- 指数ゴロムで見るが、ポインタは進めない
-offset = fbyte(char, advance)    -- 指定の１バイト検索、advance=trueでポインタを移動
-offset = fstr(pattern, advance)  -- 文字列もしくは"00 11 22"のようなバイナリパターンで検索
+offset = fbyte(char, advance)    -- charを検索、advance=trueでポインタを移動
+offset = fstr(pattern, advance)  -- pattern="00 11 22"のような文字列でバイナリ列を検索
 tbyte(name, size, stream)        -- ストリームから別のstreamにデータを転送
 tbyte(name, size, filename)      -- ストリームからからファイルにデータを転送
 

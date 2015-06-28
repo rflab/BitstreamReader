@@ -51,7 +51,8 @@ tbyte("pcm",   16, "pcm.dat") -- 16バイトをファイルに書き写す
 print(get("flagC"))           -- 取得済みのデータを参照する
 ```
 
-通常はfiles/bin/script/module/util.luaにある関数や、files/module内の各種クラス利用すると簡単です。
+通常はfiles/bin/script/module/util.luaにある関数や、files/bin/script/module内の各種クラス利用すると簡単です。
+
 util.luaのよく使う関数の使用は以下の通りです。
 ```lua
 -- 表記： "戻り値 = 関数名(引数...)) -- 機能"

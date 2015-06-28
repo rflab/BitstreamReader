@@ -87,7 +87,7 @@ val = lbit(size)                 -- ビット単位で見るが、ポインタ�
 val = lbyte(size)                -- バイト単位で見るが、ポインタは進めない
 val = lexp(size)                 -- 指数ゴロムで見るが、ポインタは進めない
 offset = fbyte(char, advance)    -- 指定の１バイト検索、advance=trueでポインタを移動
-offset = fstr(pattern, advance)  -- 文字列を検索、もしくは"00 11 22"のようなバイナリパターンで追記
+offset = fstr(pattern, advance)  -- 文字列もしくは"00 11 22"のようなバイナリパターンで検索
 tbyte(name, size, stream)        -- ストリームから別のstreamにデータを転送
 tbyte(name, size, filename)      -- ストリームからからファイルにデータを転送
 

@@ -31,7 +31,7 @@ windowsならfiles/bin/streamreader.exeにファイルをドロップすれば�
 ### 定義ファイルの書き方
 
 解析方法はLuaスクリプトで記述します。
-（Luaの文法は http://milkpot.sakura.ne.jp/lua/lua52_manual_ja.html あたり参照のこと。）
+（Luaの文法はhttp://handasse.blogspot.com/2010/02/lua.html, http://milkpot.sakura.ne.jp/lua/lua52_manual_ja.html あたり参照のこと。）
 
 ```lua
 -- ストリーム解析例 --

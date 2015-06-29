@@ -9,7 +9,13 @@ function check_stream(s)
 		--ascii_art("stream?")
 		print("check stream...")
 		print("")
-
+		
+		--
+		if s:get_size() < 1024 then
+			print("file");
+			break;
+		end
+		
 		-- wav
 		s:seek(0)
 		if s:cstr("RIFF", 4, "RIFF") then

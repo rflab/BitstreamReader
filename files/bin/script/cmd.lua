@@ -31,6 +31,10 @@ end
 function exec_cmd(c)
 	if c[1] == "history" then
 		print_table(history)
+	elseif c[1] == "open" then
+		if type(c[2]) == "string" then
+			open(__stream_dir__..c[2])
+		end
 	elseif c[1] == "stream" then
 		local streams = get_streams()
 		for i, v in ipairs(streams) do
@@ -52,6 +56,7 @@ function exec_cmd(c)
 			bit  = bis[k] and bis[k][#(bis[k])]
 			printf("  adr=0x%08x(+%d) [%6d]| %-50s %-8s", byte, bit, num, k, v)
 		end
+		print_status()
 	elseif c[1] == "grep" then
 		local data = get_data()
 		local vs, ts, bys, bis = data.values, data.tables, data.bytes, data.bits
@@ -115,7 +120,8 @@ function exec_cmd(c)
 			end
 		end
 	elseif c[1] == "dump" then
-		if type(c[2]) == "number" then
+		if type(c[2]) == "number" or c[2] == nil then
+			c[2] = c[2] or 0
 			local dump_address = touint(c[2])
 			local dump_size 
 			if type(c[3]) == "number" then
@@ -124,6 +130,10 @@ function exec_cmd(c)
 				dump_size = 128
 			end
 			repeat
+				if  get_size() <= dump_address then
+					print("[EOS]")
+					break
+				end
 				seek(dump_address)
 				dump(dump_size)
 				print("n:next")
@@ -189,11 +199,12 @@ function exec_cmd(c)
 	else
 		print("history          : show history")
 		print("info             : show all values")
-		print("stream [INDEX]   : show and swap stream")
-		print("grep [REGEX...]  : search & show last value")
-		print("list [REGEX...]  : search & show all value")
+		print("stream INDEX     : show and swap stream")
+		print("grep REGEX...    : search & show last value")
+		print("list REGEX...    : search & show all value")
 		print("dump REGEX INDEX : hex dump around REGEX[INDEX]")
 		print("dump ADDRESS     : hex dump from ADDRESS")
+		print("open FILENAME    : open newfile in stream directory")
 		print("q|exit           : exit command mode")
 	end
 end

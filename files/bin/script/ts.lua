@@ -468,10 +468,9 @@ function analyze()
 	enable_print(ts_print)
 	--ts(get_size()-200, TYPE_PES)
 	print("short analyse size/100")
-	ts(get_size()/100, TYPE_PES)
+	ts(get_size()/50, TYPE_PES)
 end
 
-open(__stream_path__)
 print_status()
 analyze()
 save_as_csv(__stream_dir__.."out/ts.csv")

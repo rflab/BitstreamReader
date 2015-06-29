@@ -39,12 +39,12 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>..\..\src\lua;$(IncludePath)</IncludePath>
+    <IncludePath>..\..\src\lua;..\..\src\sqlite;$(IncludePath)</IncludePath>
     <TargetName>streamreader_d</TargetName>
     <OutDir>$(SolutionDir)../bin\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>..\..\src\lua;$(IncludePath)</IncludePath>
+    <IncludePath>..\..\src\lua;..\..\src\sqlite;$(IncludePath)</IncludePath>
     <TargetName>streamreader</TargetName>
     <OutDir>$(SolutionDir)../bin\</OutDir>
   </PropertyGroup>
@@ -108,6 +108,11 @@
     <ClCompile Include="..\..\src\lua\lutf8lib.c" />
     <ClCompile Include="..\..\src\lua\lvm.c" />
     <ClCompile Include="..\..\src\lua\lzio.c" />
+    <ClCompile Include="..\..\src\sqlite\shell.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\..\src\sqlite\sqlite3.c" />
     <ClCompile Include="..\..\src\streamreader.cpp">
       <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Level4</WarningLevel>
       <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Level4</WarningLevel>
@@ -141,6 +146,8 @@
     <ClInclude Include="..\..\src\lua\lundump.h" />
     <ClInclude Include="..\..\src\lua\lvm.h" />
     <ClInclude Include="..\..\src\lua\lzio.h" />
+    <ClInclude Include="..\..\src\sqlite\sqlite3.h" />
+    <ClInclude Include="..\..\src\sqlite\sqlite3ext.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\src\lua\Makefile" />

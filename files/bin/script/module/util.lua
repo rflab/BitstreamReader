@@ -356,7 +356,7 @@ end
 -- 00 01 ... のような文字列パターンをchar配列に変換する
 function pat2str(pattern)
 	local str = ""
-	if string.match(pattern, "^[0-9a-fA-F][0-9a-fA-F]") ~= nil then
+	if string.match(pattern, "^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
 		for hex in string.gmatch(pattern, "%w+") do
 			str = str .. string.char(tonumber(hex, 16))
 		end

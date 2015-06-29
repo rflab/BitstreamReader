@@ -193,12 +193,14 @@ end
 
 function _m:seek(byte, bit)
 	assert(self.stream:seekpos(byte, bit or 0))
+	return true
 end
 
 function _m:seekoff(byte, bit)
-	self.stream:seekoff(byte, bit)
+	assert(self.stream:seekoff(byte, bit or 0))
 	--if byte ~= nil then assert(self.stream:seekoff_byte(byte)) end
 	--if bit  ~= nil then assert(self.stream:seekoff_bit(bit)) end
+	return true
 end
 
 function _m:putc(c)
@@ -207,7 +209,7 @@ end
 
 function _m:write(pattern)
 	local str = ""
-	if string.match(pattern, "^[0-9a-fA-F][0-9a-fA-F]") ~= nil then
+	if string.match(pattern, "^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
 		for hex in string.gmatch(pattern, "%w+") do
 			str = str .. string.char(tonumber(hex, 16))
 		end

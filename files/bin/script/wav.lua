@@ -1,7 +1,6 @@
 -- wav解析
 local __stream_path__ = argv[1] or "test.wav"
-
-open(__stream_path__)
+seek(0)
 little_endian(true)
 dump()
 

@@ -3,7 +3,7 @@ local __stream_path__ = argv[1] or "test.bmp"
 local info = {} 
 
 function BITMAPFILEHEADER()
-	rstr ("bfType",           2)
+	cstr ("bfType",           2, "BM")
 	rbyte("bfSize",           4)
 	rbyte("bfReserved1",      2)
 	rbyte("bfReserved2",      2)

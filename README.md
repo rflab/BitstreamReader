@@ -1,6 +1,6 @@
 # Stream Reader
 
-各種ファイルストリームを解析するツールです。Lua言語ベース。（現在の対応拡張子:.wav, .bmp, .jpg, .ts, .tts, .m2ts, .mpg, .mp4, .pes, .h264, h265, など）
+各種ファイルストリームを解析するツールです。Lua言語ベース。（現在の対応フォーマット:.wav, .bmp, .jpg, .ts, .tts, .m2ts, .mpg, .mp4, .pes, .h264, h265, など）
 
 windowsならfiles/bin/streamreader.exeにファイルをドロップすれば解析が始まります。
 
@@ -25,7 +25,7 @@ windowsならfiles/bin/streamreader.exeにファイルをドロップすれば�
 * コマンドライン引数なしで起動した場合は、Luaのコマンドインタプリタとして起動されます。
 * コマンドライン引数ありでLuaのファイルを指定しなかった場合は、script/default.luaが先に実行されます。
 * コマンドライン引数はLua側でもargc、argv[]としてアクセスできます。
-* 現状のdefault.luaはarg[1]をファイル名とみなして拡張子による解析の切り分けを実行しています。
+* 現状のdefault.luaはファイル識別コード/拡張子による処理の振り分けを行います
 * 現状のdefault.luaは書く解析終了後にcmd()関数をコールし、cmd()関数がで簡易コマンドを受け付けています。
 
 ### 定義ファイルの書き方

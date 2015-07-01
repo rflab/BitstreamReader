@@ -57,6 +57,11 @@ function enable_print(b)
 	return gs_stream:enable_print(b)
 end
 
+-- ‰ğÍŒ‹‰Ê•\¦‚ÌON/OFF‚É‰‚¶‚Äprint
+function sprint(...)
+	return gs_stream:sprint(b)
+end
+
 -- ‰ğÍŒ‹‰Ê•\¦‚ÌON/OFF
 function enable_store_all(b)
 	gs_store_to_table = b

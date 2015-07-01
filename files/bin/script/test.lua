@@ -55,9 +55,25 @@ function test_fifo()
 	fifo1:dump()
 end
 
+function test_sql()
+	local sql = SQLite:new("db.dat")
+	sql:exec("create table mytable (id integer, name text)");
+	--sql:exec(".schema")
+	sql:exec("insert into mytable values (1, 'hoge')");
+	sql:exec("insert into mytable values (2, 'fuga')");
+	sql:exec("insert into mytable values (3, 'foo')");
+	sql:exec("insert into mytable values (4, 'bar')");
+	sql:exec("select * from mytable") -- データ抽出が必要
+	sql:exec("select name from mytable")
+	assert(false)
+end
+
+test_sql()
 --test_fifo()
 --dofile(__exec_dir__.."script/bmp.lua")
 --dofile(__exec_dir__.."script/jpg.lua")
-dofile(__exec_dir__.."script/ts.lua")
+--dofile(__exec_dir__.."script/ts.lua")
+
+
 
 

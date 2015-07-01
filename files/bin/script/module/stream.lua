@@ -236,8 +236,15 @@ function _m:sub_stream(name, size, advance)
 	return b
 end
 
-function _m:enable_print(b)	
+function _m:enable_print(b)
+	self.print_enabled = b
 	return self.stream:enable_print(b)
+end
+
+function _m:sprint(...)
+	if self.print_enabled then
+		print(...)
+	end
 end
 
 function _m:ask_enable_print()

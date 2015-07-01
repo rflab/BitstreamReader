@@ -51,9 +51,10 @@ namespace rf
 	using std::stringstream;
 	using std::string;
 	using std::tuple;
-	using std::enable_if;
 	using std::unique_ptr;
 	using std::make_unique;
+	extern void* enabler; // undefined
+	using std::enable_if; // 使い方統一したい
 
 	class LuaBinder final
 	{
@@ -241,44 +242,17 @@ namespace rf
 			lua_pushstring(L, a.c_str());
 		}
 
-		template<typename T>
+		template<typename T, typename enable_if<is_number<T>::value>::type*& = enabler>
 		static void push_stack(lua_State* L, T a)
 		{
-			lua_pushnumber(L, static_cast<lua_Number>(a));
+		 	lua_pushnumber(L, static_cast<lua_Number>(a));
 		}
-
-		// どうすりゃいいかわからん
-		// template<typename T>
-		// static void get_stack(lua_State* L, const T &userdata)
-		// {
-		// }
-		// 
-		// template<typename T>
-		// static void push_stack(lua_State* L, std::reference_wrapper<T> const& a)
-		// {
-		// }
-		// 
-		// template<typename T>
-		// static void push_stack(lua_State* L, T a,
-		//	typedef Dummy = enable_if<is_number<T>::value>::type)
-		// {
-		// 	lua_pushnumber(L, static_cast<lua_Number>(a));
-		// }
-		// 
-		// template<typename T>
-		// static void push_stack(lua_State* L, T a,
-		//	typename Dummy = enable_if<!is_basic_type<T>::value>::type)
-		// {
-		// 	void* p = lua_newuserdata(L, sizeof(T));
-		// 	new(p) T(a);
-		// 
-		// 	lua_pushvalue(L, lua_upvalueindex(1)); // クラスを取り出す
-		// 	lua_setmetatable(L, userdata); // メタテーブルに追加する
-		// 
-		// 	return 1; // インスタンス1つを返す
-		// 
-		// 	lua_pushnumber(L, static_cast<lua_Number>(a));
-		// }
+		
+		template<typename T, typename enable_if<!is_basic_type<T>::value>::type*& = enabler>
+		static void push_stack(lua_State* L, T a) // reference_wrapper<T> a
+		{
+			lua_pushlightuserdata(L, static_cast<void*>(a));
+		}
 
 		// スタック操作 型推論でLua->C++
 		
@@ -373,7 +347,7 @@ namespace rf
 				auto f = reinterpret_cast<Ret(*)(Args...)>(lua_tocfunction(L, lua_upvalueindex(1)));
 				
 				Ret r = f(get_stack<Args>(L, Ixs)...);
-				LuaBinder::push_stack(L, r);
+				push_stack(L, r);
 
 				return 1;
 			}

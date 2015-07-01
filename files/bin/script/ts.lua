@@ -11,7 +11,42 @@ local analyse_data_byte = true
 local TYPE_PES = 0
 local TYPE_PAT = 1
 local TYPE_PMT = 2
-local pes_print = false
+
+
+local PAT_PID    = 0x0000 -- 以下、PSI
+local CAT_PID    = 0x0001
+local TSDT_PID   = 0x0002
+local IPMP_PID   = 0x0003
+local NIT_PID    = 0x0010 -- 以下、SI
+local SDT_PID    = 0x0011
+local BAT_PID    = 0x0011
+local EIT_PID_1  = 0x0012
+local EIT_PID_2  = 0x0026
+local EIT_PID_3  = 0x0027
+local RST_PID    = 0x0013
+local TDT_PID    = 0x0014
+local TOT_PID    = 0x0014
+local DCT_PID    = 0x0017
+local DIT_PID    = 0x001E
+local SIT_PID    = 0x001F
+local LIT_PID    = 0x0020 -- or PMT
+local ERT_PID    = 0x0021 -- or PMT
+local PCAT_PID   = 0x0022
+local SDTT_PID_1 = 0x0023
+local SDTT_PID_2 = 0x0028
+local BIT_PID    = 0x0024
+local NBIT_PID   = 0x0025
+local LDT_PID    = 0x0025
+local CDT_PID    = 0x0029
+local Multiple_frame_header_PID = 0x002F -- 多重フレームヘッダ情報
+local Null_Packet_PID           = 0x1FFF 
+
+-- SI/PSI/その他
+-- PAT -> PMT, DSM-CCセクション 
+-- PMT -> ECM, ECM-S, ITT, AIT
+-- CAT -> EMM, EMM-S
+-- DCT -> DLT
+-- ST  -> 0x0000, 0x0001, 0x0014を除く
 
 function descriptor()
 	local begin = cur()
@@ -158,7 +193,7 @@ function adaptation_field()
 		rbyte("reserved", get("adaptation_field_extension_length") + 1 - (cur()-begin))
 	end
 
-	rbyte("a stuffing_byte", get("adaptation_field_length") + 1 - (cur() - begin))
+	rbyte("stuffing_byte", get("adaptation_field_length") + 1 - (cur() - begin))
 end
 
 function pat()
@@ -299,9 +334,10 @@ function pmt()
 		do_until(function() descriptor() end, cur() + get("ES_info_length"))
 		
 		-- 初めて見るPIDなら追加
-		local buf = stream:new(1024*1024*3)
-		buf:enable_print(pes_print)
+		local buf, prev = open(1024*1024*3)
+	    swap(prev)
 	    pes_buf_array[get("elementary_PID")] = buf
+		buf:enable_print(false)
 		print("", stream_type_to_string(get("stream_type"), peek("format_identifier"))..
 			" = "..hexstr(get("elementary_PID")))
 
@@ -316,46 +352,41 @@ function ts(size, target)
 	local total = 0
 	local no = 0
 	local begin
+	local pid
 	
 	-- 初期TSパケット長
-	if __stream_ext__ == ".tts"
-	or __stream_ext__ == ".m2ts" then
-		ts_packet_size = 192
-	else
-		ts_packet_size = 188
-	end
 
 	while total < size do
 		no = no + 1
-		begin = cur()
 		check_progress()
-	
-		if ts_packet_size == 192 then
+		
+		-- ATSの場合
+		if lbyte(1) ~= 0x47 then
 			rbyte("ATS", 4)
 			-- printf("  ATS = %x(%fsec)", get("ATS"), get("ATS")/90000)
 		end
+		
+		-- ATSのつぎからが本番
+		begin = cur()
 
-		local ofs = fbyte(0x47, true)
-		rbit("syncbyte", 8)
+		local ofs = fbyte(0x47, true, 188+4)
 		if ofs ~= 0 then
-			if ofs < 20 then -- 適当 208バイト
-				ts_packet_size = ts_packet_size + ofs
-			else
-				ts_packet_size = 188
-			end
-			print("# discontinuous syncbyte --> size chagne to "..ts_packet_size)
+			print("# discontinuous syncbyte")
 		end
-
+		
+		rbit("syncbyte",                     8)
 		rbit("transport_error_indicator",    1)
 		rbit("payload_unit_start_indicator", 1)		
 		rbit("transport_priority",           1)
+		pid = 
 		rbit("PID",                          13)
 		rbit("transport_scrambling_control", 2)
 		rbit("adaptation_field_control",     2)
 		rbit("continuity_counter",           4)
 		
+		
 		if get("payload_unit_start_indicator") == 1 and analyse_data_byte then
-			payload(get("PID"))
+			analyze_payload(pid)
 		end
 		
 		if get("adaptation_field_control") & 2 == 2 then
@@ -363,15 +394,18 @@ function ts(size, target)
 		end
 		
 		if get("adaptation_field_control") & 1 == 1 then
-			if data_byte(target, get("PID"), ts_packet_size - (cur() - begin)) == true then
+			if data_byte(target, pid, 188 - (cur() - begin)) == true then
 				if target==TYPE_PAT or target==TYPE_PMT then
 					return
 				end
 			end
+		else
+			rbyte("unknown data", 188 - (cur() - begin))
 		end
 		
 		total = total + (cur()-begin)
 	end
+	-- while (nextbits() = = sync_byte)
 end
 
 function data_byte(target, pid, size)
@@ -388,7 +422,7 @@ function data_byte(target, pid, size)
 			return false
 		end
 	elseif target == TYPE_PAT then
-		if pid == 0 then
+		if pid == PAT_PID then
 			if get("payload_unit_start_indicator")==1 then
 				rbit("pointer_field", 8)
 				pat()
@@ -418,7 +452,41 @@ function data_byte(target, pid, size)
 	end
 end
 
-function payload(pid)
+function get_pid_string(pid)
+	if pid == Null_Packet_PID then return "Null_Packet"           
+	elseif pid == PAT_PID     then return "PAT_PID   "
+	elseif pid == pmt_pid     then return "PMT_PID   " -- これだけ変数比較
+	elseif pid == CAT_PID     then return "CAT_PID   "               
+	elseif pid == TSDT_PID    then return "TSDT_PID  "               
+	elseif pid == IPMP_PID    then return "IPMP_PID  "               
+	elseif pid == NIT_PID     then return "NIT_PID   "               
+	elseif pid == SDT_PID     then return "SDT_PID   "               
+	elseif pid == BAT_PID     then return "BAT_PID   "               
+	elseif pid == EIT_PID_1   then return "EIT_PID_1 "               
+	elseif pid == EIT_PID_2   then return "EIT_PID_2 "               
+	elseif pid == EIT_PID_3   then return "EIT_PID_3 "               
+	elseif pid == RST_PID     then return "RST_PID   "               
+	elseif pid == TDT_PID     then return "TDT_PID   "               
+	elseif pid == TOT_PID     then return "TOT_PID   "               
+	elseif pid == DCT_PID     then return "DCT_PID   "               
+	elseif pid == DIT_PID     then return "DIT_PID   "               
+	elseif pid == SIT_PID     then return "SIT_PID   "               
+	elseif pid == LIT_PID     then return "LIT_PID   "               
+	elseif pid == ERT_PID     then return "ERT_PID   "               
+	elseif pid == PCAT_PID    then return "PCAT_PID  "               
+	elseif pid == SDTT_PID_1  then return "SDTT_PID_1"               
+	elseif pid == SDTT_PID_2  then return "SDTT_PID_2"               
+	elseif pid == BIT_PID     then return "BIT_PID   "               
+	elseif pid == NBIT_PID    then return "NBIT_PID  "               
+	elseif pid == LDT_PID     then return "LDT_PID   "               
+	elseif pid == CDT_PID     then return "CDT_PID   "               
+	elseif pid == Multiple_frame_header_PID then
+		return "Multiple_frame_header_PID"
+	end
+	return "unknown_PID"
+end
+
+function analyze_payload(pid)
 	local pes_buf = pes_buf_array[pid]
 	if  pes_buf ~= nil then
 		local ts_file = swap(pes_buf)
@@ -430,6 +498,8 @@ function payload(pid)
 			end
 		end
 		swap(ts_file)
+	else
+		sprint(hexstr(cur()), get_pid_string(pid))
 	end
 end
 
@@ -447,17 +517,14 @@ function store_recode(pid, offset, size, PCR, PTS, DTS)
 end
 
 function analyze()
-	ts_print = false
-	pes_print = false
-
 	print("analyze PAT")
 	seek(0)
-	enable_print(ts_print)
+	enable_print(false)
 	ts(1024*1024, TYPE_PAT)
 
 	print("analyze PMT")
 	seek(0)
-	enable_print(ts_print)
+	enable_print(false)
 	ts(1024*1024, TYPE_PMT)
 
 	print("analyze PES")
@@ -465,7 +532,7 @@ function analyze()
 	-- analyse_data_byte = io.read() == "y"
 	analyse_data_byte = true
 	seek(0)
-	enable_print(ts_print)
+	enable_print(false)
 	--ts(get_size()-200, TYPE_PES)
 	print("short analyse size/100")
 	ts(get_size()/50, TYPE_PES)

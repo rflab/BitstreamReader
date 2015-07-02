@@ -164,6 +164,20 @@ lua->def_subclass<LuaGlueBufBitstream>("Buffer", "IBitstream")->
 lua->def_subclass<LuaGlueFifoBitstream>("Fifo", "IBitstream")->
 	def("new",     LuaBinder::constructor<LuaGlueFifoBitstream(int)>()).
 	def("reserve", &LuaGlueFifoBitstream::reserve); // バッファを再確保、書き込み済みデータは破棄
+	
+// SQLiterラッパー
+lua->def_class<SqliteWrapper>("SQLite")->
+	def("new",         LuaBinder::constructor<SqliteWrapper(const string&)>()).
+	def("exec",        &SqliteWrapper::exec).
+	def("prepare",     &SqliteWrapper::prepare).
+	def("step",        &SqliteWrapper::step).
+	def("reset",       &SqliteWrapper::reset).
+	def("bind_int",    &SqliteWrapper::bind_int).
+	def("bind_text",   &SqliteWrapper::bind_text).
+	def("bind_real",   &SqliteWrapper::bind_real).
+	def("column_int",  &SqliteWrapper::column_int).
+	def("column_text", &SqliteWrapper::column_text).
+	def("column_real", &SqliteWrapper::column_real);
 ```
 
 ## ビルド方法

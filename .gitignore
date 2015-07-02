@@ -21,6 +21,7 @@ streamreader_d.exe
 *.h265
 *.pat
 *.pmt
+*.wav
 *.es
 *.jpg
 *.test

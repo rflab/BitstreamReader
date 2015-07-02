@@ -55,20 +55,54 @@ function test_fifo()
 	fifo1:dump()
 end
 
-function test_sql()
-	local sql = SQLite:new("db.dat")
-	sql:exec("create table mytable (id integer, name text)");
-	--sql:exec(".schema")
-	sql:exec("insert into mytable values (1, 'hoge')");
-	sql:exec("insert into mytable values (2, 'fuga')");
-	sql:exec("insert into mytable values (3, 'foo')");
-	sql:exec("insert into mytable values (4, 'bar')");
-	sql:exec("select * from mytable") -- データ抽出が必要
-	sql:exec("select name from mytable")
+function test_sql1()
+	local db = SQLite:new("db.db")
+	db:exec("create table mytable (id integer primary key, name text)");
+	--db:exec(".schema")
+	db:exec("insert into mytable values (1, 'hoge')");
+	db:exec("insert into mytable values (2, 'fuga')");
+	db:exec("insert into mytable values (3, 'foo')");
+	db:exec("insert into mytable values (4, 'bar')");
+	db:exec("select * from mytable") -- データ抽出が必要
+	db:exec("select name from mytable")
 	assert(false)
 end
 
-test_sql()
+function test_sql()
+	local sql 
+	if windows then
+	-- マルチバイトでハング
+		db = SQLite:new(__stream_name__..".db")
+	else
+		db = SQLite:new(__stream_dir__..__stream_name__..".db")
+	end
+	db:exec("drop table if exists mytable");
+	db:exec("create table mytable (id integer primary key, name text)");
+
+	local insert_stmt_ix= db:prepare("insert into mytable values (?, ?)");
+	function insert_stmt(id, name)
+		db:reset(insert_stmt_ix)
+		db:bind_int(insert_stmt_ix, 1, id)
+		db:bind_text(insert_stmt_ix, 2, name)
+		db:step(insert_stmt_ix)
+	end
+	
+	local select_stmt_ix = db:prepare("select * from mytable")
+	function insert_stmt(id, name)
+		db:reset(insert_stmt_ix)
+		db:bind_int(insert_stmt_ix, 1, id)
+		db:bind_text(insert_stmt_ix, 2, name)
+		db:step(insert_stmt_ix)
+	end
+	
+	insert_stmt(1, "hoge")
+	insert_stmt(2, "foo")
+	insert_stmt(3, "bar")
+	sql = nil
+	collectgarbage("collect")
+end
+
+--test_sql()
 --test_fifo()
 --dofile(__exec_dir__.."script/bmp.lua")
 --dofile(__exec_dir__.."script/jpg.lua")

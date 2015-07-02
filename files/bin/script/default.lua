@@ -18,12 +18,12 @@ __stream_path__, __stream_dir__, __stream_name__, __stream_ext__ = split_file_na
 -- print("__stream_ext__ :"..__stream_ext__)
 
 -- 解析結果出力先ディレクトリ作成
--- print("os.execute", os.execute())
 if windows then
-	local win_dir = string.gsub(__stream_dir__, "/", "\\")
 	os.execute("mkdir \""..__stream_dir__.."out\"")
+	init_sql()
 else
 	os.execute("mkdir -p \""..__stream_dir__.."out/\"")
+	init_sql()
 end
 
 -- 拡張子が.testならとりあえずテストコード
@@ -76,5 +76,7 @@ elseif ext == ".txt" then
 else
 	print("not found extension")
 end
+
+disp_sql()
 
 cmd()

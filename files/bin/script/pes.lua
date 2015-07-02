@@ -163,7 +163,7 @@ function pes(buf, pid)
 	            rbit("MPEG1_MPEG2_identifier",                          1)
 	            rbit("original_stuff_length",                           6)
 	        end
-   	  		if get("STD_buffer_flag") == 1 then
+   	  		if get("P-STD_buffer_flag") == 1 then
 	            rbit("'01'",                                            2)
 	            rbit("P-STD_buffer_scale",                              1)
 	            rbit("P-STD_buffer_size",                               13)

@@ -1458,9 +1458,15 @@ namespace rf
 		// unique_ptr<sqlite3> db_;
 		sqlite3* db_;
 
-		
+		vector<sqlite3_stmt*> stmts_;
+				
 		bool close()
 		{
+			for (auto stmt : stmts_)
+			{
+				sqlite3_finalize(stmt);
+			}
+
 			int ret = sqlite3_close(db_);
 			if (FAIL(ret == SQLITE_OK))
 			{
@@ -1513,11 +1519,162 @@ namespace rf
 			int ret = sqlite3_exec(db_, sql.c_str(), NULL, NULL, &msg);
 			if (FAIL(ret == SQLITE_OK))
 			{
-				cout << msg << endl;
+				ERR << msg << endl;
 				sqlite3_free(msg);
 				return false;
 			}
 			return true;
+		}
+
+		int prepare(const string& sql)
+		{
+			sqlite3_stmt* stmt;
+
+			// prepare, length=-1ならNULL文字検索, 最後のNULLはパース完了箇所が欲しければ
+			int ret = sqlite3_prepare_v2(db_, sql.c_str(), sql.length(), &stmt, NULL);
+			if (FAIL(ret == SQLITE_OK))
+			{
+				ERR << "prepare error:" << sqlite3_errmsg(db_) << endl;
+				throw LUA_RUNTIME_ERROR("SQL prepare failed.");
+			}
+			//
+			stmts_.push_back(stmt);
+			return stmts_.size() - 1;
+		}
+
+		bool reset(int stmt_ix)
+		{
+			if (FAIL(stmt_ix < static_cast<int>(stmts_.size())))
+			{
+				ERR << "unprepared index, [" << stmt_ix << "]" << endl;
+				return false;
+			}
+			sqlite3_reset(stmts_[stmt_ix]);
+			return true;
+		}
+
+		int step(int stmt_ix)
+		{
+			if (FAIL(stmt_ix < static_cast<int>(stmts_.size())))
+			{
+				ERR << "unprepared index, [" << stmt_ix << "]" << endl;
+				return false;
+			}
+
+			// SQLITE_ERROR：クエリが何らかの理由によりエラーとなった場合
+			// SQLITE_ROW : クエリの結果が列として取れる場合
+			// SQLITE_BUSY : クエリが未完の場合
+			// SQLITE_DONE : クエリが完了時
+			int ret;
+			for (int i=0;i<10000;i++)
+			{
+				ret = sqlite3_step(stmts_[stmt_ix]);
+				if (ret == SQLITE_DONE)
+				{
+					break;
+				}
+				else if (ret == SQLITE_ROW)
+				{
+					break;
+				}
+				else if (ret == SQLITE_BUSY)
+				{
+					cout << "busy" << endl;
+				}
+				else
+				{
+					ERR << "unknown result in sqlite3_step" << ret << endl;
+				}
+			}
+			return ret;
+		}
+
+		bool bind_int(int stmt_ix, int sql_ix, int value)
+		{
+			if (FAIL(stmt_ix < static_cast<int>(stmts_.size())))
+			{
+				ERR << "unprepared index, [" << stmt_ix << "]" << endl;
+				return false;
+			}
+			sqlite3_bind_int(stmts_[stmt_ix], sql_ix, value);
+			return true;
+		}
+
+		bool bind_text(int stmt_ix, int sql_ix, const string &text)
+		{
+			if (FAIL(stmt_ix < static_cast<int>(stmts_.size())))
+			{
+				ERR << "unprepared index, [" << stmt_ix << "]" << endl;
+				return false;
+			}
+			sqlite3_bind_text(stmts_[stmt_ix], sql_ix,
+				text.c_str(), text.length(), SQLITE_TRANSIENT);
+			return true;
+		}
+
+		bool bind_real(int stmt_ix, int sql_ix, double value)
+		{
+			if (FAIL(stmt_ix < static_cast<int>(stmts_.size())))
+			{
+				ERR << "unprepared index, [" << stmt_ix << "]" << endl;
+				return false;
+			}
+			sqlite3_bind_double(stmts_[stmt_ix], sql_ix, value);
+			return true;
+		}
+
+		bool bind_blob(int stmt_ix, int sql_ix, const void* blob, int size,
+			void(*destructor)(void*))
+		{
+			if (FAIL(stmt_ix < static_cast<int>(stmts_.size())))
+			{
+				ERR << "unprepared index, [" << stmt_ix << "]" << endl;
+				return false;
+			}
+			sqlite3_bind_blob(stmts_[stmt_ix], sql_ix,
+				blob, size, destructor);
+			return true;
+		}
+
+		int column_int(int stmt_ix, int sql_ix)
+		{
+			if (FAIL(stmt_ix < static_cast<int>(stmts_.size())))
+			{
+				ERR << "unprepared index, [" << stmt_ix << "]" << endl;
+				return false;
+			}
+			return sqlite3_column_int(stmts_[stmt_ix], sql_ix);
+		}
+
+		string column_text(int stmt_ix, int sql_ix)
+		{
+			if (FAIL(stmt_ix < static_cast<int>(stmts_.size())))
+			{
+				ERR << "unprepared index, [" << stmt_ix << "]" << endl;
+				return false;
+			}
+			return reinterpret_cast<const char*>(
+				sqlite3_column_text(stmts_[stmt_ix], sql_ix));
+		}
+
+		double column_real(int stmt_ix, int sql_ix)
+		{
+			if (FAIL(stmt_ix < static_cast<int>(stmts_.size())))
+			{
+				ERR << "unprepared index, [" << stmt_ix << "]" << endl;
+				return false;
+			}
+			return sqlite3_column_double(stmts_[stmt_ix], sql_ix);
+		}
+
+		const void* column_blob(int stmt_ix, int sql_ix)
+		{
+			if (FAIL(stmt_ix < static_cast<int>(stmts_.size())))
+			{
+				ERR << "unprepared index, [" << stmt_ix << "]" << endl;
+				return false;
+			}
+			return sqlite3_column_blob(stmts_[stmt_ix], sql_ix);
 		}
 	};
 }
@@ -1528,11 +1685,6 @@ using namespace rf;
 // Luaを初期化する
 unique_ptr<LuaBinder> init_lua(int argc, char** argv)
 {
-
-	{
-		SqliteWrapper sql("test.dat");
-	}
-
 	auto lua = make_unique<LuaBinder>();
 	
 	// 関数バインド
@@ -1541,8 +1693,7 @@ unique_ptr<LuaBinder> init_lua(int argc, char** argv)
 	lua->def("transfer_to_file", LuaGlueBitstream::transfer_to_file); // 指定したストリームををファイルに出力
 	lua->def("reverse_16",       reverse_endian_16);                  // 16ビットエンディアン変換
 	lua->def("reverse_32",       reverse_endian_32);                  // 32ビットエンディアン変換
-
-
+	
 	// インターフェース
 	lua->def_class<LuaGlueBitstream>("IBitstream")->
 		def("size",             &LuaGlueBitstream::size).              // ファイルサイズ取得
@@ -1592,9 +1743,29 @@ unique_ptr<LuaBinder> init_lua(int argc, char** argv)
 
 	// SQLiterラッパー
 	lua->def_class<SqliteWrapper>("SQLite")->
-		def("new", LuaBinder::constructor<SqliteWrapper(const string&)>()).
-		def("exec", &SqliteWrapper::exec);
-		
+		def("new",         LuaBinder::constructor<SqliteWrapper(const string&)>()).
+		def("exec",        &SqliteWrapper::exec).
+		def("prepare",     &SqliteWrapper::prepare).
+		def("step",        &SqliteWrapper::step).
+		def("reset",       &SqliteWrapper::reset).
+		def("bind_int",    &SqliteWrapper::bind_int).
+		def("bind_text",   &SqliteWrapper::bind_text).
+		def("bind_real",   &SqliteWrapper::bind_real).
+		def("column_int",  &SqliteWrapper::column_int).
+		def("column_text", &SqliteWrapper::column_text).
+		def("column_real", &SqliteWrapper::column_real);
+
+	// とりあえずSQLiteもバインドしておく
+	lua->def("sqlite3_open", sqlite3_open);
+	lua->def("sqlite3_close", sqlite3_close);
+	lua->def("sqlite3_exec", sqlite3_exec);
+	lua->def("sqlite3_prepare_v2", sqlite3_prepare_v2);
+	lua->def("sqlite3_step", sqlite3_step);
+	lua->def("sqlite3_reset", sqlite3_reset);
+	lua->def("sqlite3_bind_int", sqlite3_bind_int);
+	lua->def("sqlite3_bind_text", sqlite3_bind_text);
+	lua->def("sqlite3_column_int", sqlite3_column_int);
+	lua->def("sqlite3_column_text", sqlite3_column_text);
 
 	// Luaの環境を登録
 #ifdef _MSC_VER

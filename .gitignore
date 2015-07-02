@@ -27,6 +27,7 @@ streamreader_d.exe
 *.bmp
 *.ilk
 *.pdb
+*.db
 
 # Windows image file caches
 Thumbs.db

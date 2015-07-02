@@ -183,6 +183,18 @@ function exec_cmd(c)
 				print("abort.")
 			end
 		end
+	elseif c[1] == "sql" then
+		local cmd
+		if windows then
+			--cmd = "\""..__exec_dir__.."sqlite3.exe\" "
+			--cmd = cmd ..__stream_dir__..__stream_name__..".db"
+			--os.execute(cmd)
+			if c[2] == nil then
+				os.execute("sqlite3.exe "..__stream_name__..".db")
+			else
+				os.execute("sqlite3.exe "..c[2])
+			end
+		end
 	elseif c[1] == "hogehoge" then
 	elseif c[1] == "hogehoge" then
 	elseif c[1] == "hogehoge" then
@@ -198,6 +210,7 @@ function exec_cmd(c)
 	--		end
 	else
 		print("history          : show history")
+		print("sql              : open db by SQLite shell")
 		print("info             : show all values")
 		print("stream INDEX     : show and swap stream")
 		print("grep REGEX...    : search & show last value")

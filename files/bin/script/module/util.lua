@@ -443,4 +443,47 @@ function on_set_value(name, value, size)
 	gs_data.values[name] = value
 	table.insert(gs_data.tables[name], value)
 	table.insert(gs_data.sizes[name], size)
+	
+	local byte, bit = cur()
+	--insert_sql(name, value, byte, bit)
 end
+
+--
+function init_sql()
+	local sql
+	if windows then
+	-- マルチバイトでハング
+		db = SQLite:new(__stream_name__..".db")
+	else
+		db = SQLite:new(__stream_dir__..__stream_name__..".db")
+	end
+	db:exec("drop table if exists bitstream");
+	db:exec("create table bitstream (id integer primary key, name text, ix integer, byte integer, bit integer)");
+
+	local insert_stmt_ix= db:prepare("insert into bitstream values (?, ?, ?, ?, ?)");
+	insert_sql = function (name, ix, byte, bit, value)
+		db:reset(insert_stmt_ix)
+		db:bind_text(insert_stmt_ix, 2, name)
+		db:bind_int(insert_stmt_ix, 3, ix)
+		db:bind_int(insert_stmt_ix, 4, byte)
+		db:bind_int(insert_stmt_ix, 5, bit)
+		-- db:bind_int(insert_stmt_ix, 5, value)
+		db:step(insert_stmt_ix)
+	end
+	
+	local select_name_ix = db:prepare("select * from bitstream")
+	function disp_sql (id, name)
+		db:reset(select_name_ix)
+		local name
+		local SQLITE_ROW = 100
+		while SQLITE_ROW == db:step(select_name_ix) do
+			local id = db:column_int(select_name_ix, 0)
+			local name = db:column_text(select_name_ix, 1)
+			print (id, name)
+		end
+	end
+end
+
+function insert_sql() end
+function disp_sql() end
+

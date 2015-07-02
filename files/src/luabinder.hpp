@@ -198,22 +198,11 @@ namespace rf
 		template<typename T>
 		struct is_string
 		{
-# if 0
-			// うまくいかない理由がわからんorz
-			static const bool value =
-				// referenceとconstの順番が逆だとしくじる、なんでだーorz
-				// ((std::is_same <typename std::remove_reference<typename std::remove_const<
-				//	T>::type >::type, string >::value)
-				((std::is_same <typename std::remove_const<typename std::remove_reference<
-					T>::type >::type, string >::value)
-				|| (std::is_same<typename std::remove_const<T>::type, char*>::value));
-#else
 			static const bool value =
 				((std::is_same <T, const string& >::value)
 				|| (std::is_same <T, string >::value)
 				|| (std::is_same <T, const char* >::value)
 				|| (std::is_same <T, char* >::value));
-#endif
 		};
 
 		template<typename T>
@@ -248,10 +237,25 @@ namespace rf
 		 	lua_pushnumber(L, static_cast<lua_Number>(a));
 		}
 		
-		template<typename T, typename enable_if<!is_basic_type<T>::value>::type*& = enabler>
+		template<typename T, typename enable_if<
+			!is_basic_type<T>::value
+			&& !std::is_const<typename std::remove_reference<T>::type>::value
+			&& !std::is_const<typename std::remove_pointer<T>::type>::value
+		>::type*& = enabler>
 		static void push_stack(lua_State* L, T a) // reference_wrapper<T> a
 		{
 			lua_pushlightuserdata(L, static_cast<void*>(a));
+		}
+
+		template<typename T, typename enable_if<
+			!is_basic_type<T>::value
+			&& (std::is_const<typename std::remove_reference<T>::type>::value
+			|| std::is_const<typename std::remove_pointer<T>::type>::value)
+		>::type*& = enabler>
+		static void push_stack(lua_State* L, T a) // reference_wrapper<T> a
+		{
+			// 超危険な気がする
+			lua_pushlightuserdata(L, const_cast<void*>(static_cast<const void*>(a)));
 		}
 
 		// スタック操作 型推論でLua->C++

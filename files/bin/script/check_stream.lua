@@ -56,24 +56,6 @@ function check_stream(s)
 			ret = ".pes"
 			break
 		end
-		
-		-- h265
-		s:seek(0)
-		if s:fstr("00 00 01", true, 1024) ~= 1024 then
-			if s:cbyte("start_code_prefix_one_3bytes", 3, 0x000001) then
-				if s:cbit("forbidden_zero_bit",    1, 0) then
-					ret = ".h265"
-					break
-				end
-			end
-		end
-		
-		-- h264
-		s:seek(0)
-		if false then
-			ret = ".h264"
-			break
-		end
 
 		-- AAC
 		s:seek(0)
@@ -130,6 +112,26 @@ function check_stream(s)
 		s:seek(0)
 		if s:cbyte("signature", 4, 0x504b0304) then
 			ret = ".zip"
+			break
+		end
+		
+		
+		-- h265
+		s:seek(0)
+		if s:lbyte(3) == 1 or lbyte(4) == 1 then
+			s:fstr("00 00 01", true, 10)
+			if s:cbyte("start_code_prefix_one_3bytes", 3, 0x000001) then
+				if s:cbit("forbidden_zero_bit",    1, 0) then
+					ret = ".h265"
+					break
+				end
+			end
+		end
+		
+		-- h264
+		s:seek(0)
+		if false then
+			ret = ".h264"
 			break
 		end
 		

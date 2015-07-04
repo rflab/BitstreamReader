@@ -1502,16 +1502,6 @@ namespace rf
 
 	public:
 
-		SqliteWrapper(const string& filename)
-		{
-			open(filename);
-		}
-
-		~SqliteWrapper()
-		{
-			close();
-		}
-
 		bool exec(const string& sql)
 		{
 			// テーブルの作成
@@ -1519,13 +1509,14 @@ namespace rf
 			int ret = sqlite3_exec(db_, sql.c_str(), NULL, NULL, &msg);
 			if (FAIL(ret == SQLITE_OK))
 			{
-				ERR << msg << endl;
+				ERR << sql << msg << endl;
 				sqlite3_free(msg);
 				return false;
 			}
 			return true;
 		}
 
+		// 別のクラスにしたい
 		int prepare(const string& sql)
 		{
 			sqlite3_stmt* stmt;
@@ -1636,17 +1627,47 @@ namespace rf
 			return true;
 		}
 
-		int column_int(int stmt_ix, int sql_ix)
+		int column_count(int stmt_ix)
 		{
 			if (FAIL(stmt_ix < static_cast<int>(stmts_.size())))
 			{
 				ERR << "unprepared index, [" << stmt_ix << "]" << endl;
 				return false;
 			}
-			return sqlite3_column_int(stmts_[stmt_ix], sql_ix);
+			return sqlite3_column_count(stmts_[stmt_ix]);
 		}
 
-		string column_text(int stmt_ix, int sql_ix)
+		string column_name(int stmt_ix, int colmun)
+		{
+			if (FAIL(stmt_ix < static_cast<int>(stmts_.size())))
+			{
+				ERR << "unprepared index, [" << stmt_ix << "]" << endl;
+				return false;
+			}
+			return sqlite3_column_name(stmts_[stmt_ix], colmun);
+		}
+
+		int column_type(int stmt_ix, int column)
+		{
+			if (FAIL(stmt_ix < static_cast<int>(stmts_.size())))
+			{
+				ERR << "unprepared index, [" << stmt_ix << "]" << endl;
+				return false;
+			}
+			return sqlite3_column_type(stmts_[stmt_ix], column);
+		}
+
+		int column_int(int stmt_ix, int column)
+		{
+			if (FAIL(stmt_ix < static_cast<int>(stmts_.size())))
+			{
+				ERR << "unprepared index, [" << stmt_ix << "]" << endl;
+				return false;
+			}
+			return sqlite3_column_int(stmts_[stmt_ix], column);
+		}
+
+		string column_text(int stmt_ix, int column)
 		{
 			if (FAIL(stmt_ix < static_cast<int>(stmts_.size())))
 			{
@@ -1654,27 +1675,37 @@ namespace rf
 				return false;
 			}
 			return reinterpret_cast<const char*>(
-				sqlite3_column_text(stmts_[stmt_ix], sql_ix));
+				sqlite3_column_text(stmts_[stmt_ix], column));
 		}
 
-		double column_real(int stmt_ix, int sql_ix)
+		double column_real(int stmt_ix, int column)
 		{
 			if (FAIL(stmt_ix < static_cast<int>(stmts_.size())))
 			{
 				ERR << "unprepared index, [" << stmt_ix << "]" << endl;
 				return false;
 			}
-			return sqlite3_column_double(stmts_[stmt_ix], sql_ix);
+			return sqlite3_column_double(stmts_[stmt_ix], column);
 		}
 
-		const void* column_blob(int stmt_ix, int sql_ix)
+		const void* column_blob(int stmt_ix, int column)
 		{
 			if (FAIL(stmt_ix < static_cast<int>(stmts_.size())))
 			{
 				ERR << "unprepared index, [" << stmt_ix << "]" << endl;
 				return false;
 			}
-			return sqlite3_column_blob(stmts_[stmt_ix], sql_ix);
+			return sqlite3_column_blob(stmts_[stmt_ix], column);
+		}
+
+		SqliteWrapper(const string& filename)
+		{
+			open(filename);
+		}
+
+		~SqliteWrapper()
+		{
+			close();
 		}
 	};
 }
@@ -1743,29 +1774,42 @@ unique_ptr<LuaBinder> init_lua(int argc, char** argv)
 
 	// SQLiterラッパー
 	lua->def_class<SqliteWrapper>("SQLite")->
-		def("new",         LuaBinder::constructor<SqliteWrapper(const string&)>()).
-		def("exec",        &SqliteWrapper::exec).
-		def("prepare",     &SqliteWrapper::prepare).
-		def("step",        &SqliteWrapper::step).
-		def("reset",       &SqliteWrapper::reset).
-		def("bind_int",    &SqliteWrapper::bind_int).
-		def("bind_text",   &SqliteWrapper::bind_text).
-		def("bind_real",   &SqliteWrapper::bind_real).
-		def("column_int",  &SqliteWrapper::column_int).
-		def("column_text", &SqliteWrapper::column_text).
-		def("column_real", &SqliteWrapper::column_real);
+		def("new",          LuaBinder::constructor<SqliteWrapper(const string&)>()).
+		def("exec",         &SqliteWrapper::exec).
+		def("prepare",      &SqliteWrapper::prepare).
+		def("step",         &SqliteWrapper::step).
+		def("reset",        &SqliteWrapper::reset).
+		def("bind_int",     &SqliteWrapper::bind_int).
+		def("bind_text",    &SqliteWrapper::bind_text).
+		def("bind_real",    &SqliteWrapper::bind_real).
+		def("column_name",  &SqliteWrapper::column_name).
+		def("column_type",  &SqliteWrapper::column_type).
+		def("column_count", &SqliteWrapper::column_count).
+		def("column_int",   &SqliteWrapper::column_int).
+		def("column_text",  &SqliteWrapper::column_text).
+		def("column_real",  &SqliteWrapper::column_real);
 
-	// とりあえずSQLiteもバインドしておく
-	lua->def("sqlite3_open", sqlite3_open);
-	lua->def("sqlite3_close", sqlite3_close);
-	lua->def("sqlite3_exec", sqlite3_exec);
-	lua->def("sqlite3_prepare_v2", sqlite3_prepare_v2);
-	lua->def("sqlite3_step", sqlite3_step);
-	lua->def("sqlite3_reset", sqlite3_reset);
-	lua->def("sqlite3_bind_int", sqlite3_bind_int);
-	lua->def("sqlite3_bind_text", sqlite3_bind_text);
-	lua->def("sqlite3_column_int", sqlite3_column_int);
-	lua->def("sqlite3_column_text", sqlite3_column_text);
+	// // SQLite
+	// lua->object<sqlite3*>("sqlite3");
+	// lua->object<sqlite3_stmt*>("sqlite3_stmt");
+	// lua->def("sqlite3_open",         sqlite3_open);
+	// lua->def("sqlite3_close",        sqlite3_close);
+	// lua->def("sqlite3_exec",         sqlite3_exec);
+	// lua->def("sqlite3_prepare_v2",   sqlite3_prepare_v2);
+	// lua->def("sqlite3_step",         sqlite3_step);
+	// lua->def("sqlite3_reset",        sqlite3_reset);
+	// lua->def("sqlite3_bind_int",     sqlite3_bind_int);
+	// lua->def("sqlite3_bind_text",    sqlite3_bind_text);
+	// lua->def("sqlite3_column_int",   sqlite3_column_int);
+	// lua->def("sqlite3_column_text",  sqlite3_column_text);
+	// lua->def("sqlite3_column_type",  sqlite3_column_text);
+	// lua->def("sqlite3_column_count", sqlite3_column_count);
+	lua->rawset("SQLITE_ROW",        SQLITE_ROW);
+	lua->rawset("SQLITE_INTEGER",    SQLITE_INTEGER);
+	lua->rawset("SQLITE_FLOAT",      SQLITE_FLOAT);
+	lua->rawset("SQLITE_TEXT",       SQLITE_TEXT);
+	lua->rawset("SQLITE_BLOB",       SQLITE_BLOB);
+	lua->rawset("SQLITE_NULL",       SQLITE_NULL);
 
 	// Luaの環境を登録
 #ifdef _MSC_VER
@@ -1922,7 +1966,7 @@ int main(int argc, char** argv)
 	}
 
 	// luaコマンド実行
-	cout << "q:quit" << endl;
+	cout << "column_typeq:quit" << endl;
 	for (;;)
 	{
 		cout << ">" << std::flush;

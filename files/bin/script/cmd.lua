@@ -182,32 +182,36 @@ function exec_cmd(c)
 			else
 				print("abort.")
 			end
-		end
+		end	
 	elseif c[1] == "sql" then
 		local cmd
 		if windows then
-			--cmd = "\""..__exec_dir__.."sqlite3.exe\" "
-			--cmd = cmd ..__stream_dir__..__stream_name__..".db"
-			--os.execute(cmd)
 			if c[2] == nil then
 				os.execute("sqlite3.exe "..__stream_name__..".db")
 			else
 				os.execute("sqlite3.exe "..c[2])
 			end
 		end
+		
+	elseif c[1] == "sql_test" then
+		local command = [[select * from bitstream limit 100]]
+		local stmt = get_sql():prepare(command)
+		sql_print(stmt)
+	elseif c[1] == "sql_info" then
+		local command = [[select count(*), name from bitstream group by name limit 100]]
+		local stmt = get_sql():prepare(command)
+		print("num   |name")
+		print("------|--------------------------")
+		sql_print(stmt, "%6d| %-40s")
+	elseif c[1] == "sql_info2" then
+		local command = [[select name, count(*) from bitstream group by name limit 100]]
+		local stmt = get_sql():prepare(command)
+		sql_print(stmt)
 	elseif c[1] == "hogehoge" then
-	elseif c[1] == "hogehoge" then
-	elseif c[1] == "hogehoge" then
-	elseif c[1] == "hogehoge" then
-	elseif c[1] == "hogehoge" then
-	elseif c[1] == "hogehoge" then
-	elseif c[1] == "hogehoge" then
-	elseif c[1] == "hogehoge" then
-	elseif c[1] == "hogehoge" then
-	--	elseif c[1] == "function" then
-	--		if type(_G[c[2]]) == "table" then
-	--			_G[c[2]](c[3], c[4], c[5], c[6], c[7], c[8], c[9])
-	--		end
+		elseif c[1] == "function" then
+			if type(_G[c[2]]) == "table" then
+				_G[c[2]](c[3], c[4], c[5], c[6], c[7], c[8], c[9])
+			end
 	else
 		print("history          : show history")
 		print("sql              : open db by SQLite shell")

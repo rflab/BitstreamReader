@@ -76,14 +76,15 @@ namespace rf
 		}
 		
 		// 今のスタック状態をprintf（スタティック関数版）
-		static bool  dump_stack(lua_State *L)
+		static bool dump_stack(lua_State *L)
 		{
 			int stack_size = lua_gettop(L);
 			printf("------------------------------------------\n");
 			for (int i = 0; i < stack_size; i++)
 			{
 				int type = lua_type(L, stack_size - i);
-				printf("Stack[%2d(%3d) %10s] : ", stack_size - i, -i - 1, lua_typename(L, type));
+				printf("stack[%2d(%3d) %10s] : ", stack_size - i, -i - 1,
+					lua_typename(L, type));
 
 				switch (type)
 				{
@@ -108,6 +109,7 @@ namespace rf
 				}
 			}
 			printf("------------------------------------------\n");
+
 			return true;
 		}
 
@@ -130,16 +132,25 @@ namespace rf
 		}
 
 		// lua_pcallに乗せるべき関数
+		// エラー時はスタックにエラーメッセージが追加されていて、それpcallの戻り値になる
 		static int traceback(lua_State* L)
 		{
-			dump_stack(L);
+			// バックトレース
 			const char* msg = lua_tostring(L, -1);
-			if (msg)
-			{
-				luaL_traceback(L, L, msg, 1);
-				cout << lua_tostring(L, -1) << endl;
-				lua_pop(L, 1);
-			}
+			luaL_traceback(L, L, msg, 1);
+			cout << lua_tostring(L, -1) << endl;
+			lua_pop(L, 1);
+
+			// スタック状態表示
+			dump_stack(L);
+			
+			//lua_Debug d = {};
+			//for (int i = 1; lua_getstack(L, i, &d); ++i)
+			//{
+			//	lua_getinfo(L, "Sln", &d);
+			//	cout << d.short_src << endl;
+			//}
+
 			return 1;
 		}
 
@@ -290,21 +301,7 @@ namespace rf
 				throw LUA_RUNTIME_ERROR("nil ptr");
 			return str;
 		}
-
-		//template<typename T>
-		//static const char *get_stack(lua_State* L, int index,
-		//	typename enable_if<std::is_same<T, char const*>::value>::type* = 0)
-		//{
-		//	return lua_tostring(L, index);
-		//}
-		//
-		//template<typename T>
-		//static const string get_stack(lua_State* L, int index,
-		//	typename enable_if<std::is_same<T, string>::value>::type* = 0)
-		//{
-		//	return lua_tostring(L, index);
-		//}
-
+		
 		template<typename T>
 		static T& get_stack(lua_State* L, int index,
 			typename enable_if<!is_basic_type<T>::value>::type* = 0)
@@ -510,6 +507,34 @@ namespace rf
 			return 1; // インスタンス1つを返す
 		}
 
+		// ユーザーデータ
+		template<typename T>
+		static int object_constructor(lua_State* L)
+		{
+			void* p = lua_newuserdata(L, sizeof(T));
+			new(p) T;
+			return 1;
+		}
+
+		// ユーザーデータへのポインタを取得
+		static int object_pointer_constructor(lua_State* L)
+		{
+			if (lua_gettop(L) != 1)
+			{
+				return luaL_error(L, "argument number error expected=1, top=%d",
+					1, lua_gettop(L)); // longjmp
+			}
+
+			void* p = lua_touserdata(L, 1);
+			void* pp = lua_newuserdata(L, sizeof(void**));
+			*static_cast<void**>(pp) = &p;
+			cout << p << endl;
+			cout << &p << endl;
+			cout << pp << endl;
+			cout << *static_cast<void**>(&p) << endl;
+			cout << *static_cast<void**>(pp) << endl;
+			return 1;
+		}
 
 		template<class T>
 		static int destructor(lua_State* L)
@@ -537,6 +562,11 @@ namespace rf
 
 		LuaBinder(){
 			open();
+
+			// ポインタ取得関数を登録
+			// 危険
+			lua_pushcfunction(L_, object_pointer_constructor);
+			lua_setglobal(L_, "ref");
 		}
 
 		~LuaBinder(){
@@ -557,24 +587,19 @@ namespace rf
 				|| (!luaresult(lua_pcall(L_, 0, LUA_MULTRET, func))))
 					return false;
 			}
-			catch (const string s)
-			{
-				LuaBinder::push_stack(L_, s);
-				return 1;
-			}
 			catch (const std::exception &e)
 			{
 				push_stack(L_, e.what());
 				traceback(L_);
 				lua_pop(L_, 1);
-				return luaL_error(L_, e.what()) != 0; // longjmp
+				return luaL_error(L_, "") != 0; // longjmp
 			}
 			catch (...)
 			{
 				push_stack(L_, "unknown error.");
 				traceback(L_);
 				lua_pop(L_, 1);
-				return luaL_error(L_, "unknown exception") != 0;
+				return luaL_error(L_, "") != 0; // longjmp
 			}
 
 			lua_remove(L_, func);
@@ -586,6 +611,7 @@ namespace rf
 		// Luaスクリプト文字列を実行
 		bool dostring(const string& str)
 		{
+			bool ret = false;
 			int top = lua_gettop(L_);
 			lua_pushcfunction(L_, traceback);
 			lua_insert(L_, top);
@@ -595,26 +621,21 @@ namespace rf
 			{
 				if ((!luaresult(luaL_loadstring(L_, str.c_str())))
 				|| (!luaresult(lua_pcall(L_, 0, LUA_MULTRET, func))))
-					return false;
-			}
-			catch (const string s)
-			{
-				LuaBinder::push_stack(L_, s);
-				return 1;
+					ret = false;
 			}
 			catch (const std::exception &e)
 			{
 				push_stack(L_, e.what());
 				traceback(L_);
 				lua_pop(L_, 1);
-				return luaL_error(L_, e.what()) != 0; // longjmp
+				return luaL_error(L_, "") != 0; // longjmp
 			}
 			catch (...)
 			{
 				push_stack(L_, "unknown error.");
 				traceback(L_);
 				lua_pop(L_, 1);
-				return luaL_error(L_, "unknown exception") != 0;
+				return luaL_error(L_, "") != 0; // longjmp
 			}
 			
 			lua_remove(L_, func);
@@ -662,6 +683,22 @@ namespace rf
 			return;
 		}
 
+		// 変数バインド
+		template<typename T>
+		void rawset(const string& name, T v)
+		{
+			push_stack(L_, v);
+			lua_setglobal(L_, name.c_str());
+		}
+
+		// オブジェクトバインド
+		template<typename T>
+		void object(const string& name)
+		{
+			lua_pushcfunction(L_, object_constructor<T>);
+			lua_setglobal(L_, name.c_str());
+		}
+		
 		// 関数バインド
 		//
 		// ＜使用例＞

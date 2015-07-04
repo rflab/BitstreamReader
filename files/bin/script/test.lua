@@ -95,13 +95,22 @@ function test_sql()
 		db:step(insert_stmt_ix)
 	end
 	
-	insert_stmt(1, "hoge")
-	insert_stmt(2, "foo")
-	insert_stmt(3, "bar")
 	sql = nil
 	collectgarbage("collect")
 end
 
+function test_sqlite()
+	local sq = sqlite3()
+	sqlite3_open("hoge.db", ref(sq))
+	sqlite3_exec(sq, "drop table if exists mytable", NULL(), NULL(), NULL())
+	sqlite3_exec(sq, "create table mytable (id integer primary key, name text)", NULL(), NULL(), NULL())
+	sqlite3_exec(sq, "insert int mytable(name) values('hoge')", 0, 0, 0)
+	sqlite3_exec(sq, "insert int mytable(name) values('bar')", 0, 0, 0)
+	sqlite3_exec(sq, "insert int mytable(name) values('foo')", 0, 0, 0)
+	sqlite3_close()
+end
+
+--test_sqlite()
 --test_sql()
 --test_fifo()
 --dofile(__exec_dir__.."script/bmp.lua")

@@ -9,6 +9,7 @@ local gs_all_streams = {}
 local gs_progress
 local gs_perf
 local gs_csv
+local gs_sql
 local gs_data = {values={}, tables={}, bytes={}, bits={}, sizes={}, streams={}}
 local gs_store_to_table = true
 
@@ -59,7 +60,7 @@ end
 
 -- 解析結果表示のON/OFFに応じてprint
 function sprint(...)
-	return gs_stream:sprint(b)
+	return gs_stream:sprint(...)
 end
 
 -- 解析結果表示のON/OFF
@@ -96,9 +97,9 @@ end
 
 -- 最後に読み込んだ値を破棄する
 function reset(name, value)
-	on_prev_set_value(name)
+	local byte, bit = cur()
 	gs_stream:reset(name, value)
-	on_set_value(name, value, false)
+	on_set_value(name, byte, bit, 0, value)
 end
 
 -- 絶対位置シーク
@@ -118,66 +119,54 @@ end
 
 -- ビット単位読み込み
 function rbit(name, size)
-	on_prev_set_value(name)
+	local byte, bit = cur()
 	local value = gs_stream:rbit(name, size)
-	on_set_value(name, value, size)
+	on_set_value(name, byte, bit, size, value)
 	return value
 end
 
 -- バイト単位読み込み
 function rbyte(name, size)
-	on_prev_set_value(name)
+	local byte, bit = cur()
 	local value = gs_stream:rbyte(name, size)
-	on_set_value(name, value, size)
+	on_set_value(name, byte, bit, size, value)
 	return value
 end
 
 -- 文字列として読み込み
 function rstr(name, size)
-	on_prev_set_value(name)
+	local byte, bit = cur()
 	local value = gs_stream:rstr(name, size)
-	on_set_value(name, value, size)
+	on_set_value(name, byte, bit, size, value)
 	return value
 end
 
 -- 指数ゴロムとして読み込み
 function rexp(name)
-	on_prev_set_value(name)
+	local byte, bit = cur()
 	local value = gs_stream:rexp(name)
-	on_set_value(name, value, false)
+	on_set_value(name, byte, bit, 0, value)
 	return value
 end
 
 -- ビット単位で読み込み、compとの一致を確認
 function cbit(name, size, comp)
-	on_prev_set_value(name)
-	local value = gs_stream:cbit(name, size, comp)
-	on_set_value(name, value, size)
-	return value
+	return gs_stream:cbit(name, size, comp)
 end
 
 -- バイト単位で読み込み、compとの一致を確認
 function cbyte(name, size, comp)
-	on_prev_set_value(name)
-	local value = gs_stream:cbyte(name, size, comp)
-	on_set_value(name, value, size)
-	return value
+	return gs_stream:cbyte(name, size, comp)
 end
 
 -- 文字列として読み込み、compとの一致を確認
 function cstr(name, size, comp)
-	on_prev_set_value(name)
-	local value = gs_stream:cstr(name, size, comp)
-	on_set_value(name, value, size)
-	return value
+	return gs_stream:cstr(name, size, comp)
 end
 
 -- 指数ゴロムとして読み込み
-function cexp(name)
-	on_prev_set_value(name)
-	local value = gs_stream:cexp(name)
-	on_set_value(name, value, false)
-	return value
+function cexp(name, comp)
+	return gs_stream:cexp(name, comp)
 end
 
 -- bit単位で読み込むがポインタは進めない
@@ -413,17 +402,8 @@ function check(size)
 	end
 end
 
-
--- テーブルを取得
-function get_data()
-	return gs_data
-end
-
-function get_streams()
-	return gs_all_streams
-end
-
-function on_prev_set_value(name)
+-- データ読み込み事に記録する処理
+function on_set_value(name, byte, bit, size, value)
 	if gs_data.tables[name] == nil then
 		gs_data.tables[name]  = {}
 		gs_data.bytes[name]   = {}
@@ -432,58 +412,126 @@ function on_prev_set_value(name)
 		gs_data.streams[name] = {}
 	end
 
-	local byte, bit = cur()
+	-- get()
+	gs_data.values[name] = value
+
+	-- Lua用
 	table.insert(gs_data.bytes[name], byte)
 	table.insert(gs_data.bits[name], bit)
-	table.insert(gs_data.streams[name], gs_stream)
-end
-
--- データ読み込み事に記録する処理
-function on_set_value(name, value, size)
-	gs_data.values[name] = value
 	table.insert(gs_data.tables[name], value)
 	table.insert(gs_data.sizes[name], size)
-	
-	local byte, bit = cur()
-	--insert_sql(name, value, byte, bit)
+	table.insert(gs_data.streams[name], gs_stream)
+
+	-- SQL用お試し
+	sql_insert_record(name, byte, bit, size, value)
 end
 
---
-function init_sql()
+function sql_insert_record() assert(false, "sql is not started.") end
+function sql_print_all() assert(false, "sql is not started.") end
+
+function sql_begin()
 	local sql
 	if windows then
-	-- マルチバイトでハング
-		db = SQLite:new(__stream_name__..".db")
+		sql = SQLite:new(__stream_name__..".db")
 	else
-		db = SQLite:new(__stream_dir__..__stream_name__..".db")
+		sql = SQLite:new(__stream_dir__..__stream_name__..".db")
 	end
-	db:exec("drop table if exists bitstream");
-	db:exec("create table bitstream (id integer primary key, name text, ix integer, byte integer, bit integer)");
 
-	local insert_stmt_ix= db:prepare("insert into bitstream values (?, ?, ?, ?, ?)");
-	insert_sql = function (name, ix, byte, bit, value)
-		db:reset(insert_stmt_ix)
-		db:bind_text(insert_stmt_ix, 2, name)
-		db:bind_int(insert_stmt_ix, 3, ix)
-		db:bind_int(insert_stmt_ix, 4, byte)
-		db:bind_int(insert_stmt_ix, 5, bit)
-		-- db:bind_int(insert_stmt_ix, 5, value)
-		db:step(insert_stmt_ix)
+	sql:exec([[begin]]);
+	sql:exec([[drop table if exists bitstream]]);
+	sql:exec([[
+		create table bitstream (
+		id        integer primary key,
+		name      text,
+		byte      integer,
+		bit       integer,
+		size      integer,
+		value     text)]]);
+
+	-- レコード追加
+	local insert_record_stmt = sql:prepare(
+		[[insert into bitstream(name, byte, bit, size, value)
+		 values (?, ?, ?, ?, ?);]]);
+	function sql_insert_record (name, byte, bit, size, value)
+		sql:reset(insert_record_stmt)
+		sql:bind_text(insert_record_stmt, 1, name)
+		sql:bind_int (insert_record_stmt, 2, byte)
+		sql:bind_int (insert_record_stmt, 3, bit)
+		sql:bind_int (insert_record_stmt, 4, size)
+		sql:bind_text(insert_record_stmt, 5, tostring(value))
+		sql:step(insert_record_stmt)
 	end
+
+--	-- レコードの値を更新
+--	local update_value_stmt = sql:prepare([[
+--		update bitstream
+--		set	   value = ?, size = ?
+--		where  id = max(id)]])
+--	function sql_update_value(value, size)
+--		sql:reset(update_value_stmt)
+--		sql:bind_text(update_value_stmt, 0, tostring(value))
+--		sql:bind_int(update_value_stmt, 1, size)
+--		sql:step(update_value_stmt)
+--	end
+
+	function sql_print(stmt, format)
+		local str={}
+		local count=0
 	
-	local select_name_ix = db:prepare("select * from bitstream")
-	function disp_sql (id, name)
-		db:reset(select_name_ix)
-		local name
-		local SQLITE_ROW = 100
-		while SQLITE_ROW == db:step(select_name_ix) do
-			local id = db:column_int(select_name_ix, 0)
-			local name = db:column_text(select_name_ix, 1)
-			print (id, name)
+		sql:reset(stmt)
+		if format == nil then
+			for i=0, sql:column_count(stmt)-1 do
+				io.write(
+					string.format("%-10s  ",
+					tostring(sql:column_name(stmt, i)):sub(1, 10)))
+			end
+			print()
+			printf(string.rep("----------  ", sql:column_count(stmt)))
+		end
+		while SQLITE_ROW == sql:step(stmt) do
+			for i=0, sql:column_count(stmt)-1 do
+				local ty = sql:column_type(stmt, i) 
+				if ty == SQLITE_NULL then
+				elseif ty == SQLITE_INTEGER then
+					str[i+1] = tostring(sql:column_int(stmt, i))
+				elseif ty == SQLITE_TEXT then
+					str[i+1] = sql:column_text(stmt, i)
+				else
+					str[i+1] = "unsupported type"
+				end
+				
+				if format == nil then
+					str[i+1] = str[i+1]:sub(1, 10)
+				end
+			end
+			if format == nil then
+				printf(string.rep("%-10s  ", sql:column_count(stmt)), table.unpack(str))
+			else
+				printf(format, table.unpack(str))
+			end
 		end
 	end
+	
+	gs_sql = sql
 end
 
-function insert_sql() end
-function disp_sql() end
+function sql_commit()
+	gs_sql:exec("commit");
+end
+
+function sql_rollback()
+	gs_sql:exec("rollback");
+end
+
+function get_data()
+	return gs_data
+end
+
+function get_streams()
+	return gs_all_streams
+end
+
+function get_sql()
+	return gs_sql
+end
 

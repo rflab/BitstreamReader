@@ -114,7 +114,7 @@ function descriptor()
 		print("descriptor_tag="..hexstr(descriptor_tag), "unknown")
 	end
 	
-	rbyte("remain data", get("descriptor_length") - (cur() - begin - 2))
+	rbyte("descriptor", get("descriptor_length") - (cur() - begin - 2))
 end
 
 function registration_descriptor(length)
@@ -355,7 +355,6 @@ function ts(size, target)
 	local pid
 	
 	-- 初期TSパケット長
-
 	while total < size do
 		no = no + 1
 		check_progress()
@@ -363,9 +362,10 @@ function ts(size, target)
 		-- ATSの場合
 		if lbyte(1) ~= 0x47 then
 			rbyte("ATS", 4)
+			total = total + 4
 			-- printf("  ATS = %x(%fsec)", get("ATS"), get("ATS")/90000)
 		end
-		
+				
 		-- ATSのつぎからが本番
 		begin = cur()
 
@@ -405,7 +405,8 @@ function ts(size, target)
 		
 		total = total + (cur()-begin)
 	end
-	-- while (nextbits() = = sync_byte)
+
+	return total
 end
 
 function data_byte(target, pid, size)
@@ -499,7 +500,7 @@ function analyze_payload(pid)
 		end
 		swap(ts_file)
 	else
-		sprint(hexstr(cur()), get_pid_string(pid))
+		--sprint(hexstr(cur()), get_pid_string(pid))
 	end
 end
 
@@ -528,14 +529,17 @@ function analyze()
 	ts(1024*1024, TYPE_PMT)
 
 	print("analyze PES")
-	-- print("analyse data_byte? [y/n]")
-	-- analyse_data_byte = io.read() == "y"
 	analyse_data_byte = true
 	seek(0)
 	enable_print(false)
-	--ts(get_size()-200, TYPE_PES)
-	print("short analyse size/100")
-	ts(get_size()/50, TYPE_PES)
+	print("short analyse 1/50 size.")
+	ts(get_size()/100, TYPE_PES)
+	
+	print("analyze more? [y]")
+	if io.read() == "y" then
+		ts(get_size()-(cur())-192, TYPE_PES)-- - cur() - 1000, TYPE_PES)
+	end
+	
 end
 
 print_status()

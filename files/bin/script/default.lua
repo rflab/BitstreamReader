@@ -20,22 +20,22 @@ __stream_path__, __stream_dir__, __stream_name__, __stream_ext__ = split_file_na
 -- 解析結果出力先ディレクトリ作成
 if windows then
 	os.execute("mkdir \""..__stream_dir__.."out\"")
-	init_sql()
 else
 	os.execute("mkdir -p \""..__stream_dir__.."out/\"")
-	init_sql()
 end
 
--- 拡張子が.testならとりあえずテストコード
-if __stream_ext__ == ".test" then
-	dofile(__exec_dir__.."script/test.lua")
-end
+-- SQLトランザクション開始
+sql_begin()
 
--- ファイル・タイプを判別してスクリプト実行
+-- 解析ディスパッチ
 local stream = open(__stream_path__)
 local stream_type = check_stream(stream)
 local ext = stream_type or __stream_ext__
-if ext == ".wav" then
+
+if __stream_ext__ == ".test" then
+	dofile(__exec_dir__.."script/test.lua")
+
+elseif ext == ".wav" then
 	dofile(__exec_dir__.."script/wav.lua")
 	
 elseif ext == ".bmp" then
@@ -77,6 +77,8 @@ else
 	print("not found extension")
 end
 
-disp_sql()
+-- SQLトランザクション終了
+sql_commit()
 
+-- 解析コマンド起動
 cmd()

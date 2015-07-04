@@ -110,6 +110,32 @@ function test_sqlite()
 	sqlite3_close()
 end
 
+function test_flie()
+	open("file.dat", "wb+")
+--	open(10000)
+	local stream, prev = open(__stream_path__)
+	
+	tbyte("data", 100, prev);
+	swap(prev)
+	seek(0)
+	swap(stream)
+	tbyte("data", 100, prev);
+	swap(prev)
+	rbyte("data", 10)
+	rbyte("data", 10)
+	rbyte("data", 10)
+	rbyte("data", 10)
+	rbyte("data", 10)
+	rbyte("data", 10)
+	rbyte("data", 10)
+	rbyte("data", 10)
+	rbyte("data", 10)
+	rbyte("data", 10)
+	
+end
+
+
+test_flie()
 --test_sqlite()
 --test_sql()
 --test_fifo()

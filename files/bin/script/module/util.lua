@@ -17,6 +17,13 @@ local gs_store_to_table = true
 -- ストリーム解析用関数
 --------------------------------------------
 -- ストリームを開く
+-- fopenとちょっと違う
+-- 'raw'はどれか一つ
+-- "r" -> 読み込み
+-- "w" -> 書き込み＋ファイル初期化
+-- "a" -> 書き込み＋末尾追加追加
+-- "+" -> リードライト
+-- "b" -> バイナリモード
 function open(arg1, openmode)
 	openmode = openmode or "rb"
 	local prev_stream = gs_stream

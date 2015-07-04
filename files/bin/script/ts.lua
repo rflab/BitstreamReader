@@ -334,7 +334,8 @@ function pmt()
 		do_until(function() descriptor() end, cur() + get("ES_info_length"))
 		
 		-- 初めて見るPIDなら追加
-		local buf, prev = open(1024*1024*3)
+		-- local buf, prev = open(1024*1024*3)
+		local buf, prev = open(__stream_dir__.."out/"..hexstr(get("elementary_PID"))..".pes", "ab+")
 	    swap(prev)
 	    pes_buf_array[get("elementary_PID")] = buf
 		buf:enable_print(false)

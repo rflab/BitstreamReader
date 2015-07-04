@@ -28,7 +28,7 @@ end
 sql_begin()
 
 -- 解析ディスパッチ
-local stream = open(__stream_path__)
+local stream = open(__stream_path__, "rb")
 local stream_type = check_stream(stream)
 local ext = stream_type or __stream_ext__
 

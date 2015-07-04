@@ -44,6 +44,12 @@ end
 -- public
 ------------------------------------------------
 
+-- openmodeはfopenとちょっと違う
+-- "+" -> 読み書き
+-- "i" -> 読み込み
+-- "w" -> 書き込み
+-- "a" -> 書き込みは末尾追加追加
+-- "b" -> バイナリモード
 function _m:new(param, openmode)
 	self.index = self.index or 0
 	self.index = self.index + 1
@@ -52,6 +58,7 @@ function _m:new(param, openmode)
 	setmetatable(obj, _meta )
 
 	if type(param) == "string" then
+		assert(openmode~=nil)
 		print("open stream ("..param..")")
 		obj.stream = FileBitstream:new(param, openmode)
 		obj.name = "file["..self.index.."]"

@@ -24,6 +24,7 @@
 		+ ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
 	#define LUA_ARGUMENT_ERROR(x) std::invalid_argument(std::string("c++ invalid argument exception. L")\
 		 + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
+	#define LUA_FALSE string("lua false");
 #elif defined(__GNUC__) && __cplusplus >= 201300L // __GNUC_PREREQ(4, 9)
 	#define LUA_RUNTIME_ERROR(x) std::runtime_error(std::string("c++ runtime exception. L")\
 		 + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
@@ -31,11 +32,13 @@
 		 + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
 	#define LUA_ARGUMENT_ERROR(x) std::invalid_argument(std::string("c++ invalid argument exception. L")\
 		 + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
+	#define LUA_FALSE string("lua false");
 #else
 	// unsupported
 	#define LUA_RUNTIME_ERROR(x) std::runtime_error("c++ runtime exception.")
 	#define LUA_DOMEIN_ERROR(x) std::domain_error("c++ omein error exception.")
 	#define LUA_ARGUMENT_ERROR(x) std::invalid_argument("c++ invalid argument exception.")
+	#define LUA_FALSE string("lua false");
 	#define make_unique make_shared
 	#define unique_ptr shared_ptr
 	#define nullptr NULL

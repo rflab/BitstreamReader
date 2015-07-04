@@ -83,7 +83,15 @@ function exec_cmd(c)
 		local print_continue = nil
 		local function print_values(k)
 			print("     index,        address,        value,   size,     stream")
+			local count = 0
 			for i, v in ipairs(ts[k]) do
+				count = count + 1
+				if count % 1000 == 0 then
+					print("n:next")
+					if io.read() ~= "n" then
+						break
+					end
+				end
 				printf("    %6d, 0x%08x(+%d), %12s, %6s, %10s",
 					i, bys[k][i], bis[k][i], v, sizs[k][i], streams[k][i].name)
 			end
@@ -96,7 +104,7 @@ function exec_cmd(c)
 					printf("  %s[%d]", k, num)
 					local t = ts[k]
 					if type(t) == "table" then
-						if #t > 100 then
+						if #t > 1000 then
 							if print_continue == nil then
 								print("table size is ".. #t..", continue? [y/n]")
 								if io.read() == "y" then
@@ -168,7 +176,15 @@ function exec_cmd(c)
 				for k, _ in pairs(vs) do
 					if string.find(k, c[2]) ~= nil then
 						if bytes[k] ~= nil then
+							local count = 0
 							for i, v in ipairs(bytes[k]) do
+								count = count + 1
+								if count % 1000 == 0 then
+									print("n:next")
+									if io.read() ~= "n" then
+										break
+									end
+								end
 								printf("  %s[%d]=%s size=%d in %s=%s",
 									k, i, ts[k][i], sizs[k][i], streams[k][i].name, streams[k][i].file_name)
 								swap(streams[k][i])

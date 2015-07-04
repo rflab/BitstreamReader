@@ -214,7 +214,6 @@ function exec_cmd(c)
 			end
 	else
 		print("history          : show history")
-		print("sql              : open db by SQLite shell")
 		print("info             : show all values")
 		print("stream INDEX     : show and swap stream")
 		print("grep REGEX...    : search & show last value")
@@ -222,6 +221,7 @@ function exec_cmd(c)
 		print("dump REGEX INDEX : hex dump around REGEX[INDEX]")
 		print("dump ADDRESS     : hex dump from ADDRESS")
 		print("open FILENAME    : open newfile in stream directory")
+		print("sql              : open database by SQLite shell")
 		print("q|exit           : exit command mode")
 	end
 end

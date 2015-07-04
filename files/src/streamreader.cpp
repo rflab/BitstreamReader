@@ -104,6 +104,94 @@ namespace rf
 		return ((value >> 24) & 0xff) | ((value >> 8) & 0xff00)
 			| ((value << 8) & 0xff0000) | ((value << 24) & 0xff000000);
 	}
+	// 指定アドレスをバイト列でダンプ
+	static bool dump_bytes(const char* buf, int offset, int size)
+	{
+		uint8_t c;
+		for (int i = 0; i < size; ++i)
+		{
+			c = buf[offset + i];
+			printf("%02x ", (c));
+		}
+		return true;
+	}
+
+	// 指定アドレスを文字列でダンプ
+	static bool dump_string(const char* buf, int offset, int size)
+	{
+		uint8_t c;
+		for (int i = 0; i < size; ++i)
+		{
+			c = buf[offset + i];
+			if (isgraph(c))
+				putchar(c);
+			else
+				putchar('.');
+		}
+		return true;
+	}
+
+	// 指定アドレスをダンプ
+	static bool dump(const char* buf, int print_offset, int size)
+	{
+		// ヘッダ表示
+		printf("     offset    | ");
+		for (int i = 0; i < 16; ++i)
+		{
+			printf("+%x ", i);
+		}
+		printf("| ");
+		for (int i = 0; i < 16; ++i)
+		{
+			printf("%x", i);
+		}
+		putchar('\n');
+
+		int cur = 0;
+		int padding = print_offset & 0xf;
+		// 先頭行
+		if (padding != 0)
+		{
+			int write_size = min(16 - padding, size - cur);
+
+			printf("     0x%08x| ", print_offset & 0xfffffff0);
+			for (int i = 0; i < padding; ++i)
+				printf("   ");
+			dump_bytes(buf, cur, write_size);
+			printf("| ");
+			for (int i = 0; i < padding; ++i)
+				printf(" ");
+			dump_string(buf, cur, write_size);
+			putchar('\n');
+			cur += write_size;
+		}
+		// 中間
+		for (; cur + 15 < size; cur += 16)
+		{
+			printf("     0x%08x| ", (cur + print_offset) & 0xfffffff0);
+			dump_bytes(buf, cur, 16);
+			printf("| ");
+			dump_string(buf, cur, 16);
+			putchar('\n');
+		}
+		// 最終行
+		if (cur < size)
+		{
+			int write_size = size - cur;
+
+			printf("     0x%08x| ", (cur + print_offset) & 0xfffffff0);
+			dump_bytes(buf, cur, write_size);
+			for (int i = 0; i < 16 - write_size; ++i)
+				printf("   ");
+			printf("| ");
+			dump_string(buf, cur, write_size);
+			for (int i = 0; i < 16 - write_size; ++i)
+				printf(" ");
+			putchar('\n');
+		}
+
+		return true;
+	}
 
 	class FileManager final
 	{
@@ -852,75 +940,6 @@ namespace rf
 	{
 	public:
 
-		// 指定アドレスをバイト列でダンプ
-		static bool dump_line(const char* buf, int offset, int size)
-		{
-			uint8_t c;
-			for (int i = 0; i < size; ++i)
-			{
-				c = buf[offset + i];
-				printf("%02x ", (c));
-			}
-			return true;
-		}
-
-		// 指定アドレスを文字列でダンプ
-		static bool dump_as_string(const char* buf, int offset, int size)
-		{
-			uint8_t c;
-			for (int i = 0; i < size; ++i)
-			{
-				c = buf[offset + i];
-				if (isgraph(c))
-					putchar(c);
-				else
-					putchar('.');
-			}
-			return true;
-		}
-
-		// 指定アドレスをダンプ
-		static bool dump(const char* buf, int print_offset, int size)
-		{
-			printf("     offset    | ");
-			for (int i = 0; i < 16; ++i)
-			{
-				printf("+%x ", (i + print_offset) % 16);
-			}
-			printf("| ");
-			for (int i = 0; i < 16; ++i)
-			{
-				printf("%x", (i + print_offset) % 16);
-			}
-			putchar('\n');
-
-			int cur = 0;
-			for (; cur + 16 <= size; cur += 16)
-			{
-				printf("     0x%08x| ", cur + print_offset);
-				dump_line(buf, cur, 16);
-				printf("| ");
-				dump_as_string(buf, cur, 16);
-				putchar('\n');
-			}
-
-			if (cur < size)
-			{
-				printf("     0x%08x| ", cur + print_offset);
-				dump_line(buf, cur, size % 16);
-
-				for (int i = 0; i < 16 - (size % 16); ++i)
-				{
-					printf("   ");
-				}
-				printf("| ");
-				dump_as_string(buf, cur, size - cur);
-				putchar('\n');
-			}
-
-			return true;
-		}
-
 		// ストリームからファイルに転送
 		// 現状オーバーヘッド多め
 		static bool transfer_to_file(
@@ -1044,7 +1063,7 @@ namespace rf
 				{
 					printf(" adr=0x%08x(+%d)| siz=0x%08x(+%d)| %-40s | ",
 						prev_byte, prev_bit, size / 8, size % 8, name);
-					dump_line(buf, 0, dump_size);
+					rf::dump_bytes(buf, 0, dump_size);
 
 					if (16 > (size + 7) / 8)
 						putchar('\n');
@@ -1328,7 +1347,7 @@ namespace rf
 		}
 
 		// 現在位置からバイト表示
-		bool dump_line(int max_size)
+		bool dump_bytes(int max_size)
 		{
 			char buf[MAX_DUMP];
 
@@ -1337,11 +1356,11 @@ namespace rf
 
 			bs_.look_byte_string(buf, dump_len);
 
-			return dump_line(buf, 0, dump_len);
+			return rf::dump_bytes(buf, 0, dump_len);
 		}
 
 		// 現在位置からバイト表示
-		bool dump_as_string(int max_size)
+		bool dump_string(int max_size)
 		{
 			char buf[MAX_DUMP];
 
@@ -1350,7 +1369,7 @@ namespace rf
 
 			bs_.look_byte_string(buf, dump_len);
 
-			return dump_as_string(buf, 0, dump_len);
+			return rf::dump_string(buf, 0, dump_len);
 		}
 
 		// 現在位置からバイト表示
@@ -1363,7 +1382,7 @@ namespace rf
 
 			bs_.look_byte_string(buf, dump_len);
 
-			return dump(buf, byte_pos(), dump_len);
+			return rf::dump(buf, byte_pos(), dump_len);
 		}
 	};
 
@@ -1966,7 +1985,7 @@ int main(int argc, char** argv)
 	}
 
 	// luaコマンド実行
-	cout << "column_typeq:quit" << endl;
+	cout << "q:quit" << endl;
 	for (;;)
 	{
 		cout << ">" << std::flush;

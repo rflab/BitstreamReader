@@ -166,18 +166,28 @@ lua->def_subclass<LuaGlueFifoBitstream>("Fifo", "IBitstream")->
 	def("reserve", &LuaGlueFifoBitstream::reserve); // バッファを再確保、書き込み済みデータは破棄
 	
 // SQLiterラッパー
+// SQLiterラッパー
+lua->rawset("SQLITE_ROW",        SQLITE_ROW);
+lua->rawset("SQLITE_INTEGER",    SQLITE_INTEGER);
+lua->rawset("SQLITE_FLOAT",      SQLITE_FLOAT);
+lua->rawset("SQLITE_TEXT",       SQLITE_TEXT);
+lua->rawset("SQLITE_BLOB",       SQLITE_BLOB);
+lua->rawset("SQLITE_NULL",       SQLITE_NULL);
 lua->def_class<SqliteWrapper>("SQLite")->
-	def("new",         LuaBinder::constructor<SqliteWrapper(const string&)>()).
-	def("exec",        &SqliteWrapper::exec).
-	def("prepare",     &SqliteWrapper::prepare).
-	def("step",        &SqliteWrapper::step).
-	def("reset",       &SqliteWrapper::reset).
-	def("bind_int",    &SqliteWrapper::bind_int).
-	def("bind_text",   &SqliteWrapper::bind_text).
-	def("bind_real",   &SqliteWrapper::bind_real).
-	def("column_int",  &SqliteWrapper::column_int).
-	def("column_text", &SqliteWrapper::column_text).
-	def("column_real", &SqliteWrapper::column_real);
+	def("new",          LuaBinder::constructor<SqliteWrapper(const string&)>()).
+	def("exec",         &SqliteWrapper::exec).
+	def("prepare",      &SqliteWrapper::prepare).
+	def("step",         &SqliteWrapper::step).
+	def("reset",        &SqliteWrapper::reset).
+	def("bind_int",     &SqliteWrapper::bind_int).
+	def("bind_text",    &SqliteWrapper::bind_text).
+	def("bind_real",    &SqliteWrapper::bind_real).
+	def("column_name",  &SqliteWrapper::column_name).
+	def("column_type",  &SqliteWrapper::column_type).
+	def("column_count", &SqliteWrapper::column_count).
+	def("column_int",   &SqliteWrapper::column_int).
+	def("column_text",  &SqliteWrapper::column_text).
+	def("column_real",  &SqliteWrapper::column_real);
 ```
 
 ## ビルド方法

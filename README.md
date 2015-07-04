@@ -1,6 +1,6 @@
 # Stream Reader
 
-各種バイナリをビット単位で解析するツールです。Lua言語ベース。（現在の対応フォーマット:.wav, .bmp, .jpg, .ts, .tts, .m2ts, .mpg, .mp4, .pes, .h264, h265, など）
+各種バイナリをビット単位で解析するツールです。Lua言語/SQLiteベース。（現在の対応フォーマット:.wav, .bmp, .jpg, .ts, .tts, .m2ts, .mpg, .mp4, .pes, .h264, h265, など）
 
 windowsならfiles/bin/streamreader.exeにファイルをドロップすれば解析が始まります。
 

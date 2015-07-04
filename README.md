@@ -120,7 +120,7 @@ lua->def("transfer_to_file", LuaGlueBitstream::transfer_to_file); // 指定し�
 lua->def("reverse_16",       reverse_endian_16);                  // 16ビットエンディアン変換
 lua->def("reverse_32",       reverse_endian_32);                  // 32ビットエンディアン変換
 
-// クラスインターフェース
+// クラスバインド
 lua->def_class<LuaGlueBitstream>("IBitstream")->
 	def("size",             &LuaGlueBitstream::size).              // ファイルサイズ取得
 	def("enable_print",     &LuaGlueBitstream::enable_print).      // 解析ログのON/OFF
@@ -152,22 +152,21 @@ lua->def_class<LuaGlueBitstream>("IBitstream")->
 	def("dump",
 		(bool(LuaGlueBitstream::*)(int)) &LuaGlueBitstream::dump); // 現在位置からバイト表示
 
-// std::filebufによるビットストリームクラス
+// 入力ファイルによるビットストリームクラス
 lua->def_subclass<LuaGlueFileBitstream>("FileBitstream", "IBitstream")->
 	def("new",     LuaBinder::constructor<LuaGlueFileBitstream(string, string)>()).
 	def("open",    &LuaGlueFileBitstream::open); // ファイルオープン
 
-// std::stringbufによるビットストリームクラス
+// インメモリバッファによるビットストリームクラス
 lua->def_subclass<LuaGlueBufBitstream>("Buffer", "IBitstream")->
 	def("new",     LuaBinder::constructor<LuaGlueBufBitstream()>());
 
-// FIFO（リングバッファ）によるビットストリームクラスクラス
+// FIFO（リングバッファ）によるビットストリームクラス
 // ヘッド/テールの監視がなく挙動が特殊なのでメモリに余裕がある処理なら"Buffer"クラスを使ったほうが良い
 lua->def_subclass<LuaGlueFifoBitstream>("Fifo", "IBitstream")->
 	def("new",     LuaBinder::constructor<LuaGlueFifoBitstream(int)>()).
 	def("reserve", &LuaGlueFifoBitstream::reserve); // バッファを再確保、書き込み済みデータは破棄
 	
-// SQLiterラッパー
 // SQLiterラッパー
 lua->rawset("SQLITE_ROW",        SQLITE_ROW);
 lua->rawset("SQLITE_INTEGER",    SQLITE_INTEGER);

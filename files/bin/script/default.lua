@@ -1,18 +1,19 @@
+assert(argv[0], "no file name in argv[0]")
+assert(argv[1], "no file name in argv[1]")
+
 -- ライブラリロード
 dofile(__exec_dir__.."script/util/include.lua")
 
 -- 各種値定義
-assert(argv[0], "no file name in argv[0]")
-assert(argv[1], "no file name in argv[1]")
 local ep, __, en, ee = split_file_name(argv[0])
 local sp, sd, sn, se = split_file_name(argv[1])
-global("__exec_path__",   ep)
-global("__exec_name__",   en)
-global("__exec_ext__",    ee)
-global("__stream_path__", sp)
-global("__stream_dir__",  sd)
-global("__stream_name__", sn)
-global("__stream_ext__",  se)
+global("__exec_path__",   ep) print(ep)
+global("__exec_name__",   en) print(en)
+global("__exec_ext__",    ee) print(ee)
+global("__stream_path__", sp) print(sp)
+global("__stream_dir__",  sd) print(sd)
+global("__stream_name__", sn) print(sn)
+global("__stream_ext__",  se) print(se)
 
 -- 解析結果出力先ディレクトリ作成
 if windows then

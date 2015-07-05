@@ -560,7 +560,7 @@ namespace rf
 		}
 
 		// 文字列として読み込み
-		// NULL文字が先に見つかった場合はその分だけポインタを進める
+		// NULL文字が先に見つかった場合はその分だけ文字列にするがポインタは進む
 		// NULL文字が見つからなかった場合は最大max_lengthの長さ文字列として終端にNULL文字を入れる
 		bool read_string(int max_length, string &ret_str)
 		{
@@ -570,12 +570,13 @@ namespace rf
 				throw runtime_error(FAIL_STR("range error."));
 			}
 
-			// if (FAIL(bit_pos_ == 0))
-			// {
-			// 	ERR << "bit_pos_ is not aligned"<< OUTPUT_POS << endl;
-			// 	throw runtime_error(FAIL_STR("range error."));
-			// }
+			if (FAIL(bit_pos_ == 0))
+			{
+				ERR << "bit_pos_ is not aligned"<< OUTPUT_POS << endl;
+				// throw runtime_error(FAIL_STR("range error."));
+			}
 
+#if 1
 			int ofs = 0;
 			int c;
 			stringstream ss;
@@ -592,9 +593,14 @@ namespace rf
 					break;
 				}
 			}
-
 			ret_str = ss.str();
-			return seekoff_byte(ofs);
+#else
+			auto pa = make_unique<char[]>(max_length);
+			buf_->sgetn(pa.get(), max_length);
+			ret_str.assign(pa.get());
+#endif
+
+			return seekoff_byte(max_length);
 		}
 
 		// ビット単位で先読み

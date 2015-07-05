@@ -43,7 +43,7 @@ C++側からはinit_lua関数で関数・クラスがバインドされていま
 
 通常はutil.luaにある関数を利用すると簡単です。
 * [util.lua](https://github.com/rflab/stream_reader/blob/master/files/bin/script/util/util.lua)
-* [その他のmodule](https://github.com/rflab/stream_reader/blob/master/files/bin/script/util/)
+* [その他のライブラリ](https://github.com/rflab/stream_reader/blob/master/files/bin/script/util/)
 
 ```lua
 -- ストリーム解析例 --

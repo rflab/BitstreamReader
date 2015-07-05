@@ -7,12 +7,9 @@
 #include <iomanip>
 #include <vector>
 #include <array>
-#include <stack>
 #include <map>
 #include <memory>
 #include <utility>
-//#include <thread>
-//#include <future>
 #include <sstream>
 #include <fstream>
 #include <algorithm>
@@ -47,37 +44,23 @@
 namespace rf
 {
 	using std::vector;
-	using std::stack;
 	using std::array;
 	using std::map;
-	using std::pair;
-	using std::tuple;
 	using std::string;
 	using std::unique_ptr;
-	using std::istringstream;
 	using std::stringstream;
-	using std::ifstream;
 	using std::ofstream;
-	using std::streambuf;
-	using std::stringbuf;
-	using std::filebuf;
 	using std::exception;
-	using std::ios;
+	using std::logic_error;
+	using std::runtime_error;
 	using std::to_string;
-	using std::stoi;
 	using std::make_unique;
-	using std::make_tuple;
-	using std::tie;
 	using std::cout;
 	using std::cin;
 	using std::cerr;
 	using std::endl;
 	using std::hex;
 	using std::dec;
-	using std::min;
-	using std::max;
-	using std::logic_error;
-	using std::runtime_error;
 
 	inline bool fail(bool b, int line, const std::string &fn, const std::string &exp)
 	{
@@ -98,12 +81,6 @@ namespace rf
 	inline static bool valid_ptr(const void *p)
 	{
 		return p != nullptr;
-	}
-
-	template<class T>
-	inline static bool valid_ptr(const unique_ptr<T> p)
-	{
-		return p != false;
 	}
 
 	inline static uint16_t reverse_endian_16(uint16_t value)
@@ -147,18 +124,12 @@ namespace rf
 	static bool dump(const char* buf, int offset, int size, int original_address)
 	{
 		// ヘッダ表示
-		printf("     offset    | ");
-		for (int i = 0; i < 16; ++i)
-		{
-			printf("+%x ", i);
-		}
-		printf("| ");
-		for (int i = 0; i < 16; ++i)
-		{
-			printf("%x", i);
-		}
-		putchar('\n');
+		printf(
+			"     offset    "
+			"| +0 +1 +2 +3 +4 +5 +6 +7 +8 +9 +A +B +C +D +E +F "
+			"| 0123456789ABCDE\n");
 
+		// データ表示
 		int padding = original_address & 0xf;
 		int write_lines = (size + padding + 15) / 16;
 		int byte_print_pos = 0;
@@ -168,8 +139,10 @@ namespace rf
 		uint8_t c;
 		for (int cur_line = 0; cur_line < write_lines; ++cur_line)
 		{
-			printf("     0x%08x| ", (original_address + byte_pos)& 0xfffffff0);
+			// アドレス
+			printf("     0x%08x| ", (original_address + byte_pos) & 0xfffffff0);
 
+			// バイナリ
 			for (int i = 0; i < 16; ++i)
 			{
 				if ((byte_print_pos < padding)
@@ -189,6 +162,7 @@ namespace rf
 			
 			printf("| ");
 
+			// キャラクタ
 			for (int i = 0; i < 16; ++i)
 			{
 				if ((str_print_pos < padding)
@@ -227,7 +201,6 @@ namespace rf
 
 		~FileManager()
 		{
-#if 1
 			for (auto it = ofs_map_.begin(); it != ofs_map_.end(); ++it)
 			{
 				it->second->close();
@@ -236,16 +209,6 @@ namespace rf
 					ERR << it->first << "close fail" << endl;
 				}
 			}
-#else
-			for (auto c : ofs_map_)
-			{
-				c.second->close();
-				if (c.second->fail())
-				{
-					ERR << c.first << "close fail" << endl;
-				}
-			}
-#endif
 
 			stdout_to_file(false);	// 一応
 		}
@@ -268,7 +231,7 @@ namespace rf
 			if (it == ofs_map_.end())
 			{
 				auto ofs = make_unique<ofstream>();
-				ofs->open(file_name, ios::binary | ios::out);
+				ofs->open(file_name, std::ios::binary | std::ios::out);
 				if (FAIL(ofs != false))
 					throw runtime_error(FAIL_STR("file open failed."));
 
@@ -323,7 +286,7 @@ namespace rf
 	{
 	private:
 
-		unique_ptr<streambuf> buf_;
+		unique_ptr<std::streambuf> buf_;
 		int size_;
 		int bit_pos_;
 		int byte_pos_;
@@ -355,7 +318,7 @@ namespace rf
 		// 読み込み対象のstreambufを設定する
 		// サイズの扱いをもっとねらないとだめだかなぁ
 		//template<typename Deleter>
-		bool assign(unique_ptr<streambuf>&& buf, int size)
+		bool assign(unique_ptr<std::streambuf>&& buf, int size)
 		{
 			buf_ = std::move(buf);
 			byte_pos_ = 0;
@@ -668,28 +631,8 @@ namespace rf
 				throw runtime_error(FAIL_STR("range error."));
 			}
 
-#if 0
-			// if (FAIL(bit_pos_ == 0))
-			// {
-			// 	ERR << "look byte bit_pos_ != 0. bit_pos_=" << hex << bit_pos_ << OUTPUT_POS << endl;
-			// 	throw runtime_error(FAIL_STR("range error."));
-			// }
-
-			char buf[4];
-			ret_val = 0;
-			buf_->sgetn(buf, size);
-			for (int i = 0; i<size; ++i)
-			{
-				ret_val <<= 8;
-				ret_val |= buf[i];
-			}
-
-			return sync();
-#else
 			read_byte(size, ret_val);
 			return seekoff_byte(-size);
-#endif
-
 		}
 
 		// 指数ゴロムで先読み
@@ -843,19 +786,19 @@ namespace rf
 			if (FAIL(size >= 0))
 				throw logic_error(FAIL_STR("size error."));
 
-			size_ = max(byte_pos_ + size, size_);
+			size_ = std::max(byte_pos_ + size, size_);
 			return buf_->sputn(buf, size) == size;
 		}
 
 		// ストリームに１バイト追記する
 		bool put_char(char c)
 		{
-			size_ = max(byte_pos_ + 1, size_);
+			size_ = std::max(byte_pos_ + 1, size_);
 			return buf_->sputc(c) == c;
 		}
 	};
 
-	class RingBuf final : public streambuf
+	class RingBuf final : public std::streambuf
 	{
 
 	private:
@@ -878,28 +821,30 @@ namespace rf
 			return buf_[0];
 		}
 
-		ios::pos_type seekoff(ios::off_type off, ios::seekdir way, ios::openmode) override
+		std::ios::pos_type seekoff(
+			std::ios::off_type off, std::ios::seekdir way, std::ios::openmode) override
 		{
 			char* pos;
 			switch (way)
 			{
-			case ios::beg: pos = eback() + (off % size_); break;
-			case ios::end: pos = egptr() + (off % size_); break;
-			case ios::cur: default: pos = eback() + (((gptr() - eback()) + off) % size_); break;
+			case std::ios::beg: pos = eback() + (off % size_); break;
+			case std::ios::end: pos = egptr() + (off % size_); break;
+			case std::ios::cur: default: pos = eback() + (((gptr() - eback()) + off) % size_); break;
 			}
 
 			setg(buf_.get(), pos, buf_.get() + size_);
 			return pos - eback(); // 先頭を返す必要あり
 		}
 
-		ios::pos_type seekpos(ios::pos_type pos, ios::openmode which) override
+		std::ios::pos_type seekpos(
+			std::ios::pos_type pos, std::ios::openmode which) override
 		{
-			return seekoff(pos, ios::beg, which);
+			return seekoff(pos, std::ios::beg, which);
 		}
 
 	public:
 
-		RingBuf() : streambuf(), size_(0) {}
+		RingBuf() : std::streambuf(), size_(0) {}
 
 		// リングバッファのサイズを指定する
 		bool reserve(int size)
@@ -959,7 +904,7 @@ namespace rf
 		// streambufを設定
 		// template<template<typename T> class D >
 		// bool assign(unique_ptr<streambuf, D>&& b)
-		bool assign(unique_ptr<streambuf>&& b, int size)
+		bool assign(unique_ptr<std::streambuf>&& b, int size)
 		{
 			return bs_.assign(std::move(b), size);
 		}
@@ -1032,7 +977,7 @@ namespace rf
 			if (size > 32)
 			{
 				char buf[16];
-				int dump_size = min<int>(16, (size + 7) / 8);
+				int dump_size = std::min<int>(16, (size + 7) / 8);
 				bs_.look_byte_string(buf, dump_size);
 				bs_.seekoff_bit(size);
 
@@ -1390,7 +1335,7 @@ namespace rf
 
 		LuaGlueBufBitstream() :LuaGlueBitstream()
 		{
-			assign(make_unique<stringbuf>(), 0);
+			assign(make_unique<std::stringbuf>(), 0);
 		}
 	};
 
@@ -1428,18 +1373,18 @@ namespace rf
 		// "b" -> バイナリモード
 		bool open(const string& file_name, const string& mode = "ib")
 		{
-			//auto del = [](filebuf* p){p->close(); delete p; };
-			//unique_ptr<filebuf, decltype(del)> fb(new filebuf, del);
+			//auto del = [](std::filebuf* p){p->close(); delete p; };
+			//unique_ptr<std::filebuf, decltype(del)> fb(new std::filebuf, del);
 
-			auto fb = make_unique<filebuf>();
-			ios::openmode m;
+			auto fb = make_unique<std::filebuf>();
+			std::ios::openmode m;
 
 			if (mode.find('r') != string::npos)
-				m = ios::in;
+				m = std::ios::in;
 			else if (mode.find('w') != string::npos)
-				m = ios::out | ios::trunc;
+				m = (std::ios::out | std::ios::trunc);
 			else if (mode.find('a') != string::npos)
-				m = ios::out | ios::app;
+				m = (std::ios::out | std::ios::app);
 			else
 			{
 				ERR << "file open mode" << mode << endl;
@@ -1447,14 +1392,14 @@ namespace rf
 			}
 
 			if (mode.find('+') != string::npos)
-				m |= (ios::in | ios::out);
+				m |= (std::ios::in | std::ios::out);
 			
 			if (mode.find('b') != string::npos)
-				m |= ios::binary;
+				m |= std::ios::binary;
 
 			fb->open(file_name, m);
 
-			int size = static_cast<int>(fb->pubseekoff(0, ios::end));
+			int size = static_cast<int>(fb->pubseekoff(0, std::ios::end));
 			if (size == EOF)
 				size = 0;
 

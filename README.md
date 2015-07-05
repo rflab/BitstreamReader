@@ -34,9 +34,9 @@ cmd>list foo bar
 ### 定義ファイルの書き方
 
 解析方法はLuaスクリプトで記述します。
-* [Lua基礎文法最速マスター](http://milkpot.sakura.ne.jp/lua/lua52_manual_ja.html)
+* [Lua基礎文法最速マスター](http://handasse.blogspot.com/2010/02/lua.html)
 * [Lua Lua 5.3 Reference Manual(本家)](http://www.lua.org/manual/5.3/)
-* [Lua 5.2 リファレンスマニュアル(日本語)](http://handasse.blogspot.com/2010/02/lua.html)
+* [Lua 5.2 リファレンスマニュアル(日本語)](http://milkpot.sakura.ne.jp/lua/lua52_manual_ja.html)
 
 C++側からはinit_lua関数で関数・クラスがバインドされています。細かい拡張はこちらを使用します。
 * [ソースコード(streamreader.cpp)](https://github.com/rflab/stream_reader/blob/master/files/src/streamreader.cpp)

@@ -607,11 +607,11 @@ namespace rf
 				throw runtime_error(FAIL_STR("range error."));
 			}
 
-			if (FAIL(bit_pos_ == 0))
-			{
-				ERR << "bit_pos_ is not aligned"<< OUTPUT_POS << endl;
-				throw runtime_error(FAIL_STR("range error."));
-			}
+			// if (FAIL(bit_pos_ == 0))
+			// {
+			// 	ERR << "bit_pos_ is not aligned"<< OUTPUT_POS << endl;
+			// 	throw runtime_error(FAIL_STR("range error."));
+			// }
 
 			int ofs = 0;
 			int c;
@@ -669,11 +669,11 @@ namespace rf
 			}
 
 #if 0
-			if (FAIL(bit_pos_ == 0))
-			{
-				ERR << "look byte bit_pos_ != 0. bit_pos_=" << hex << bit_pos_ << OUTPUT_POS << endl;
-				throw runtime_error(FAIL_STR("range error."));
-			}
+			// if (FAIL(bit_pos_ == 0))
+			// {
+			// 	ERR << "look byte bit_pos_ != 0. bit_pos_=" << hex << bit_pos_ << OUTPUT_POS << endl;
+			// 	throw runtime_error(FAIL_STR("range error."));
+			// }
 
 			char buf[4];
 			ret_val = 0;
@@ -686,7 +686,6 @@ namespace rf
 
 			return sync();
 #else
-			
 			read_byte(size, ret_val);
 			return seekoff_byte(-size);
 #endif
@@ -712,11 +711,11 @@ namespace rf
 				throw logic_error(FAIL_STR("out of range"));
 			}
 
-			if (FAIL(bit_pos_ == 0))
-			{
-				ERR << "look byte bit_pos_ != 0. bit_pos_=" << hex << bit_pos_ << OUTPUT_POS << endl;
-				throw runtime_error(FAIL_STR("range error."));
-			}
+			// if (FAIL(bit_pos_ == 0))
+			// {
+			// 	ERR << "look byte bit_pos_ != 0. bit_pos_=" << hex << bit_pos_ << OUTPUT_POS << endl;
+			// 	throw runtime_error(FAIL_STR("range error."));
+			// }
 
 			if (FAIL(check_offset_byte(size)))
 			{
@@ -812,7 +811,7 @@ namespace rf
 					if (!advance)
 						return seekpos_byte(prev_byte_pos);
 					else
-						return seekpos_byte(size_);
+						return seekpos_byte(end_offset);
 				}
 				else
 				{

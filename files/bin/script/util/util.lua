@@ -1,9 +1,3 @@
--- ライブラリロード
-package.path = __exec_dir__.."script/module/?.lua"
-require("profiler")
-require("stream")
-require("csv")
-
 local gs_stream
 local gs_all_streams = {}
 local gs_progress
@@ -295,6 +289,16 @@ function hexstr(value)
 	return string.format("0x%x(%d)", value, value)
 end
 
+-- 値をlengthでトリミングした文字列にする
+function trimstr(v, length)
+	local str = tostring(v)
+	if #str > length then
+		return str:sub(1, length-1).."-"		
+	else
+		return str;
+	end
+end
+
 -- 配列の中に値があればそのインデックスを返す
 function find(array, value)
 	assert(type(array) == "table")
@@ -310,7 +314,7 @@ end
 function print_table(tbl, indent)
 	indent = indent or 0
 	for k, v in pairs(tbl) do
-		formatting = string.rep("  ", indent) .. k
+		local formatting = string.rep("  ", indent) .. k
 		if type(v) == "table" then
 			print(formatting)
 			print_table(v, indent+1)
@@ -387,7 +391,7 @@ end
 
 -- coroutine起動
 function start_thread(func, ...)
-	cret, fret = coroutine.resume(coroutine.create(func), ...) 
+	local cret, fret = coroutine.resume(coroutine.create(func), ...) 
 	if cret == false then
 		print(fret)
 		io.write("coroutine resume failed. enter key to continue.")
@@ -434,7 +438,7 @@ function on_set_value(name, byte, bit, size, value)
 end
 
 function sql_insert_record() assert(false, "sql is not started.") end
-function sql_print_all() assert(false, "sql is not started.") end
+function sql_print() assert(false, "sql is not started.") end
 
 function sql_begin()
 	local sql
@@ -489,11 +493,11 @@ function sql_begin()
 		if format == nil then
 			for i=0, sql:column_count(stmt)-1 do
 				io.write(
-					string.format("%-10s  ",
-					tostring(sql:column_name(stmt, i)):sub(1, 10)))
+					string.format("%-12s  ",
+					tostring(sql:column_name(stmt, i)):sub(1, 12)))
 			end
 			print()
-			printf(string.rep("----------  ", sql:column_count(stmt)))
+			printf(string.rep("------------  ", sql:column_count(stmt)))
 		end
 		while SQLITE_ROW == sql:step(stmt) do
 			for i=0, sql:column_count(stmt)-1 do
@@ -512,7 +516,7 @@ function sql_begin()
 				end
 			end
 			if format == nil then
-				printf(string.rep("%-10s  ", sql:column_count(stmt)), table.unpack(str))
+				printf(string.rep("%-12s  ", sql:column_count(stmt)), table.unpack(str))
 			else
 				printf(format, table.unpack(str))
 			end

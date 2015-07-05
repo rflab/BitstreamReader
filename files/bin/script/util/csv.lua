@@ -141,7 +141,7 @@ function _m:insert(name, value)
 end
 
 function _m:save(file_name, ...)
-	fp = io.open(file_name, "w") or io.open("_"..file_name, "w")
+	local fp = io.open(file_name, "w") or io.open("_"..file_name, "w")
 	assert(fp, "fileopen error save_as_csv("..file_name..")")
 	save_as_csv_recursive(
 		fp,

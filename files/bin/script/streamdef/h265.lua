@@ -594,7 +594,7 @@ function profile_tier_level(profilePresentFlag, maxNumSubLayersMinus1 )
 			rbit("general_lower_bit_rate_constraint_flag",   1) -- u(1)
 			rbit("general_reserved_zero_34bits",             34) -- u(34)
 		else
-			rbit("general_reserved_zero_43bits",                     43) -- u(43)
+			rbit("general_reserved_zero_43bits",             43) -- u(43)
 		end
 
 		if (general_profile_idc >= 1 and general_profile_idc <= 5)
@@ -983,7 +983,7 @@ print("st_ref_pic_set", stRpsIdx)
 			i = i + 1
 		end
 		for j = 0, NumPositivePics[ RefRpsIdx ] - 1 do
-			dPoc = DeltaPocS1[ RefRpsIdx ][ j ] + deltaRps
+			local dPoc = DeltaPocS1[ RefRpsIdx ][ j ] + deltaRps
 			if dPoc > 0 and use_delta_flag[ NumNegativePics[ RefRpsIdx ] + j ]  ~= 0 then
 				DeltaPocS1[ stRpsIdx ][i] = dPoc
 				UsedByCurrPicS1[ stRpsIdx ][i] = used_by_curr_pic_flag[ NumNegativePics[ RefRpsIdx ] + j ] 

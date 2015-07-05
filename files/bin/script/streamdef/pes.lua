@@ -27,7 +27,7 @@ local freeze_frame = 0x2;
 local fast_reverse = 0x3;
 local slow_reverse = 0x4;
 
-function pes(buf, pid)
+function pes(pid)
 	local begin = cur()
 	local PTS = false
 	local DTS = false
@@ -211,22 +211,19 @@ end
 function pes_stream(size)
     fstr("00 00 01")
     start_code = lbyte(4)
-    
-	local result = {};
-    result["PTS"..__pid__]={}
-    result["DTS"..__pid__]={}
 
 	local total_size = 0;
 	while total_size < size do
-		total_size = total_size + pes(result)
+--	    if fstr("00 00 01".., false) == false then
+--	    	break
+--	    end
+		total_size = total_size + pes(0xffff)
 	end
-	
-	return result
 end
 
--- ファイルオープン＆初期化＆解析
---open(__stream_path__)
---enable_print(false)
---stdout_to_file(false)
---start_thread(pes_stream, get_size())
-
+if __stream_ext__ == ".pes" then
+	open(__stream_path__)
+	enable_print(false)
+	stdout_to_file(false)
+	pes_stream(get_size() - 10*1024)
+end

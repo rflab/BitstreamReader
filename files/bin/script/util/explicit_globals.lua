@@ -1,16 +1,18 @@
--- table for checking global var declaration
+-- table for global var declaration checking
 local gdef = {}
 local gdef_enabled = nil
 
 -- the function to define global vars
-function global(n)
+function global(n, v)
   if not gdef_enabled then
     error("calling function global() when explicit-globals not enabled",2)
   end
   if gdef[n] == true then
     error("re-definition of global \"" .. tostring(n) .. "\"",2)
   end
+  rawset(_G, n, v)
   gdef[n] = true
+  
   return
 end
 
@@ -37,14 +39,15 @@ function use_explicit_globals( is_explicit_in_main_chunk )
   end
 
   mt.__newindex = function (t,n,v)
-    if gdef[n] ~= nil then                 -- declared global
+    if gdef[n] ~= nil then -- declared global
       rawset(t,n,v);return
     end
-    if debug.getinfo(2,"S") == nil then
+    local upfuncinfo = debug.getinfo(2,"S")
+    if upfuncinfo == nil then
       registerglobal(t,n,v);return
     end
-    local w = debug.getinfo(2,"S").what
-    if w == "C" then                       -- in C chunk
+    local w = upfuncinfo.what
+    if w == "C" then -- in C chunk
       registerglobal(t,n,v);return
     end
     if ( not is_explicit_in_main_chunk and w == "main" ) then -- in main chunk
@@ -56,19 +59,17 @@ function use_explicit_globals( is_explicit_in_main_chunk )
         -- declatration of functions in main chunk is ok.
         registerglobal(t,n,v);return
       else
-        error("assignment of undeclared global function \"" .. tostring(n) 
-           .. "\" outside of main chunk. use global(\"var\", val)", 2)
+        error("assignment of undeclared global function \"" .. tostring(n) .. "\" outside of main chunk. use global(\"var\", val)", 2)
       end
     else
       -- not function value
-      error("assignment of undeclared global \"" .. tostring(n) 
-         .. "\". use global(\"var\", val)", 2)
+      error("assignment of undeclared global \"" .. tostring(n) .. "\". use global(\"var\", val)", 2)
     end
   end
   mt.__index = function (t,n)
-    if gdef[n] == nil and debug.getinfo(2,"S").what ~= "C" then
-      error("attempt to use undeclared global \"" .. tostring(n) 
-         .. "\". use global(\"var\", val)", 2)
+    local upfuncinfo = debug.getinfo(2,"S")
+    if gdef[n] == nil and upfuncinfo ~= nil and upfuncinfo.what ~= "C" then
+      error("attempt to use undeclared global \"" .. tostring(n) .. "\". use global(\"var\", val)", 2)
     end
     return rawget(t, n)
   end
@@ -84,3 +85,5 @@ function use_implicit_globals()
   end
   gdef_enabled = nil
 end
+
+use_explicit_globals( true ) -- use explicit globals from start, except main chunk

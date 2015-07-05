@@ -82,8 +82,9 @@ function exec_cmd(c)
 			 = data.values, data.tables, data.bytes, data.bits, data.sizes, data.streams
 		local print_continue = nil
 		local function print_values(k)
-			print("     index,        address,        value,   size,     stream")
 			local count = 0
+			print ("    no.         stream       address         size        value         ")
+			print ("    ----------  -----------  --------------  ----------  --------------")
 			for i, v in ipairs(ts[k]) do
 				count = count + 1
 				if count % 1000 == 0 then
@@ -92,8 +93,8 @@ function exec_cmd(c)
 						break
 					end
 				end
-				printf("    %6d, 0x%08x(+%d), %12s, %6s, %10s",
-					i, bys[k][i], bis[k][i], v, sizs[k][i], streams[k][i].name)
+				printf("    %10s  %11s  0x%08x(+%d)  %10s  %14s",
+					i, trimstr(streams[k][i].name, 10), bys[k][i], bis[k][i], sizs[k][i], trimstr(v, 14))
 			end
 		end
 		for i = 2, #c do

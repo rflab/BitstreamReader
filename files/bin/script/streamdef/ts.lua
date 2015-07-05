@@ -1,7 +1,7 @@
 -- ts解析
 -- ./a.out test.ts
 
-dofile(__exec_dir__.."script/pes.lua")
+dofile(__exec_dir__.."script/streamdef/pes.lua")
 
 -- ストリーム解析
 local ts_packet_size = 188
@@ -493,7 +493,7 @@ function analyze_payload(pid)
 	if  pes_buf ~= nil then
 		local ts_file = swap(pes_buf)
 		if get_size() ~= cur() then
-			local size, PTS, DTS = pes(buf, pid)
+			local size, PTS, DTS = pes(pid)
 			store_recode(pid, cur(), size, false, PTS, DTS)
 			if get_size() ~= cur() then
 				rbyte("#unknown remain data", get_size() - cur())

@@ -647,7 +647,7 @@ function mp4(size)
 		
 		total_size = total_size + box_size
 	end
-	return size, header
+	return total_size
 end
 
 ----------------------------------------
@@ -743,7 +743,7 @@ function analyse_trak(trak)
 	end
 	
 	-- ES書き出し
-	prev = cur()
+	local prev = cur()
 	print(cur_trak.descriptor)
 	for i = 1, #Offset do
 		--print(Offset[i], Size[i])
@@ -818,5 +818,4 @@ print_status()
 save_as_csv(__stream_dir__.."out/mp4.csv")
 
 analyse_mp4()
-
 

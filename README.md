@@ -66,8 +66,10 @@ stream, prev_stream = open()             -- 可変長のバッファストリー
 prev_stream = swap(stream)       -- ストリームを解析対象として登録し、先に登録されていたストリームを返す
 print_status()                   -- ストリーム状態表示
 size = get_size()                -- ストリームファイルサイズ取得
+<!--
 enable_print(b)                  -- 解析結果表示のON/OFF, デフォルトON
 little_endian(b)                 -- 2/4バイト読み込み時のエンディアンを変換ON/OFF, デフォルトOFF
+-->
 
 -- シーク系
 byte, bit = cur()                -- 現在のバイトオフセット、ビットオフセットを取得

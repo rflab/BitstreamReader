@@ -38,6 +38,9 @@ Lua言語/SQLiteベースでスクリプトを書けばビット単位、可変�
 * [Lua Lua 5.3 Reference Manual(本家)](http://www.lua.org/manual/5.3/)
 * [Lua 5.2 リファレンスマニュアル(日本語)](http://handasse.blogspot.com/2010/02/lua.html)
 
+C++側からはinit_lua関数で関数・クラスがバインドされています。細かい拡張はこちらを使用します。
+* [ソースコード(streamreader.cpp)](https://github.com/rflab/stream_reader/blob/master/files/src/streamreader.cpp)
+
 通常はutil.luaにある関数を利用すると簡単です。
 * [util.lua](https://github.com/rflab/stream_reader/blob/master/files/bin/script/module/util.lua)
 * [その他のmodule](https://github.com/rflab/stream_reader/blob/master/files/bin/script/module/)
@@ -59,7 +62,6 @@ rstr ("dataB", 4)             -- 4バイトを文字列として読み込み
 tbyte("pcm",   16, "pcm.dat") -- 16バイトをファイルに書き写す
 print(get("flagC"))           -- 取得済みのデータを参照する
 ```
-
 util.luaのよく使う関数の使用は以下の通りです。
 ```lua
 -- 表記： "戻り値 = 関数名(引数...)) -- 機能"
@@ -69,11 +71,10 @@ stream, prev_stream = open(file_name) -- ファイルストリームを作成し
 stream, prev_stream = open(size)      -- 固定長のバッファストリームを作成し、解析対象として登録
 stream, prev_stream = open()          -- 可変長のバッファストリームを作成、解析対象として登録
 prev_stream = swap(stream)            -- ストリームを解析対象として登録し、先に登録されていたストリームを返す
-size = get_size()                     -- ストリームファイルサイズ取得
-enable_print(b)                       -- 解析結果表示のON/OFF, デフォルトON
 
 -- シーク系
 byte, bit = cur()                -- 現在のバイトオフセット、ビットオフセットを取得
+size = get_size()                -- ストリームファイルサイズ取得
 seek(byte, bit)                  -- 絶対位置シーク
 seekoff(byte, bit)               -- 相対位置シーク
 
@@ -102,11 +103,6 @@ print_table(tbl)　　　　         -- テーブルの内容を表示する
 hexstr(value)                    -- 値をHHHH(DDDD)な感じの文字列にする
 write(filename, pattern)         -- char配列 or "00 01 ..." のような文字列パターンでファイル追記
 ```
-C++側からはinit_lua関数で関数・クラスがバインドされています。
-細かい拡張はこちらを使用します。
-
-[ソースコード(streamreader.cpp)][2]
-
 ## ビルド方法
 
 自分でビルドする場合、
@@ -117,4 +113,3 @@ Lua5.3.0＆VC++12でビルド確認済み
 gcc version 4.9.2 (Ubuntu 4.9.2-10ubuntu13) でもたまにビルド確認しています。
 
 [1]: https://github.com/rflab/stream_reader/blob/master/files/bin/script/default.lua
-[2]: https://github.com/rflab/stream_reader/blob/master/files/src/streamreader.cpp

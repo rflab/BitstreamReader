@@ -49,7 +49,7 @@ C++側からはinit_lua関数で関数・クラスがバインドされていま
 -- ストリーム解析例 --
 
 -- 準備
-dofile("script/module/util.lua") -- Luaに関数登録ロード
+dofile("script/util/include.lua") -- Luaに関数登録ロード
 open("test.dat")                 -- ファイルオープン＆初期化
 dump()                           -- 現在位置から数バイト表示してみる
 

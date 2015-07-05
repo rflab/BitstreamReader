@@ -12,16 +12,16 @@ Lua言語/SQLiteベースでスクリプトを書けばビット単位、可変�
 
 実行時引数にファイル名を指定すると解析が始まります。
 ```
-    // windowsの場合はstreamreader.exeにファイルをドロップとおなじ。
-    S./a.out test.wav
+// windowsの場合はstreamreader.exeにファイルをドロップとおなじ。
+S./a.out test.wav
 ```
 解析が完了したら幾つかの簡易コマンドで結果を参照することが可能です。
 ```
-    -- とりあえず取得した値を全部見る
-    info
-    -- 名前に foo もしくは bar を含む値の情報を表示
-    grep foo bar
-    list foo bar
+-- とりあえず取得した値を全部見る
+cmd>info
+-- 名前に foo もしくは bar を含む値の情報を表示
+cmd>grep foo bar
+cmd>list foo bar
 ```
 より正確には以下の挙動となります。
 * コマンドライン引数なしで起動した場合は、Luaのコマンドインタプリタとして起動されます。

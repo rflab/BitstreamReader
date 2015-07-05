@@ -27,8 +27,8 @@ cmd>list foo bar
 * コマンドライン引数なしで起動した場合は、Luaのコマンドインタプリタとして起動されます。
 * コマンドライン引数ありでLuaのファイルを指定しなかった場合は、[default.lua][1]が先に実行されます。
 * コマンドライン引数はLua側でもargc、argv[]としてアクセスできます。
-* 現状の[default.lua][1]はファイル識別コード/拡張子による処理の振り分けを行います
-* 現状の[default.lua][1]は書く解析終了後にcmd()関数をコールし、cmd()関数がで簡易コマンドを受け付けています。
+* 現状の[default.lua][1]は[check_stream.lua][2]でファイル識別を行い、処理の振り分けを行います
+* 現状の[default.lua][1]は解析終了後にcmd()関数をコールし、cmd()関数が簡易コマンドを受け付けています。
 
 
 ### 定義ファイルの書き方
@@ -113,3 +113,4 @@ Lua5.3.0＆VC++12でビルド確認済み
 gcc version 4.9.2 (Ubuntu 4.9.2-10ubuntu13) でもたまにビルド確認しています。
 
 [1]: https://github.com/rflab/stream_reader/blob/master/files/bin/script/default.lua
+[2]: https://github.com/rflab/stream_reader/blob/master/files/bin/script/check_stream.lua

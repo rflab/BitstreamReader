@@ -185,10 +185,10 @@ function pes(pid)
 			local ofs = fstr(hex2str(start_code), false)
 			seek(cur()-4)
 	        tbyte("PES_packet_data_byte", ofs + 4,
-	        	__stream_dir__.."out/pid"..hexstr(pid)..".es")
+	        	__out_dir__.."pid"..hexstr(pid)..".es")
         else
 	        tbyte("PES_packet_data_byte", N,
-	        	__stream_dir__.."out/pid"..hexstr(pid)..".es")
+	        	__out_dir__.."pid"..hexstr(pid)..".es")
         end
         
 	elseif get("stream_id") == program_stream_map
@@ -198,13 +198,12 @@ function pes(pid)
 	or     get("stream_id") == program_stream_directory
 	or     get("stream_id") == ITU_T_Rec_H_222_0_ISO_IEC_13818_1_Annex_B_or_ISO_IEC_13818_6_DSMCC_stream
 	or     get("stream_id") == ITU_T_Rec_H_222_1_type_E then
-	    tbyte("PES_packet_data_byte",                                   get("PES_packet_length"), __stream_dir__.."out/pid.es")
+	    tbyte("PES_packet_data_byte",                                   get("PES_packet_length"), __out_dir__.."pid.es")
 	    --rbyte("PES_packet_data_byte",                                   get("PES_packet_length"))
 	elseif ( stream_id == padding_stream) then
         rbyte("padding_byte",                                           get("PES_packet_length"))
 	end
 
-	-- return get("PES_packet_length")
 	return cur() - begin, PTS, DTS
 end
 
@@ -221,7 +220,7 @@ function pes_stream(size)
 	end
 end
 
-if __stream_ext__ == ".pes" then
+if __stream_type__ == ".pes" then
 	open(__stream_path__)
 	enable_print(false)
 	stdout_to_file(false)

@@ -274,7 +274,7 @@ function DESCRIPTIONRECORD()
 	    --
 	else
 		print("# unknown box", header)
-		VisualSampleEntryBox(box_size-header_size)
+		--VisualSampleEntryBox(box_size-header_size)
 	end
 
 	rbyte("some data", box_size - (cur()-begin))
@@ -748,7 +748,7 @@ function analyse_trak(trak)
 	for i = 1, #Offset do
 		--print(Offset[i], Size[i])
 		seek(Offset[i])
-		tbyte("es", Size[i], __stream_dir__.."/out/"..trak.descriptor..".es")
+		tbyte("es", Size[i], __out_dir__..trak.descriptor..".es")
 	end
 	seek(prev)
 	
@@ -787,7 +787,7 @@ function analyse_mp4()
 
 	    -- 全部出力済みで終了
 		if end_count == #trak_data then
-			c:save(__stream_dir__.."out/timestamp.csv")
+			c:save(__out_dir__.."/timestamp.csv")
 			break
 		end
 		
@@ -815,7 +815,7 @@ stdout_to_file(false)
 mp4(get_size())
 
 print_status()
-save_as_csv(__stream_dir__.."out/mp4.csv")
+save_as_csv(__out_dir__.."mp4.csv")
 
 analyse_mp4()
 

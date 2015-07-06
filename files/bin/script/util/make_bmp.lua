@@ -72,6 +72,6 @@ function test_pattern()
 		end
 	end
 
-	create_bmp(__stream_dir__.."out/out.bmp", dip)
+	create_bmp(__out_dir__.."out.bmp", dip)
 	print("done")
 end

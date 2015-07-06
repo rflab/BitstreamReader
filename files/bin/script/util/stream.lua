@@ -175,6 +175,12 @@ function _m:lbit(size)
 	return val
 end
 
+function _m:lstr(size)	
+ 	local val = self.stream:look_byte_string(size)
+	check(self, val, "lstr:")
+	return val
+end
+
 function _m:lexp(size)	
  	local val = self.stream:look_expgolomb(size)
 	check(self, val, "lbit:")

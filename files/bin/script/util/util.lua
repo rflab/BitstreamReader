@@ -180,6 +180,11 @@ function lbyte(size)
 	return gs_stream:lbyte(size)
 end
 
+-- 文字列を読み込むがポインタは進めない
+function lstr(size)
+	return gs_stream:lstr(size)
+end
+
 -- バイト単位で読み込むがポインタは進めない
 function lexp(size)
 	return gs_stream:lexp(size)

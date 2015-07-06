@@ -1,5 +1,4 @@
-
-function check_stream(s)
+local function analyse_stream_type(s)
 	local prev_stream = swap(s)
 	local begin_byte, begin_bit = cur()
 	local ret = nil
@@ -11,11 +10,19 @@ function check_stream(s)
 		--ascii_art("stream?")
 		print("check stream...")
 		print("")		
-		
+
+		-- test	
 		if __stream_ext__ == ".test" then
 			ret = ".test"
 			ascii = "Test"
 			break;
+		end
+		
+		-- txt
+		if __stream_ext__ == ".txt" then
+			ret = ".txt"
+			ascii = "Text"
+			break
 		end
 		
 		--
@@ -26,9 +33,22 @@ function check_stream(s)
 		
 		-- wav
 		seek(0)
+		if cstr("ckID", 4, "RIFF") then
+			seekoff(4) 
+			if cstr("ckData", 4, "WAVE") then 
+				ret = ".wav"
+				ascii = "Wave"
+				break
+			end
+		end
+		
+		-- riff other than wave and avi
+		seek(0)
 		if cstr("RIFF", 4, "RIFF") then
-			ret = ".wav"
-			ascii = "WAVE"
+			seekoff(4) 
+			local id = lstr(4)
+			ret = ".riff"
+			ascii = "Riff/"..id
 			break
 		end
 
@@ -111,12 +131,6 @@ function check_stream(s)
 			break
 		end
 		
-		-- txt
-		if __stream_ext__ == ".txt" then
-			ret = ".txt"
-			ascii = "Text"
-			break
-		end
 		
 		-- zip
 		seek(0)
@@ -149,18 +163,72 @@ function check_stream(s)
 		end
 		
 		-- unknown
-		ret = ".unknown"
+		__stream_type__ = ".unknown"
 		ascii = "Unknown"
 
 	until true 
 
+	__stream_type__ = ret
+
 	print()
-	print_ascii(ascii)--ret:sub(2))
+	print_ascii(ascii)
 	print("====================================================================================================================")
 
 	seek(begin_byte, begin_bit)
 	swap(prev_stream)
 	return ret
+end
+
+function dispatch_stream(stream)
+	local st = analyse_stream_type(stream)
+
+	if st == ".test" then
+		dofile(__exec_dir__.."script/streamdef/test.lua")
+
+	elseif st == ".wav" then
+		dofile(__exec_dir__.."script/streamdef/wav.lua")
+
+	elseif st == ".riff" then
+		dofile(__exec_dir__.."script/streamdef/riff.lua")
+		
+	elseif st == ".bmp" then
+		dofile(__exec_dir__.."script/streamdef/bmp.lua")
+		
+	elseif st == ".jpg"
+	or     st == ".JPG" then
+		dofile(__exec_dir__.."script/streamdef/jpg.lua")
+		
+	elseif st == ".ts"
+	or     st == ".tts"
+	or     st == ".m2ts"
+	or     st == ".MPG"
+	or     st == ".mpg" then
+		dofile(__exec_dir__.."script/streamdef/ts.lua")
+		
+	elseif st == ".pes" then
+		dofile(__exec_dir__.."script/streamdef/pes.lua")
+
+	elseif st == ".h264" then
+		dofile(__exec_dir__.."script/streamdef/h264.lua")
+
+	elseif st == ".h265" then
+		dofile(__exec_dir__.."script/streamdef/h265.lua")
+
+	elseif st == ".mp4" then
+		dofile(__exec_dir__.."script/streamdef/mp4.lua")
+
+	elseif st == ".dat" then
+		dofile(__exec_dir__.."script/streamdef/dat.lua")
+		
+	elseif string.match(argv[1], "^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
+		dofile(__exec_dir__.."script/streamdef/string.lua")
+
+	elseif st == ".txt" then
+		dump(256)
+		
+	else
+		print("not found extension")
+	end
 end
 
 -- " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"

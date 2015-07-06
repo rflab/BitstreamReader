@@ -562,11 +562,11 @@ namespace rf
 		// 文字列として読み込み
 		// NULL文字が先に見つかった場合はその分だけ文字列にするがポインタは進む
 		// NULL文字が見つからなかった場合は最大max_lengthの長さ文字列として終端にNULL文字を入れる
-		bool read_string(int max_length, string &ret_str)
+		bool read_string(int size, string &ret_str)
 		{
-			if (FAIL(check_offset_byte(max_length)))
+			if (FAIL(check_offset_byte(size)))
 			{
-				ERR << "max_length=" << hex << max_length << OUTPUT_POS << endl;
+				ERR << "size=" << hex << size << OUTPUT_POS << endl;
 				throw runtime_error(FAIL_STR("range error."));
 			}
 
@@ -580,7 +580,7 @@ namespace rf
 			int ofs = 0;
 			int c;
 			stringstream ss;
-			for (; ofs < max_length; ++ofs)
+			for (; ofs < size; ++ofs)
 			{
 				c = buf_->sbumpc();
 				ss << static_cast<char>(c);
@@ -595,12 +595,12 @@ namespace rf
 			}
 			ret_str = ss.str();
 #else
-			auto pa = make_unique<char[]>(max_length);
-			buf_->sgetn(pa.get(), max_length);
+			auto pa = make_unique<char[]>(size);
+			buf_->sgetn(pa.get(), size);
 			ret_str.assign(pa.get());
 #endif
 
-			return seekoff_byte(max_length);
+			return seekoff_byte(size);
 		}
 
 		// ビット単位で先読み
@@ -883,7 +883,7 @@ namespace rf
 
 			char* buf = new char[static_cast<unsigned int>(size)];
 
-			stream.look_byte_string(buf, size);
+			stream.bs_.look_byte_string(buf, size);
 			FileManager::getInstance().write_to_file(file_name, buf, size);
 			if (advance)
 			{
@@ -913,12 +913,6 @@ namespace rf
 		bool assign(unique_ptr<std::streambuf>&& b, int size)
 		{
 			return bs_.assign(std::move(b), size);
-		}
-
-		// 指定バッファ分だけデータを先読み
-		bool look_byte_string(char* address, int size)
-		{
-			return bs_.look_byte_string(address, size);
 		}
 
 		// 現在の状態を表示
@@ -1036,24 +1030,24 @@ namespace rf
 
 		// バイト単位で文字列として読み込み
 		// むちゃくちゃ長い文字列はまずい。
-		string read_string(const char* name, int max_length) throw(...)
+		string read_string(const char* name, int size) throw(...)
 		{
-			if (FAIL(bs_.check_offset_byte(max_length)))
-				throw runtime_error((print_status(), string("overflow, size=") + to_string(max_length)));
+			if (FAIL(bs_.check_offset_byte(size)))
+				throw runtime_error((print_status(), string("overflow, size=") + to_string(size)));
 
 			int prev_byte = bs_.byte_pos();
 			int prev_bit = bs_.bit_pos();
 
 			string str;
-			bs_.read_string(max_length, str);
+			bs_.read_string(size, str);
 			
 			if (printf_on_ || (name[0] == '#'))
 			{
 				printf(" adr=0x%08x(+%d)| siz=0x%08x(+0)| %-40s | str=\"%s\"\n",
 					prev_byte, prev_bit, static_cast<unsigned int>(str.length()), name, str.c_str());
-				if (max_length < static_cast<int>(str.length() - 1))
-					ERR << "max_length > str.length() - 1 (" << str.length()
-						<< " != " << max_length << ")" << endl;
+				if (size < static_cast<int>(str.length() - 1))
+					ERR << "size > str.length() - 1 (" << str.length()
+					<< " != " << size << ")" << endl;
 			}
 
 			return str;
@@ -1100,7 +1094,25 @@ namespace rf
 			bs_.look_byte(size, val);
 			return val;
 		}
+		
+#if 1
+		string look_byte_string(int size) throw(...)
+		{
+			if (FAIL(bs_.check_offset_byte(size)))
+				throw runtime_error((print_status(), string("overflow, size=") + to_string(size)));
 
+			auto buf = make_unique<char[]>(size);
+			bs_.look_byte_string(buf.get(), size);
+
+			return string(buf.get(), size);
+		}
+#else
+		// 指定バッファ分だけデータを先読み
+		bool look_byte_string(char* address, int size)
+		{
+			return bs_.look_byte_string(address, size);
+		}
+#endif
 		// 指数ゴロムで先読み
 		uint32_t look_expgolomb() throw(...)
 		{
@@ -1307,31 +1319,28 @@ namespace rf
 		// 現在位置からバイト表示
 		bool dump_bytes(int max_size)
 		{
-			char buf[MAX_DUMP];
 			int dump_len = std::min<int>(bs_.size() - bs_.byte_pos(), max_size);
-			dump_len = std::min<int>(dump_len, sizeof(buf));
-			bs_.look_byte_string(buf, dump_len);
-			return rf::dump_bytes(buf, 0, dump_len);
+			auto buf = make_unique<char[]>(dump_len);
+			bs_.look_byte_string(buf.get(), dump_len);
+			return rf::dump_bytes(buf.get(), 0, dump_len);
 		}
 
 		// 現在位置からバイト表示
 		bool dump_string(int max_size)
 		{
-			char buf[MAX_DUMP];
 			int dump_len = std::min<int>(bs_.size() - bs_.byte_pos(), max_size);
-			dump_len = std::min<int>(dump_len, sizeof(buf));
-			bs_.look_byte_string(buf, dump_len);
-			return rf::dump_string(buf, 0, dump_len);
+			auto buf = make_unique<char[]>(dump_len);
+			bs_.look_byte_string(buf.get(), dump_len);
+			return rf::dump_string(buf.get(), 0, dump_len);
 		}
 
 		// 現在位置からバイト表示
 		bool dump(int max_size)
 		{
-			char buf[MAX_DUMP];
 			int dump_len = std::min<int>(bs_.size() - bs_.byte_pos(), max_size);
-			dump_len = std::min<int>(dump_len, sizeof(buf));
-			bs_.look_byte_string(buf, dump_len);
-			return rf::dump(buf, 0, dump_len, byte_pos());
+			auto buf = make_unique<char[]>(dump_len);
+			bs_.look_byte_string(buf.get(), dump_len);
+			return rf::dump(buf.get(), 0, dump_len, byte_pos());
 		}
 	};
 
@@ -1705,15 +1714,16 @@ unique_ptr<LuaBinder> init_lua(int argc, char** argv)
 		def("byte_pos",           &LuaGlueBitstream::byte_pos).          // 現在のバイトオフセットを取得
 		def("read_bit",           &LuaGlueBitstream::read_bit).          // ビット単位で読み込み
 		def("read_byte",          &LuaGlueBitstream::read_byte).         // バイト単位で読み込み
-		def("read_string",        &LuaGlueBitstream::read_string).       // バイト単位で文字列として読み込み
+		def("read_string",        &LuaGlueBitstream::read_string).       // 文字列を読み込み
 		def("read_expgolomb",     &LuaGlueBitstream::read_expgolomb).    // 指数ゴロムとしてビットを読む
 		def("comp_bit",           &LuaGlueBitstream::compare_bit).       // ビット単位で比較
 		def("comp_byte",          &LuaGlueBitstream::compare_byte).      // バイト単位で比較
-		def("comp_string",        &LuaGlueBitstream::compare_string).    // バイト単位で文字列として比較
-		def("comp_expgolomb",     &LuaGlueBitstream::compare_expgolomb). // 指数ゴロムとして比較
+		def("comp_string",        &LuaGlueBitstream::compare_string).    // 文字列を比較
+		def("comp_expgolomb",     &LuaGlueBitstream::compare_expgolomb). // 指数ゴロムを比較
 		def("look_bit",           &LuaGlueBitstream::look_bit).          // ポインタを進めないでビット値を取得、4byteまで
 		def("look_byte",          &LuaGlueBitstream::look_byte).         // ポインタを進めないでバイト値を取得、4byteまで
-		def("look_expgolomb",     &LuaGlueBitstream::look_expgolomb).    // ポインタを進めないで指数ゴロム値を取得、4byteまで
+		def("look_byte_string",   &LuaGlueBitstream::look_byte_string).  // ポインタを進めないで文字列を取得
+		def("look_expgolomb",     &LuaGlueBitstream::look_expgolomb).    // ポインタを進めないで指数ゴロムを取得、4byteまで
 		def("find_byte",          &LuaGlueBitstream::find_byte).         // １バイトの一致を検索
 		def("find_byte_string",   &LuaGlueBitstream::find_byte_string).  // 数バイト分の一致を検索
 		def("transfer_byte",      &LuaGlueBitstream::transfer_byte).     // 部分ストリーム(Bitstream)を作成

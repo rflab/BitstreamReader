@@ -1,20 +1,22 @@
--- wav解析
+-- Riffの一種だけど簡単なので得だし
+
 little_endian(true)
-cstr ("'RIFF'",                       4, "RIFF")
-rbyte("file_size+muns8",              4)
-cstr ("'WAVE'",                       4, "WAVE")
-cstr ("'fmt '",                       4, "fmt ")
-rbyte("size_fmt",                     4)
-rbyte("format_id",                    2)
-rbyte("num_channels",                 2)
-rbyte("sampleing_frequency",          4)
-rbyte("byte_per_sec",                 4)
+cstr ("RIFF",                         4, "RIFF")
+rbyte("size",                         4)
+cstr ("WAVE",                         4, "WAVE")
+cstr ("fmt ",                         4, "fmt ")
+rbyte("size",                         4)
+rbyte("format",                       2)
+rbyte("channels",                     2)
+rbyte("samplerate",                   4)
+rbyte("bytepersec",                   4)
 rbyte("block_size(smaple_x_channel)", 2)
 rbyte("bit_depth",                    2)
-cstr ("'LIST'",                       4, "LIST")
-rbyte("size_audio_data",              4)
-tbyte("pcm",                          get("size_audio_data"), "pcm.dat") -- PCMを書き出す
-rstr ("tag",                          4)
-rbyte("size_data",                    4)
-rbyte("data",                         get("size_data"))
+
+-- 残りのチャンクも見るならtrue
+if true then
+	dofile(__exec_dir__.."script/streamdef/riff.lua")
+	chunk()
+end
+
 print_status()

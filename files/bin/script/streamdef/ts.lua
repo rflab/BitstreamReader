@@ -335,7 +335,7 @@ function pmt()
 		
 		-- 初めて見るPIDなら追加
 		-- local buf, prev = open(1024*1024*3)
-		local buf, prev = open(__stream_dir__.."out/"..hexstr(get("elementary_PID"))..".pes", "ab+")
+		local buf, prev = open(__out_dir__..hexstr(get("elementary_PID"))..".pes", "ab+")
 	    swap(prev)
 	    pes_buf_array[get("elementary_PID")] = buf
 		buf:enable_print(false)
@@ -545,7 +545,7 @@ end
 
 print_status()
 analyze()
-save_as_csv(__stream_dir__.."out/ts.csv")
+save_as_csv(__out_dir__.."ts.csv")
 print_status()
 
 

@@ -6,6 +6,5 @@ require("csv")
 require("explicit_globals")
 require("util")
 require("cmd")
-require("check_stream")
 use_explicit_globals(true)
 

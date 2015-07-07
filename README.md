@@ -5,7 +5,6 @@ windowsならstream_reader/files/bin/streamreader.exeにファイルをドロッ
 
 （現在の対応フォーマット:mp4, mpg (ts, tts), jpg(jfif, exif), iff(avi, wav, aiff), bmp, pes, h264, h265, など）
 
-
 Lua言語/SQLiteベースでスクリプトを書けばビット単位、可変長でどんなバイナリデータも解析/作成できます
 
 ## 使い方
@@ -67,33 +66,34 @@ util.luaのよく使う関数の使用は以下の通りです。
 -- 表記： "戻り値 = 関数名(引数...)) -- 機能"
 
 -- 読み込み設定
-stream, prev_stream = open(file_name) -- ファイルストリームを作成し、解析対象として登録
-stream, prev_stream = open(size)      -- 固定長のバッファストリームを作成し、解析対象として登録
-stream, prev_stream = open()          -- 可変長のバッファストリームを作成、解析対象として登録
-prev_stream = swap(stream)            -- ストリームを解析対象として登録し、先に登録されていたストリームを返す
+stream, prev_stream = open(file_name) -- ファイルストリームを開く
+stream, prev_stream = open(size)      -- 固定長のバッファストリームを開く
+stream, prev_stream = open()          -- 可変長のバッファストリームを開く
+prev_stream = swap(stream)            -- 解析対象のストリームを交換する
 
 -- シーク系
-byte, bit = cur()                -- 現在のバイトオフセット、ビットオフセットを取得
-size = get_size()                -- ストリームファイルサイズ取得
+byte, bit = cur()                -- 現在の解析位置を取得
+size = get_size()                -- ストリームサイズ取得
 seek(byte, bit)                  -- 絶対位置シーク
 seekoff(byte, bit)               -- 相対位置シーク
 
 -- 解析
 val = get(name)                  -- 値を取得する
 reset(name, value)               -- 値を設定する
-val = rbit(name, size)           -- ビット単位で読み進める
-val = rbyte(name, size)          -- バイト単位で読み進める
-val = rstr(name, size)           -- 文字列として読み進める
-val = rexp(name)                 -- 指数ゴロムで読み進める
+val = rbit(name, size)           -- ビット単位で読み進め、データベースに登録
+val = rbyte(name, size)          -- バイト単位で読み進め、データベースに登録
+str = rstr(name, size)           -- 文字列として読み進め、データベースに登録
+val = rexp(name)                 -- 指数ゴロムで読み進め、データベースに登録
 bool = cbit(name, size, comp)    -- ビット単位で読み進め、compとの一致を確認
 bool = cbyte(name, size, comp)   -- バイト単位で読み進め、compとの一致を確認
 bool = cstr(name, size, comp)    -- 文字列として読み進め、compとの一致を確認
 bool = cexp(name)                -- 指数ゴロムで読み進め、compとの一致を確認
-val = lbit(size)                 -- ビット単位で見るが、ポインタは進めない
-val = lbyte(size)                -- バイト単位で見るが、ポインタは進めない
-val = lexp(size)                 -- 指数ゴロムで見るが、ポインタは進めない
+val = lbit(size)                 -- ビット単位で先読みし、ポインタは進めない
+val = lbyte(size)                -- バイト単位で先読みし、ポインタは進めない
+str = lstr(size)                 -- 文字列として先読みし、ポインタは進めない
+val = lexp(size)                 -- 指数ゴロムで先読みし、ポインタは進めない
 offset = fbyte(char, advance)    -- charを検索、advance=trueでポインタを移動
-offset = fstr(pattern, advance)  -- "00 01 ..." のような文字列パターンでバイナリ列を検索
+offset = fstr(pattern, advance)  -- "00 01 ..."パターンでバイナリ列を検索
 tbyte(name, size, stream)        -- ストリームから別のstreamにデータを転送
 tbyte(name, size, filename)      -- ストリームからからファイルにデータを転送
 
@@ -101,7 +101,7 @@ tbyte(name, size, filename)      -- ストリームからからファイルに�
 dump(size)                       -- ストリームを最大256バイト出力
 print_table(tbl)　　　　         -- テーブルの内容を表示する
 hexstr(value)                    -- 値をHHHH(DDDD)な感じの文字列にする
-write(filename, pattern)         -- char配列 or "00 01 ..." のような文字列パターンでファイル追記
+write(filename, pattern)         -- 文字列 or "00 01 ..."パターンでファイル追記
 ```
 ## ビルド方法
 

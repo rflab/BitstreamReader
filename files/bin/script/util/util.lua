@@ -291,7 +291,11 @@ end
 
 -- 16進数をHHHH(DDDD)な感じの文字列にする
 function hexstr(value)
-	return string.format("0x%x(%d)", value, value)
+	if type(value) == "number" then
+		return string.format("0x%x(%d)", value, value)
+	else
+		return value
+	end
 end
 
 -- 値をlengthでトリミングした文字列にする

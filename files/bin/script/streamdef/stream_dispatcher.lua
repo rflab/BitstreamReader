@@ -31,24 +31,35 @@ local function analyse_stream_type(s)
 			break;
 		end
 		
-		-- wav
-		seek(0)
-		if cstr("ckID", 4, "RIFF") then
-			seekoff(4) 
-			if cstr("ckData", 4, "WAVE") then 
-				ret = ".wav"
-				ascii = "Wave"
-				break
-			end
-		end
+		-- RIFFÇÃÇŸÇ§Ç™ê≥äm
+		-- -- wav
+		-- seek(0)
+		-- if cstr("ckID", 4, "RIFF") then
+		-- 	seekoff(4) 
+		-- 	if cstr("ckData", 4, "WAVE") then 
+		-- 		ret = ".wav"
+		-- 		ascii = "Wave"
+		-- 		break
+		-- 	end
+		-- end
 		
 		-- riff other than wave and avi
 		seek(0)
 		if cstr("RIFF", 4, "RIFF") then
 			seekoff(4) 
 			local id = lstr(4)
-			ret = ".riff"
+			ret = ".iff"
 			ascii = "Riff/"..id
+			break
+		end
+		
+		-- riff other than wave and avi
+		seek(0)
+		if cstr("FORM", 4, "FORM") then
+			seekoff(4) 
+			local id = lstr(4)
+			ret = ".iff"
+			ascii = "Iff/"..id
 			break
 		end
 
@@ -188,8 +199,8 @@ function dispatch_stream(stream)
 	elseif st == ".wav" then
 		dofile(__exec_dir__.."script/streamdef/wav.lua")
 
-	elseif st == ".riff" then
-		dofile(__exec_dir__.."script/streamdef/riff.lua")
+	elseif st == ".iff" then
+		dofile(__exec_dir__.."script/streamdef/iff.lua")
 		
 	elseif st == ".bmp" then
 		dofile(__exec_dir__.."script/streamdef/bmp.lua")

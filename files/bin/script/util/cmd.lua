@@ -54,7 +54,7 @@ function exec_cmd(c)
 			num  = ts[k]  and #(ts[k])  or 0
 			byte = bys[k] and bys[k][#(bis[k])]
 			bit  = bis[k] and bis[k][#(bis[k])]
-			printf("  adr=0x%08x(+%d) [%6d]| %-50s %-8s", byte, bit, num, k, v)
+			printf("  adr=0x%08x(+%d) [%6d]| %-50s %-8s", byte, bit, num, k, hexstr(v))
 		end
 		print_status()
 	elseif c[1] == "grep" then
@@ -72,7 +72,7 @@ function exec_cmd(c)
 					num  = ts[k]  and #(ts[k])  or 0
 					byte = bys[k] and bys[k][#(bis[k])]
 					bit  = bis[k] and bis[k][#(bis[k])]
-					printf("  adr=0x%08x(+%d) [%6d]| %-50s %-8s", byte, bit, num, k, v)
+					printf("  adr=0x%08x(+%d) [%6d]| %-50s %-8s", byte, bit, num, k, hexstr(v))
 				end
 			end
 		end
@@ -94,7 +94,7 @@ function exec_cmd(c)
 					end
 				end
 				printf("    %10s  %11s  0x%08x(+%d)  %10s  %14s",
-					i, trimstr(streams[k][i].name, 10), bys[k][i], bis[k][i], sizs[k][i], trimstr(v, 14))
+					i, trimstr(streams[k][i].name, 10), bys[k][i], bis[k][i], sizs[k][i], trimstr(hexstr(v), 14))
 			end
 		end
 		for i = 2, #c do

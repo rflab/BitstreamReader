@@ -18,21 +18,30 @@ local function analyse_stream_type(s)
 			break;
 		end
 		
-		-- txt
-		if __stream_ext__ == ".txt" then
-			ret = ".txt"
-			ascii = "Text"
-			break
-		end
-		
-		if get_size() < 192 then
+		if get_size() < 16 then
 			print("short file.");
 			ret = ".dat"
 			ascii = "Unknown"
 			break;
 		end
+
+		-- txt
+		if __stream_ext__ == ".txt" then
+			seek(0)
+			if lbyte(3) == 0xefbbbf then
+				ascii = "UTF-8 BOM"
+			elseif lbyte(2) == 0xfeff then
+				ascii = "UTF-16 BOM(BE)"
+			elseif lbyte(2) == 0xfffe then
+				ascii = "UTF-16 BOM(LE)"
+			else
+				ascii = "Text"
+			end
+			ret = ".txt"
+			break
+		end
 		
-		-- RIFF‚Ì‚Ù‚¤‚ª³Šm
+		-- RIFFã®ã»ã†ãŒæ­£ç¢º
 		-- -- wav
 		-- seek(0)
 		-- if cstr("ckID", 4, "RIFF") then
@@ -83,12 +92,14 @@ local function analyse_stream_type(s)
 		-- ts, tts, m2ts, mpg
 		seek(0)
 		if fbyte(0x47, true, 5) ~= 12 then
-			seekoff(188)
-			if lbyte(1) == 0x47
-			or seekoff(4) and lbyte(1) == 0x47 then
-				ret = ".ts"
-				ascii = "MPEG-2 TS"
-				break
+			if get_size() > 200 then
+				seekoff(188)
+				if lbyte(1) == 0x47
+				or seekoff(4) and lbyte(1) == 0x47 then
+					ret = ".ts"
+					ascii = "MPEG-2 TS"
+					break
+				end
 			end
 		end
 		
@@ -127,7 +138,6 @@ local function analyse_stream_type(s)
 			end
 		end
 		
-
 		-- mp4
 		seek(0)
 		if fstr("ftyp", true, 8) ~= 8 then
@@ -136,14 +146,6 @@ local function analyse_stream_type(s)
 			break
 		end
 
-		-- dat
-		if __stream_ext__ == ".dat" then
-			ret = ".dat"
-			ascii = "Data"
-			break
-		end
-		
-		
 		-- zip
 		seek(0)
 		if cbyte("signature", 4, 0x504b0304) then
@@ -152,13 +154,93 @@ local function analyse_stream_type(s)
 			break
 		end
 		
+		-- mp3
+		seek(0)
+		if cbyte("signature", 3, 0x494433) then
+			ret = ".mp3"
+			ascii = "mp3"
+			break
+		end
+		
+		-- ogg
+		seek(0)
+		if cbyte("signature", 4, 0x4f676753) then
+			ret = ".ogg"
+			ascii = "Ogg Vorbis"
+			break
+		end
+			
+		
+		-- wmv
+		seek(0)
+		if cbyte("signature", 2, 0x3026) then
+			ret = ".wmv"
+			ascii = "wmv?"
+			break
+		end
+		
+		-- flv
+		seek(0)
+		if cbyte("signature", 3, 0x464c56) then
+			ret = ".flv"
+			ascii = "Flash Video"
+			break
+		end
+		
+		--mkv
+		seek(8)
+		if cstr("signature", 8, "matroska") then
+			ret = ".mkv"
+			ascii = "MKV (matroska)"
+			break
+		end
+				
+		-- PDF
+		seek(0)
+		if cbyte("signature", 4, 0x25504446) then
+			ret = ".pdf"
+			ascii = "PDF"
+			break
+		end
+		
+		-- exe
+		seek(0)
+		if cbyte("signature", 2, 0x4d5a) then
+			ret = ".exe"
+			ascii = ".exe"
+			break
+		end
+		
+		-- png
+		seek(0)
+		if cbyte("signature", 4, 0x89504e47) then
+			ret = ".png"
+			ascii = "PNG"
+			break
+		end
+
+		-- gif
+		seek(0)
+		if cbyte("signature", 3, 0x474946) then
+			ret = ".gif"
+			ascii = "GIF"
+			break
+		end
+		
+		-- ã‚·ãƒ§ãƒ¼ãƒˆã‚«ãƒƒãƒˆ
+		seek(0)
+		if cbyte("signature", 4, 0x4c000000) then
+			ret = ".link"
+			ascii = "Link"
+			break
+		end
 		
 		-- h265
 		seek(0)
 		if lbyte(3) == 1 or lbyte(4) == 1 then
 			fstr("00 00 01", true, 10)
 			if cbyte("start_code_prefix_one_3bytes", 3, 0x000001) then
-				if cbit("forbidden_zero_bit",    1, 0) then
+				if cbit("forbidden_zero_bit", 1, 0) then
 					ret = ".h265"
 					ascii = "H.265/HEVC"
 					break
@@ -174,14 +256,24 @@ local function analyse_stream_type(s)
 			break
 		end
 
-		-- “–‚Ä‚¸‚Á‚Û‚¤
+		-- å½“ã¦ãšã£ã½ã†
 		seek(0)
 		if string.match(lstr(4), "%a%a%a%a") ~= nil then
-			ret = ".iff"
-			ascii = "Iff?"
+			seek(4)
+			if get_size() > rbyte("ckSize", 4) then
+				ret = ".iff"
+				ascii = "Iff?"
+				break
+			end
+		end
+				
+		-- dat
+		if __stream_ext__ == ".dat" then
+			ret = ".dat"
+			ascii = "Data"
 			break
 		end
-		
+
 		-- unknown
 		__stream_type__ = ".unknown"
 		ascii = "Unknown"
@@ -247,7 +339,7 @@ function dispatch_stream(stream)
 		dump(256)
 		
 	else
-		print("not found extension")
+		print("unsupported file type")
 	end
 end
 

@@ -112,4 +112,4 @@ Lua5.3.0＆VC++12でビルド確認済み
 gcc version 4.9.2 (Ubuntu 4.9.2-10ubuntu13) でもたまにビルド確認しています。
 
 [1]: https://github.com/rflab/stream_reader/blob/master/files/bin/script/default.lua
-[2]: https://github.com/rflab/stream_reader/blob/master/files/bin/script/util/check_stream.lua
+[2]: https://github.com/rflab/stream_reader/blob/master/files/bin/script/streamdef/stream_dispatcher.lua

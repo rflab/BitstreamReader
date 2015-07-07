@@ -25,9 +25,10 @@ local function analyse_stream_type(s)
 			break
 		end
 		
-		--
-		if get_size() < 128 then
+		if get_size() < 192 then
 			print("short file.");
+			ret = ".dat"
+			ascii = "Unknown"
 			break;
 		end
 		
@@ -62,7 +63,7 @@ local function analyse_stream_type(s)
 			ascii = "Iff/"..id
 			break
 		end
-
+		
 		-- bmp
 		seek(0)
 		if cstr("bfType", 2, "BM") then
@@ -81,7 +82,7 @@ local function analyse_stream_type(s)
 
 		-- ts, tts, m2ts, mpg
 		seek(0)
-		if fbyte(0x47, true, 192) ~= 192 then
+		if fbyte(0x47, true, 5) ~= 12 then
 			seekoff(188)
 			if lbyte(1) == 0x47
 			or seekoff(4) and lbyte(1) == 0x47 then
@@ -170,6 +171,14 @@ local function analyse_stream_type(s)
 		if false then
 			ret = ".h264"
 			ascii = "H.264/MPEG-4 AVC"
+			break
+		end
+
+		-- “–‚Ä‚¸‚Á‚Û‚¤
+		seek(0)
+		if string.match(lstr(4), "%a%a%a%a") ~= nil then
+			ret = ".iff"
+			ascii = "Iff?"
 			break
 		end
 		

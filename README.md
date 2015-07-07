@@ -2,7 +2,6 @@
 
 各種バイナリをビット単位で解析するツールです。
 windowsならstream_reader/files/bin/streamreader.exeにファイルをドロップすれば解析が始まります。
-
 （現在の対応フォーマット:mp4, mpg (ts, tts), jpg(jfif, exif), iff(avi, wav, aiff), bmp, pes, h264, h265, など）
 
 Lua言語/SQLiteベースでスクリプトを書けばビット単位、可変長でどんなバイナリデータも解析/作成できます

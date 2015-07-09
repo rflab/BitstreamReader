@@ -36,9 +36,6 @@ cmd>list foo bar
 * [Lua Lua 5.3 Reference Manual(本家)](http://www.lua.org/manual/5.3/)
 * [Lua 5.2 リファレンスマニュアル(日本語)](http://milkpot.sakura.ne.jp/lua/lua52_manual_ja.html)
 
-C++側からはinit_lua関数で関数・クラスがバインドされています。細かい拡張はこちらを使用します。
-* [ソースコード(streamreader.cpp)](https://github.com/rflab/stream_reader/blob/master/files/src/streamreader.cpp)
-
 通常はutil.luaにある関数を利用すると簡単です。
 * [util.lua](https://github.com/rflab/stream_reader/blob/master/files/bin/script/util/util.lua)
 * [その他のライブラリ](https://github.com/rflab/stream_reader/blob/master/files/bin/script/util/)
@@ -102,8 +99,8 @@ print_table(tbl)　　　　         -- テーブルの内容を表示する
 hexstr(value)                    -- 値をHHHH(DDDD)な感じの文字列にする
 write(filename, pattern)         -- 文字列 or "00 01 ..."パターンでファイル追記
 ```
-C++からは以下のような値/関数/クラスがバインドされています。
-* [streamreader.cpp](https://github.com/rflab/stream_reader/blob/master/files/src/streamreader.cpp)
+C++側からはinit_lua関数で関数・クラスがバインドされています。細かい拡張はこちらを使用します。
+* [ソースコード(streamreader.cpp)](https://github.com/rflab/stream_reader/blob/master/files/src/streamreader.cpp)
 ```cpp
 // 関数バインド
 lua->def("stdout_to_file",   FileManager::stdout_to_file);        // コンソール出力の出力先切り替え

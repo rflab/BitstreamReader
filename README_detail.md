@@ -102,6 +102,89 @@ print_table(tbl)　　　　         -- テーブルの内容を表示する
 hexstr(value)                    -- 値をHHHH(DDDD)な感じの文字列にする
 write(filename, pattern)         -- 文字列 or "00 01 ..."パターンでファイル追記
 ```
+C++からは以下のような値/関数/クラスがバインドされています。
+* [streamreader.cpp](https://github.com/rflab/stream_reader/blob/master/files/src/streamreader.cpp)
+```cpp
+// 関数バインド
+lua->def("stdout_to_file",   FileManager::stdout_to_file);        // コンソール出力の出力先切り替え
+lua->def("write_to_file",    FileManager::write_to_file);         // 指定したバイト列をファイルに出力
+lua->def("transfer_to_file", LuaGlueBitstream::transfer_to_file); // 指定したストリームををファイルに出力
+lua->def("reverse_16",       reverse_endian_16);                  // 16ビットエンディアン変換
+lua->def("reverse_32",       reverse_endian_32);                  // 32ビットエンディアン変換
+
+// インターフェース
+lua->def_class<LuaGlueBitstream>("IBitstream")->
+	def("size",               &LuaGlueBitstream::size).              // ファイルサイズ取得
+	def("enable_print",       &LuaGlueBitstream::enable_print).      // 解析ログのON/OFF
+	def("little_endian",      &LuaGlueBitstream::little_endian).     // ２バイト/４バイトの読み込み時はエンディアンを変換する
+	def("seekpos_bit",        &LuaGlueBitstream::seekpos_bit).       // 先頭からファイルポインタ移動
+	def("seekpos_byte",       &LuaGlueBitstream::seekpos_byte).      // 先頭からファイルポインタ移動
+	def("seekpos",            &LuaGlueBitstream::seekpos).           // 先頭からファイルポインタ移動
+	def("seekoff_bit",        &LuaGlueBitstream::seekoff_bit).       // 現在位置からファイルポインタ移動
+	def("seekoff_byte",       &LuaGlueBitstream::seekoff_byte).      // 現在位置からファイルポインタ移動
+	def("seekoff",            &LuaGlueBitstream::seekoff).           // 現在位置からファイルポインタ移動
+	def("bit_pos",            &LuaGlueBitstream::bit_pos).           // 現在のビットオフセットを取得
+	def("byte_pos",           &LuaGlueBitstream::byte_pos).          // 現在のバイトオフセットを取得
+	def("read_bit",           &LuaGlueBitstream::read_bit).          // ビット単位で読み込み
+	def("read_byte",          &LuaGlueBitstream::read_byte).         // バイト単位で読み込み
+	def("read_string",        &LuaGlueBitstream::read_string).       // 文字列を読み込み
+	def("read_expgolomb",     &LuaGlueBitstream::read_expgolomb).    // 指数ゴロムとしてビットを読む
+	def("comp_bit",           &LuaGlueBitstream::compare_bit).       // ビット単位で比較
+	def("comp_byte",          &LuaGlueBitstream::compare_byte).      // バイト単位で比較
+	def("comp_string",        &LuaGlueBitstream::compare_string).    // 文字列を比較
+	def("comp_expgolomb",     &LuaGlueBitstream::compare_expgolomb). // 指数ゴロムを比較
+	def("look_bit",           &LuaGlueBitstream::look_bit).          // ポインタを進めないでビット値を取得、4byteまで
+	def("look_byte",          &LuaGlueBitstream::look_byte).         // ポインタを進めないでバイト値を取得、4byteまで
+	def("look_byte_string",   &LuaGlueBitstream::look_byte_string).  // ポインタを進めないで文字列を取得
+	def("look_expgolomb",     &LuaGlueBitstream::look_expgolomb).    // ポインタを進めないで指数ゴロムを取得、4byteまで
+	def("find_byte",          &LuaGlueBitstream::find_byte).         // １バイトの一致を検索
+	def("find_byte_string",   &LuaGlueBitstream::find_byte_string).  // 数バイト分の一致を検索
+	def("transfer_byte",      &LuaGlueBitstream::transfer_byte).     // 部分ストリーム(Bitstream)を作成
+	def("write",              &LuaGlueBitstream::write).             // ビットストリームの終端に書き込む
+	def("put_char",           &LuaGlueBitstream::put_char).          // ビットストリームの終端に書き込む
+	def("append",             &LuaGlueBitstream::append).            // ビットストリームの終端に書き込む
+	def("append_char",        &LuaGlueBitstream::append_char).       // ビットストリームの終端に書き込む
+	def("dump",
+		(bool(LuaGlueBitstream::*)(int)) &LuaGlueBitstream::dump); // 現在位置からバイト表示
+
+// std::filebufによるビットストリームクラス
+lua->def_class<LuaGlueFileBitstream>("FileBitstream", "IBitstream")->
+	def("new",     LuaBinder::constructor<LuaGlueFileBitstream(const string&, const string&)>()).
+	def("open",    &LuaGlueFileBitstream::open); // ファイルオープン
+
+// std::stringbufによるビットストリームクラス
+lua->def_class<LuaGlueBufBitstream>("Buffer", "IBitstream")->
+	def("new",     LuaBinder::constructor<LuaGlueBufBitstream()>());
+
+// FIFO（リングバッファ）によるビットストリームクラスクラス
+// ヘッド/テールの監視がなく挙動が特殊なのでメモリに余裕がある処理なら"Buffer"クラスを使ったほうが良い
+lua->def_class<LuaGlueFifoBitstream>("Fifo", "IBitstream")->
+	def("new",     LuaBinder::constructor<LuaGlueFifoBitstream(int)>()).
+	def("reserve", &LuaGlueFifoBitstream::reserve); // バッファを再確保、書き込み済みデータは破棄
+
+// SQLiterラッパー
+lua->rawset("SQLITE_ROW",        SQLITE_ROW);
+lua->rawset("SQLITE_INTEGER",    SQLITE_INTEGER);
+lua->rawset("SQLITE_FLOAT",      SQLITE_FLOAT);
+lua->rawset("SQLITE_TEXT",       SQLITE_TEXT);
+lua->rawset("SQLITE_BLOB",       SQLITE_BLOB);
+lua->rawset("SQLITE_NULL",       SQLITE_NULL);
+lua->def_class<SqliteWrapper>("SQLite")->
+	def("new",          LuaBinder::constructor<SqliteWrapper(const string&)>()).
+	def("exec",         &SqliteWrapper::exec).
+	def("prepare",      &SqliteWrapper::prepare).
+	def("step",         &SqliteWrapper::step).
+	def("reset",        &SqliteWrapper::reset).
+	def("bind_int",     &SqliteWrapper::bind_int).
+	def("bind_text",    &SqliteWrapper::bind_text).
+	def("bind_real",    &SqliteWrapper::bind_real).
+	def("column_name",  &SqliteWrapper::column_name).
+	def("column_type",  &SqliteWrapper::column_type).
+	def("column_count", &SqliteWrapper::column_count).
+	def("column_int",   &SqliteWrapper::column_int).
+	def("column_text",  &SqliteWrapper::column_text).
+	def("column_real",  &SqliteWrapper::column_real);
+```
 ## ビルド方法
 
 自分でビルドする場合、

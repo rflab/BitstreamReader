@@ -220,7 +220,7 @@ function pes_stream(size)
 	end
 end
 
-if __stream_type__ == ".pes" then
+if __stream_ext__ == ".pes" then
 	open(__stream_path__)
 	enable_print(false)
 	stdout_to_file(false)

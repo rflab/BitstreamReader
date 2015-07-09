@@ -280,8 +280,6 @@ local function analyse_stream_type(s)
 
 	until true 
 
-	__stream_type__ = ret
-
 	print()
 	print_ascii(ascii)
 	print("====================================================================================================================")

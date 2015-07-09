@@ -7,16 +7,16 @@ local gs_data = {values={}, tables={}, bytes={}, bits={}, sizes={}, streams={}}
 local gs_store_to_table = true
 
 --------------------------------------------
--- ƒXƒgƒŠ[ƒ€‰ğÍ—pŠÖ”
+-- ã‚¹ãƒˆãƒªãƒ¼ãƒ è§£æç”¨é–¢æ•°
 --------------------------------------------
--- ƒXƒgƒŠ[ƒ€‚ğŠJ‚­
--- fopen‚Æ‚¿‚å‚Á‚Æˆá‚¤
--- 'raw'‚Í‚Ç‚ê‚©ˆê‚Â
--- "r" -> “Ç‚İ‚İ
--- "w" -> ‘‚«‚İ{ƒtƒ@ƒCƒ‹‰Šú‰»
--- "a" -> ‘‚«‚İ{––”ö’Ç‰Á’Ç‰Á
--- "+" -> ƒŠ[ƒhƒ‰ƒCƒg
--- "b" -> ƒoƒCƒiƒŠƒ‚[ƒh
+-- ã‚¹ãƒˆãƒªãƒ¼ãƒ ã‚’é–‹ã
+-- fopenã¨ã¡ã‚‡ã£ã¨é•ã†
+-- 'raw'ã¯ã©ã‚Œã‹ä¸€ã¤
+-- "r" -> èª­ã¿è¾¼ã¿
+-- "w" -> æ›¸ãè¾¼ã¿ï¼‹ãƒ•ã‚¡ã‚¤ãƒ«åˆæœŸåŒ–
+-- "a" -> æ›¸ãè¾¼ã¿ï¼‹æœ«å°¾è¿½åŠ è¿½åŠ 
+-- "+" -> ãƒªãƒ¼ãƒ‰ãƒ©ã‚¤ãƒˆ
+-- "b" -> ãƒã‚¤ãƒŠãƒªãƒ¢ãƒ¼ãƒ‰
 function open(arg1, openmode)
 	openmode = openmode or "rb"
 	local prev_stream = gs_stream
@@ -26,98 +26,98 @@ function open(arg1, openmode)
 	return gs_stream, prev_stream
 end
 
--- ƒXƒgƒŠ[ƒ€‚ğ“ü‚ê‘Ö‚¦‚é
+-- ã‚¹ãƒˆãƒªãƒ¼ãƒ ã‚’å…¥ã‚Œæ›¿ãˆã‚‹
 function swap(stream)
 	local prev = gs_stream
 	gs_stream = stream
 	return prev
 end
 
--- ƒXƒgƒŠ[ƒ€ó‘Ô•\¦
+-- ã‚¹ãƒˆãƒªãƒ¼ãƒ çŠ¶æ…‹è¡¨ç¤º
 function print_status()
 	return gs_stream:print()
 end
 
--- ‘S•”•\¦
+-- å…¨éƒ¨è¡¨ç¤º
 function print_status_all()
 	return gs_stream:print_table()
 end
 
--- ƒXƒgƒŠ[ƒ€ƒtƒ@ƒCƒ‹ƒTƒCƒYæ“¾
+-- ã‚¹ãƒˆãƒªãƒ¼ãƒ ãƒ•ã‚¡ã‚¤ãƒ«ã‚µã‚¤ã‚ºå–å¾—
 function get_size()
 	return gs_stream:get_size()
 end
 
--- ƒXƒgƒŠ[ƒ€‚ğÅ‘å256ƒoƒCƒgo—Í
+-- ã‚¹ãƒˆãƒªãƒ¼ãƒ ã‚’æœ€å¤§256ãƒã‚¤ãƒˆå‡ºåŠ›
 function dump(size)
 	return gs_stream:dump(size or 128)
 end
 
--- ‰ğÍŒ‹‰Ê•\¦‚ÌON/OFF
+-- è§£æçµæœè¡¨ç¤ºã®ON/OFF
 function enable_print(b)
 	return gs_stream:enable_print(b)
 end
 
--- ‰ğÍŒ‹‰Ê•\¦‚ÌON/OFF‚É‰‚¶‚Äprint
+-- è§£æçµæœè¡¨ç¤ºã®ON/OFFã«å¿œã˜ã¦print
 function sprint(...)
 	return gs_stream:sprint(...)
 end
 
--- ‰ğÍŒ‹‰Ê•\¦‚ÌON/OFF
+-- è§£æçµæœè¡¨ç¤ºã®ON/OFF
 function enable_store_all(b)
 	gs_store_to_table = b
 end
 
--- ‰ğÍŒ‹‰Ê•\¦‚ÌON/OFF‚ğ–â‚¢‡‚í‚¹‚é
+-- è§£æçµæœè¡¨ç¤ºã®ON/OFFã‚’å•ã„åˆã‚ã›ã‚‹
 function ask_enable_print()
 	return gs_stream:ask_enable_print()
 end
 
--- ‚QƒoƒCƒg/‚SƒoƒCƒg‚Ì“Ç‚İ‚İ‚ÅƒGƒ“ƒfƒBƒAƒ“‚ğ•ÏŠ·‚·‚é
+-- ï¼’ãƒã‚¤ãƒˆ/ï¼”ãƒã‚¤ãƒˆã®èª­ã¿è¾¼ã¿ã§ã‚¨ãƒ³ãƒ‡ã‚£ã‚¢ãƒ³ã‚’å¤‰æ›ã™ã‚‹
 function little_endian(enable)
 	return gs_stream:little_endian(enable)
 end
 
--- Œ»İ‚ÌƒoƒCƒgƒIƒtƒZƒbƒgAƒrƒbƒgƒIƒtƒZƒbƒg‚ğæ“¾
+-- ç¾åœ¨ã®ãƒã‚¤ãƒˆã‚ªãƒ•ã‚»ãƒƒãƒˆã€ãƒ“ãƒƒãƒˆã‚ªãƒ•ã‚»ãƒƒãƒˆã‚’å–å¾—
 function cur()
 	return gs_stream:cur()
 end
 
--- ‚±‚ê‚Ü‚Å‚É“Ç‚İ‚ñ‚¾’l‚ğæ“¾‚·‚é
+-- ã“ã‚Œã¾ã§ã«èª­ã¿è¾¼ã‚“ã å€¤ã‚’å–å¾—ã™ã‚‹
 function get(name)
 	local val = gs_data.values[name]
 	assert(val, "get nil value \""..name.."\"")
 	return val
 end
 
--- nil‚ª•Ô‚é‚±‚Æ‚ğ‚¢‚Æ‚í‚È‚¢ê‡‚Í‚±‚¿‚ç‚Åget
+-- nilãŒè¿”ã‚‹ã“ã¨ã‚’ã„ã¨ã‚ãªã„å ´åˆã¯ã“ã¡ã‚‰ã§get
 function peek(name)
 	return gs_data.values[name]
 end
 
--- ÅŒã‚É“Ç‚İ‚ñ‚¾’l‚ğ”jŠü‚·‚é
+-- æœ€å¾Œã«èª­ã¿è¾¼ã‚“ã å€¤ã‚’ç ´æ£„ã™ã‚‹
 function reset(name, value)
 	local byte, bit = cur()
 	gs_stream:reset(name, value)
 	on_set_value(name, byte, bit, 0, value)
 end
 
--- â‘ÎˆÊ’uƒV[ƒN
+-- çµ¶å¯¾ä½ç½®ã‚·ãƒ¼ã‚¯
 function seek(byte, bit)
 	return gs_stream:seek(byte, bit)
 end
 
--- ‘Š‘ÎˆÊ’uƒV[ƒN
+-- ç›¸å¯¾ä½ç½®ã‚·ãƒ¼ã‚¯
 function seekoff(byte, bit)
 	return gs_stream:seekoff(byte, bit)
 end
 
--- w’è‚µ‚½ƒAƒhƒŒƒX‘OŒã‚Ì“Ç‚İ‚İŒ‹‰Ê‚ğ•\¦‚µAassert(false)‚·‚é
+-- æŒ‡å®šã—ãŸã‚¢ãƒ‰ãƒ¬ã‚¹å‰å¾Œã®èª­ã¿è¾¼ã¿çµæœã‚’è¡¨ç¤ºã—ã€assert(false)ã™ã‚‹
 function set_exit(address)
 	return gs_stream:set_exit(address)
 end
 
--- ƒrƒbƒg’PˆÊ“Ç‚İ‚İ
+-- ãƒ“ãƒƒãƒˆå˜ä½èª­ã¿è¾¼ã¿
 function rbit(name, size)
 	local byte, bit = cur()
 	local value = gs_stream:rbit(name, size)
@@ -125,7 +125,7 @@ function rbit(name, size)
 	return value
 end
 
--- ƒoƒCƒg’PˆÊ“Ç‚İ‚İ
+-- ãƒã‚¤ãƒˆå˜ä½èª­ã¿è¾¼ã¿
 function rbyte(name, size)
 	local byte, bit = cur()
 	local value = gs_stream:rbyte(name, size)
@@ -133,7 +133,7 @@ function rbyte(name, size)
 	return value
 end
 
--- •¶š—ñ‚Æ‚µ‚Ä“Ç‚İ‚İ
+-- æ–‡å­—åˆ—ã¨ã—ã¦èª­ã¿è¾¼ã¿
 function rstr(name, size)
 	local byte, bit = cur()
 	local value = gs_stream:rstr(name, size)
@@ -141,7 +141,7 @@ function rstr(name, size)
 	return value
 end
 
--- w”ƒSƒƒ€‚Æ‚µ‚Ä“Ç‚İ‚İ
+-- æŒ‡æ•°ã‚´ãƒ­ãƒ ã¨ã—ã¦èª­ã¿è¾¼ã¿
 function rexp(name)
 	local byte, bit = cur()
 	local value = gs_stream:rexp(name)
@@ -149,57 +149,57 @@ function rexp(name)
 	return value
 end
 
--- ƒrƒbƒg’PˆÊ‚Å“Ç‚İ‚İAcomp‚Æ‚Ìˆê’v‚ğŠm”F
+-- ãƒ“ãƒƒãƒˆå˜ä½ã§èª­ã¿è¾¼ã¿ã€compã¨ã®ä¸€è‡´ã‚’ç¢ºèª
 function cbit(name, size, comp)
 	return gs_stream:cbit(name, size, comp)
 end
 
--- ƒoƒCƒg’PˆÊ‚Å“Ç‚İ‚İAcomp‚Æ‚Ìˆê’v‚ğŠm”F
+-- ãƒã‚¤ãƒˆå˜ä½ã§èª­ã¿è¾¼ã¿ã€compã¨ã®ä¸€è‡´ã‚’ç¢ºèª
 function cbyte(name, size, comp)
 	return gs_stream:cbyte(name, size, comp)
 end
 
--- •¶š—ñ‚Æ‚µ‚Ä“Ç‚İ‚İAcomp‚Æ‚Ìˆê’v‚ğŠm”F
+-- æ–‡å­—åˆ—ã¨ã—ã¦èª­ã¿è¾¼ã¿ã€compã¨ã®ä¸€è‡´ã‚’ç¢ºèª
 function cstr(name, size, comp)
 	return gs_stream:cstr(name, size, comp)
 end
 
--- w”ƒSƒƒ€‚Æ‚µ‚Ä“Ç‚İ‚İ
+-- æŒ‡æ•°ã‚´ãƒ­ãƒ ã¨ã—ã¦èª­ã¿è¾¼ã¿
 function cexp(name, comp)
 	return gs_stream:cexp(name, comp)
 end
 
--- bit’PˆÊ‚Å“Ç‚İ‚Ş‚ªƒ|ƒCƒ“ƒ^‚Íi‚ß‚È‚¢
+-- bitå˜ä½ã§èª­ã¿è¾¼ã‚€ãŒãƒã‚¤ãƒ³ã‚¿ã¯é€²ã‚ãªã„
 function lbit(size)
 	return gs_stream:lbit(size)
 end
 
--- ƒoƒCƒg’PˆÊ‚Å“Ç‚İ‚Ş‚ªƒ|ƒCƒ“ƒ^‚Íi‚ß‚È‚¢
+-- ãƒã‚¤ãƒˆå˜ä½ã§èª­ã¿è¾¼ã‚€ãŒãƒã‚¤ãƒ³ã‚¿ã¯é€²ã‚ãªã„
 function lbyte(size)
 	return gs_stream:lbyte(size)
 end
 
--- •¶š—ñ‚ğ“Ç‚İ‚Ş‚ªƒ|ƒCƒ“ƒ^‚Íi‚ß‚È‚¢
+-- æ–‡å­—åˆ—ã‚’èª­ã¿è¾¼ã‚€ãŒãƒã‚¤ãƒ³ã‚¿ã¯é€²ã‚ãªã„
 function lstr(size)
 	return gs_stream:lstr(size)
 end
 
--- ƒoƒCƒg’PˆÊ‚Å“Ç‚İ‚Ş‚ªƒ|ƒCƒ“ƒ^‚Íi‚ß‚È‚¢
+-- ãƒã‚¤ãƒˆå˜ä½ã§èª­ã¿è¾¼ã‚€ãŒãƒã‚¤ãƒ³ã‚¿ã¯é€²ã‚ãªã„
 function lexp(size)
 	return gs_stream:lexp(size)
 end
 
--- ‚PƒoƒCƒgŒŸõ
+-- ï¼‘ãƒã‚¤ãƒˆæ¤œç´¢
 function fbyte(char, advance, end_offset)
 	return gs_stream:fbyte(char, advance, end_offset)
 end
 
--- •¶š—ñ‚ğŒŸõA‚à‚µ‚­‚Í"00 11 22"‚Ì‚æ‚¤‚ÈƒoƒCƒiƒŠ•¶š—ñ‚ÅŒŸõ
+-- æ–‡å­—åˆ—ã‚’æ¤œç´¢ã€ã‚‚ã—ãã¯"00 11 22"ã®ã‚ˆã†ãªãƒã‚¤ãƒŠãƒªæ–‡å­—åˆ—ã§æ¤œç´¢
 function fstr(pattern, advance, end_offset)
 	return gs_stream:fstr(pattern, advance, end_offset)
 end
 
--- ƒXƒgƒŠ[ƒ€‚©‚çƒtƒ@ƒCƒ‹‚Éƒf[ƒ^‚ğ’Ç‹L
+-- ã‚¹ãƒˆãƒªãƒ¼ãƒ ã‹ã‚‰ãƒ•ã‚¡ã‚¤ãƒ«ã«ãƒ‡ãƒ¼ã‚¿ã‚’è¿½è¨˜
 function tbyte(name, size, target)
 	if type(target) == "string" then
 		return transfer_to_file(target, gs_stream.stream, size, true)
@@ -208,7 +208,7 @@ function tbyte(name, size, target)
 	end
 end
 
--- •¶š—ñA‚à‚µ‚­‚Í"00 11 22"‚Ì‚æ‚¤‚ÈƒoƒCƒiƒŠ•¶š—ñ‚ğƒtƒ@ƒCƒ‹‚É’Ç‹L
+-- æ–‡å­—åˆ—ã€ã‚‚ã—ãã¯"00 11 22"ã®ã‚ˆã†ãªãƒã‚¤ãƒŠãƒªæ–‡å­—åˆ—ã‚’ãƒ•ã‚¡ã‚¤ãƒ«ã«è¿½è¨˜
 function write(filename, pattern)
 	local str = pat2str(pattern)
 	return write_to_file(filename, str, #str)
@@ -218,7 +218,7 @@ function putchar(filename, char)
 	return write_to_file(filename, tostring(cahr), 1)
 end
 
--- Œ»İˆÊ’u‚©‚çƒXƒgƒŠ[ƒ€‚ğ”²‚«o‚·
+-- ç¾åœ¨ä½ç½®ã‹ã‚‰ã‚¹ãƒˆãƒªãƒ¼ãƒ ã‚’æŠœãå‡ºã™
 function sub_stream(name, size)
 	return gs_stream:sub_stream(name, size)
 end
@@ -230,24 +230,24 @@ function do_until(closure, offset)
 end
 
 --------------------------------------
--- ƒXƒgƒŠ[ƒ€‰ğÍ—pƒ†[ƒeƒBƒŠƒeƒB
+-- ã‚¹ãƒˆãƒªãƒ¼ãƒ è§£æç”¨ãƒ¦ãƒ¼ãƒ†ã‚£ãƒªãƒ†ã‚£
 --------------------------------------
--- csv•Û‘¶—p‚É’l‚ğ‹L‰¯
--- ˆø”‚Ícbyte()“™‚Ì–ß‚è’l‚É‡‚í‚¹‚Ä‚ ‚é‚Ì‚Åstore(cbyte())‚Æ‚¢‚¤‘‚«•û‚à‰Â”\
--- value‚É‚Íƒe[ƒuƒ‹“™‚ğw’è‚·‚é‚±‚Æ‚à‰Â
+-- csvä¿å­˜ç”¨ã«å€¤ã‚’è¨˜æ†¶
+-- å¼•æ•°ã¯cbyte()ç­‰ã®æˆ»ã‚Šå€¤ã«åˆã‚ã›ã¦ã‚ã‚‹ã®ã§store(cbyte())ã¨ã„ã†æ›¸ãæ–¹ã‚‚å¯èƒ½
+-- valueã«ã¯ãƒ†ãƒ¼ãƒ–ãƒ«ç­‰ã‚’æŒ‡å®šã™ã‚‹ã“ã¨ã‚‚å¯
 function store(key, value)
 	gs_csv:insert(key, value)
 end
 
--- store()‚µ‚½’l‚ğcsv‚É‘‚«o‚·
+-- store()ã—ãŸå€¤ã‚’csvã«æ›¸ãå‡ºã™
 function save_as_csv(file_name)
 	return gs_csv:save(file_name)
 end
 
 --------------------------------------------
--- ‚»‚Ì‘¼ƒ†[ƒeƒBƒŠƒeƒB
+-- ãã®ä»–ãƒ¦ãƒ¼ãƒ†ã‚£ãƒªãƒ†ã‚£
 --------------------------------------------
--- «”\Œv‘ª—p
+-- æ€§èƒ½è¨ˆæ¸¬ç”¨
 gs_perf = profiler:new()
 gs_progress = {
 	prev = 10,
@@ -269,8 +269,8 @@ function check_progress()
 end
 	
 
--- ƒtƒ@ƒCƒ‹ƒpƒX‚ğ path = dir..name..ext ‚É•ª‰ğ‚µ‚Ä
--- path, dir, name, ext‚Ì‡‚É•Ô‚·
+-- ãƒ•ã‚¡ã‚¤ãƒ«ãƒ‘ã‚¹ã‚’ path = dir..name..ext ã«åˆ†è§£ã—ã¦
+-- path, dir, name, extã®é †ã«è¿”ã™
 function split_file_name(path)
 	local dir  = string.gsub(path, "(.*/).*%..*$", "%1")
 	if dir == path then dir = "" end
@@ -283,12 +283,12 @@ function split_file_name(path)
 	return path, dir, name, ext
 end
 
--- ÅŒã‚ÉŸè‚É\n‚ª“ü‚éprintf
+-- æœ€å¾Œã«å‹æ‰‹ã«\nãŒå…¥ã‚‹printf
 function printf(format, ...)
 	print(string.format(format, ...))
 end
 
--- 16i”‚ğHHHH(DDDD)‚ÈŠ´‚¶‚Ì•¶š—ñ‚É‚·‚é
+-- 16é€²æ•°ã‚’HHHH(DDDD)ãªæ„Ÿã˜ã®æ–‡å­—åˆ—ã«ã™ã‚‹
 function hexstr(value)
 	if type(value) == "number" then
 		return string.format("0x%x(%d)", value, value)
@@ -297,7 +297,7 @@ function hexstr(value)
 	end
 end
 
--- ’l‚ğlength‚ÅƒgƒŠƒ~ƒ“ƒO‚µ‚½•¶š—ñ‚É‚·‚é
+-- å€¤ã‚’lengthã§ãƒˆãƒªãƒŸãƒ³ã‚°ã—ãŸæ–‡å­—åˆ—ã«ã™ã‚‹
 function trimstr(v, length)
 	local str = tostring(v)
 	if #str > length then
@@ -307,7 +307,7 @@ function trimstr(v, length)
 	end
 end
 
--- ”z—ñ‚Ì’†‚É’l‚ª‚ ‚ê‚Î‚»‚ÌƒCƒ“ƒfƒbƒNƒX‚ğ•Ô‚·
+-- é…åˆ—ã®ä¸­ã«å€¤ãŒã‚ã‚Œã°ãã®ã‚¤ãƒ³ãƒ‡ãƒƒã‚¯ã‚¹ã‚’è¿”ã™
 function find(array, value)
 	assert(type(array) == "table")
 	for i, v in ipairs(array) do
@@ -318,7 +318,7 @@ function find(array, value)
 	return false
 end
 
--- ƒe[ƒuƒ‹‚ğƒ_ƒ“ƒv‚·‚é
+-- ãƒ†ãƒ¼ãƒ–ãƒ«ã‚’ãƒ€ãƒ³ãƒ—ã™ã‚‹
 function print_table(tbl, indent)
 	indent = indent or 0
 	for k, v in pairs(tbl) do
@@ -336,8 +336,8 @@ function print_table(tbl, indent)
 	end
 end
 
--- tbl[name].tbl‚Ì––”ö‚Ætbl[name].val‚É’l‚ğ“ü‚ê‚é
--- ©ìstoreŠÖ”‚Ìƒe[ƒuƒ‹”Å
+-- tbl[name].tblã®æœ«å°¾ã¨tbl[name].valã«å€¤ã‚’å…¥ã‚Œã‚‹
+-- è‡ªä½œstoreé–¢æ•°ã®ãƒ†ãƒ¼ãƒ–ãƒ«ç‰ˆ
 function store_to_table(tbl, name, value)
 	assert(name ~= nil, "nil name specified")
 	assert(value ~= nil, "nil value specified")
@@ -348,7 +348,7 @@ function store_to_table(tbl, name, value)
 	table.insert(tbl[name].tbl, value)
 end
 
--- 4•¶š‚Ü‚Å‚Ìchar”z—ñ‚ğ”’l‚ÉƒLƒƒƒXƒg‚·‚é
+-- 4æ–‡å­—ã¾ã§ã®charé…åˆ—ã‚’æ•°å€¤ã«ã‚­ãƒ£ã‚¹ãƒˆã™ã‚‹
 function str2val(buf_str, little_endian)
 	local s
 	local val = 0
@@ -366,7 +366,7 @@ function str2val(buf_str, little_endian)
 	return val
 end
 
--- 00 01 ... ‚Ì‚æ‚¤‚È•¶š—ñƒpƒ^[ƒ“‚ğchar”z—ñ‚É•ÏŠ·‚·‚é
+-- 00 01 ... ã®ã‚ˆã†ãªæ–‡å­—åˆ—ãƒ‘ã‚¿ãƒ¼ãƒ³ã‚’charé…åˆ—ã«å¤‰æ›ã™ã‚‹
 function pat2str(pattern)
 	local str = ""
 	if string.match(pattern, "^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
@@ -379,7 +379,7 @@ function pat2str(pattern)
 	return str
 end
 
--- ”’l‚ğchar”z—ñ‚É•Ï‚¦‚é
+-- æ•°å€¤ã‚’charé…åˆ—ã«å¤‰ãˆã‚‹
 function hex2str(val, size, le)
 	size = size or 4
 	assert(size <= 4)
@@ -397,7 +397,7 @@ function hex2str(val, size, le)
 	return str
 end
 
--- coroutine‹N“®
+-- coroutineèµ·å‹•
 function start_thread(func, ...)
 	local cret, fret = coroutine.resume(coroutine.create(func), ...) 
 	if cret == false then
@@ -410,7 +410,7 @@ function start_thread(func, ...)
 end
 
 --------------------------------------
--- “à•”ŠÖ”A’Êíg‚í‚È‚¢
+-- å†…éƒ¨é–¢æ•°ã€é€šå¸¸ä½¿ã‚ãªã„
 --------------------------------------
 function check(size)
 	if size + cur() > get_size() then
@@ -421,7 +421,7 @@ function check(size)
 	end
 end
 
--- ƒf[ƒ^“Ç‚İ‚İ–‚É‹L˜^‚·‚éˆ—
+-- ãƒ‡ãƒ¼ã‚¿èª­ã¿è¾¼ã¿äº‹ã«è¨˜éŒ²ã™ã‚‹å‡¦ç†
 function on_set_value(name, byte, bit, size, value)
 	if gs_data.tables[name] == nil then
 		gs_data.tables[name]  = {}
@@ -434,19 +434,19 @@ function on_set_value(name, byte, bit, size, value)
 	-- get()
 	gs_data.values[name] = value
 
-	-- Lua—p
+	-- Luaç”¨
 	table.insert(gs_data.bytes[name], byte)
 	table.insert(gs_data.bits[name], bit)
 	table.insert(gs_data.tables[name], value)
 	table.insert(gs_data.sizes[name], size)
 	table.insert(gs_data.streams[name], gs_stream)
 
-	-- SQL—p‚¨‚µ
+	-- SQLç”¨ãŠè©¦ã—
 	sql_insert_record(name, byte, bit, size, value)
 end
 
 
--- ‘æˆê³‹KŒ`
+-- ç¬¬ä¸€æ­£è¦å½¢
 -- id: byte, bit name, size, value
 function sql_insert_record() assert(false, "sql is not started.") end
 function sql_print() assert(false, "sql is not started.") end
@@ -454,8 +454,8 @@ function sql_commit() assert(false, "sql is not started.") end
 function sql_rollback() assert(false, "sql is not started.") end
 function get_sql() assert(false, "sql is not started.") end
 
-function sql_begin()
- 	local sql = SQLite:new(__out_dir__..__stream_name__..".db")
+function sql_begin_1nf()
+ 	local sql = SQLite:new("out/"..__stream_name__..".db")
 	
 	sql:exec([[begin]])
 	sql:exec([[drop table if exists bitstream]])
@@ -468,7 +468,7 @@ function sql_begin()
 		size      integer,
 		value     text)]])
 
-	-- ƒŒƒR[ƒh’Ç‰Á
+	-- ãƒ¬ã‚³ãƒ¼ãƒ‰è¿½åŠ 
 	local insert_record_stmt = sql:prepare(
 		[[insert into bitstream(name, byte, bit, size, value)
 		 values (?, ?, ?, ?, ?)]])
@@ -482,7 +482,7 @@ function sql_begin()
 		sql:step(insert_record_stmt)
 	end
 
---	-- ƒŒƒR[ƒh‚Ì’l‚ğXV
+--	-- ãƒ¬ã‚³ãƒ¼ãƒ‰ã®å€¤ã‚’æ›´æ–°
 --	local update_value_stmt = sql:prepare([[
 --		update bitstream
 --		set	   value = ?, size = ?
@@ -545,17 +545,27 @@ function sql_begin()
 	end
 end
 
--- ‘æO³‹KŒ`
-function sql_begin_3nf()
-	local sql = SQLite:new(__out_dir__..__stream_name__..".db")
+-- ç¬¬ä¸‰æ­£è¦å½¢
+function sql_begin()
+	local sql
+	if __exec_dir__:match("[^ %g]") ~= nil then
+		print("###################################")
+		print("# can not create .db in exe dir!! #")
+		print("#      create in memory db.       #")
+		print("###################################")
+	 	-- sql = SQLite:new(__stream_name__..".db")
+	 	sql = SQLite:new(":memory:")
+	else
+	 	sql = SQLite:new(__out_dir__..__stream_name__..".db")
+	end	
 
 	-------------
-	-- ƒgƒ‰ƒ“ƒUƒNƒVƒ‡ƒ“ŠJn	
+	-- ãƒˆãƒ©ãƒ³ã‚¶ã‚¯ã‚·ãƒ§ãƒ³é–‹å§‹	
 	-------------
 	sql:exec([[begin]])
 	
 	-------------
-	-- ƒe[ƒuƒ‹
+	-- ãƒ†ãƒ¼ãƒ–ãƒ«
 	-- id, byte, bit, param_id, name, size, value
 	--  |
 	-- value_table[id]:id, param_id, value
@@ -600,7 +610,7 @@ function sql_begin_3nf()
 		left join param_table p on v.param_id = p.param_id]])
 
 	-------------
-	-- ƒŒƒR[ƒh’Ç‰ÁƒNƒGƒŠ
+	-- ãƒ¬ã‚³ãƒ¼ãƒ‰è¿½åŠ ã‚¯ã‚¨ãƒª
 	-------------
 	local insert_param_table_stmt = sql:prepare([[
 		insert into param_table(param_id, name, size) values(?, ?, ?)]])
@@ -613,7 +623,7 @@ function sql_begin_3nf()
 	local param_id = 0
 	function sql_insert_record (name, byte, bit, size, value)
 		id = id + 1
-		--ƒpƒ‰ƒ[ƒ^
+		--ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿
 		if param_ids[name] == nil then
 			param_id = param_id + 1
 			param_ids[name] = param_id
@@ -630,7 +640,7 @@ function sql_begin_3nf()
 		sql:bind_int(insert_offset_table_stmt, 2, bit)
 		sql:step(insert_offset_table_stmt)
 		
-		-- ’l
+		-- å€¤
 		sql:reset(insert_value_table_stmt)
 		--sql:bind_int(insert_value_table_stmt, 1, id)
 		sql:bind_int (insert_value_table_stmt, 1, param_ids[name])
@@ -639,7 +649,7 @@ function sql_begin_3nf()
 	end
 	
 	-------------
-	-- ƒŒƒR[ƒhæ“¾ƒNƒGƒŠ
+	-- ãƒ¬ã‚³ãƒ¼ãƒ‰å–å¾—ã‚¯ã‚¨ãƒª
 	-------------
 	function sql_print(stmt, format)
 		local str={}

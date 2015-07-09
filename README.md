@@ -14,10 +14,12 @@ S./a.out test.wav
 ```
 -- とりあえず取得した値を全部見る
 cmd>info
+
 -- 名前に foo や bar を含む値の情報を表示
 cmd>grep foo bar
 cmd>list foo
 cmd>dump foo
+
 -- その他ヘルプ
 cmd>help
 ```

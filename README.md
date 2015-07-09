@@ -22,4 +22,4 @@ cmd>dump foo 3
 -- ヘルプ
 cmd>help
 ```
-[もっと詳しく..](https://github.com/rflab/stream_reader/blob/master/README.md)
+[もっと詳しく..](https://github.com/rflab/stream_reader/blob/master/README_detail.md)

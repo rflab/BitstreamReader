@@ -1727,8 +1727,8 @@ unique_ptr<LuaBinder> init_lua(int argc, char** argv)
 		def("find_byte",          &LuaGlueBitstream::find_byte).         // １バイトの一致を検索
 		def("find_byte_string",   &LuaGlueBitstream::find_byte_string).  // 数バイト分の一致を検索
 		def("transfer_byte",      &LuaGlueBitstream::transfer_byte).     // 部分ストリーム(Bitstream)を作成
-		def("write",              &LuaGlueBitstream::write).             // ビットストリームの終端に書き込む
-		def("put_char",           &LuaGlueBitstream::put_char).          // ビットストリームの終端に書き込む
+		def("write",              &LuaGlueBitstream::write).             // ビットストリームの現在位置に書き込む
+		def("put_char",           &LuaGlueBitstream::put_char).          // ビットストリームの現在位置に書き込む
 		def("append",             &LuaGlueBitstream::append).            // ビットストリームの終端に書き込む
 		def("append_char",        &LuaGlueBitstream::append_char).       // ビットストリームの終端に書き込む
 		def("dump",

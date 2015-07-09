@@ -204,7 +204,7 @@ function exec_cmd(c)
 		local cmd
 		if windows then
 			if c[2] == nil then
-				os.execute("sqlite3.exe "..__stream_name__..".db")
+				os.execute("sqlite3.exe "..__out_dir__..__stream_name__..".db")
 			else
 				os.execute("sqlite3.exe "..c[2])
 			end

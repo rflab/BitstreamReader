@@ -13,7 +13,7 @@ function global(n, v)
   rawset(_G, n, v)
   gdef[n] = true
   
-  return
+  return v
 end
 
 local function registerglobal(t,n,v)

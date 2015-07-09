@@ -275,7 +275,7 @@ local function analyse_stream_type(s)
 		end
 
 		-- unknown
-		__stream_type__ = ".unknown"
+		ret= ".dat"
 		ascii = "Unknown"
 
 	until true 
@@ -295,45 +295,45 @@ function dispatch_stream(stream)
 	local st = analyse_stream_type(stream)
 
 	if st == ".test" then
-		dofile(__exec_dir__.."script/streamdef/test.lua")
+		dofile(__streamdef_dir__.."test.lua")
 
 	elseif st == ".wav" then
-		dofile(__exec_dir__.."script/streamdef/wav.lua")
+		dofile(__streamdef_dir__.."wav.lua")
 
 	elseif st == ".iff" then
-		dofile(__exec_dir__.."script/streamdef/iff.lua")
+		dofile(__streamdef_dir__.."iff.lua")
 		
 	elseif st == ".bmp" then
-		dofile(__exec_dir__.."script/streamdef/bmp.lua")
+		dofile(__streamdef_dir__.."bmp.lua")
 		
 	elseif st == ".jpg"
 	or     st == ".JPG" then
-		dofile(__exec_dir__.."script/streamdef/jpg.lua")
+		dofile(__streamdef_dir__.."jpg.lua")
 		
 	elseif st == ".ts"
 	or     st == ".tts"
 	or     st == ".m2ts"
 	or     st == ".MPG"
 	or     st == ".mpg" then
-		dofile(__exec_dir__.."script/streamdef/ts.lua")
+		dofile(__streamdef_dir__.."ts.lua")
 		
 	elseif st == ".pes" then
-		dofile(__exec_dir__.."script/streamdef/pes.lua")
+		dofile(__streamdef_dir__.."pes.lua")
 
 	elseif st == ".h264" then
-		dofile(__exec_dir__.."script/streamdef/h264.lua")
+		dofile(__streamdef_dir__.."h264.lua")
 
 	elseif st == ".h265" then
-		dofile(__exec_dir__.."script/streamdef/h265.lua")
+		dofile(__streamdef_dir__.."h265.lua")
 
 	elseif st == ".mp4" then
-		dofile(__exec_dir__.."script/streamdef/mp4.lua")
+		dofile(__streamdef_dir__.."mp4.lua")
 
 	elseif st == ".dat" then
-		dofile(__exec_dir__.."script/streamdef/dat.lua")
+		dofile(__streamdef_dir__.."dat.lua")
 		
 	elseif string.match(argv[1], "^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
-		dofile(__exec_dir__.."script/streamdef/string.lua")
+		dofile(__streamdef_dir__.."string.lua")
 
 	elseif st == ".txt" then
 		dump(256)

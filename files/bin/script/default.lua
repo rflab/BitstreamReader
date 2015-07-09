@@ -17,16 +17,20 @@ global("__stream_name__", sn) print(sn)
 global("__stream_ext__",  se) print(se)
 global("__out_dir__",     sd.."out/")
 global("__stream_type__")
+global("__streamdef_dir__",  __exec_dir__.."script/streamdef/")
 
 -- 解析結果出力先ディレクトリ作成
 if windows then
-	os.execute("mkdir \""..__out_dir__.."\"")
+	--os.execute("mkdir \""..__out_dir__.."\"")
+	os.execute("mkdir \""..__exec_dir__.."/out".."\"")
 else
-	os.execute("mkdir -p \""..__out_dir__.."\"")
+	--os.execute("mkdir -p \""..__out_dir__.."\"")
+	os.execute("mkdir -p \""..__exec_dir__.."/out".."\"")
 end
 
 -- SQLトランザクション開始
-sql_begin()
+sql_begin_3nf()
+--sql_begin()
 
 -- ストリーム解析
 local stream = open(__stream_path__, "rb")

@@ -15,7 +15,7 @@ rbyte("bit_depth",                    2)
 
 -- 残りのチャンクも見るなら
 if true then
-	dofile(__exec_dir__.."script/streamdef/riff.lua")
+	dofile(__streamdef_dir__.."riff.lua")
 	local ed = get("ckSize") - 4 - cur() 
 	while ed > cur() do
 		chunk()

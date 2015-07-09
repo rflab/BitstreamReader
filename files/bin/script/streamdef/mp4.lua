@@ -406,8 +406,14 @@ function stsz(size)
 	rbyte("Flags",                                          3)
 	rbyte("ConstantSize",                                   4)
 	rbyte("SizeCount",                                      4)
-	for i=1, get("SizeCount") do
-		store_to_table(cur_trak, "SizeTable", rbyte("SizeTable",         4))
+	if get("ConstantSize") == 0 then
+		for i=1, get("SizeCount") do
+			store_to_table(cur_trak, "SizeTable", rbyte("SizeTable",         4))
+		end
+	else
+		for i=1, get("SizeCount") do
+			store_to_table(cur_trak, "SizeTable", get("ConstantSize"))
+		end
 	end
 end
 

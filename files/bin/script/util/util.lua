@@ -3,7 +3,6 @@ local gs_all_streams = {}
 local gs_progress
 local gs_perf
 local gs_csv
-local gs_sql
 local gs_data = {values={}, tables={}, bytes={}, bits={}, sizes={}, streams={}}
 local gs_store_to_table = true
 
@@ -304,7 +303,7 @@ function trimstr(v, length)
 	if #str > length then
 		return str:sub(1, length-1).."-"		
 	else
-		return str;
+		return str
 	end
 end
 
@@ -446,8 +445,14 @@ function on_set_value(name, byte, bit, size, value)
 	sql_insert_record(name, byte, bit, size, value)
 end
 
+
+-- 第一正規形
+-- id: byte, bit name, size, value
 function sql_insert_record() assert(false, "sql is not started.") end
 function sql_print() assert(false, "sql is not started.") end
+function sql_commit() assert(false, "sql is not started.") end
+function sql_rollback() assert(false, "sql is not started.") end
+function get_sql() assert(false, "sql is not started.") end
 
 function sql_begin()
 	local sql
@@ -456,9 +461,9 @@ function sql_begin()
 	else
 		sql = SQLite:new(__stream_dir__..__stream_name__..".db")
 	end
-
-	sql:exec([[begin]]);
-	sql:exec([[drop table if exists bitstream]]);
+	
+	sql:exec([[begin]])
+	sql:exec([[drop table if exists bitstream]])
 	sql:exec([[
 		create table bitstream (
 		id        integer primary key,
@@ -466,12 +471,12 @@ function sql_begin()
 		byte      integer,
 		bit       integer,
 		size      integer,
-		value     text)]]);
+		value     text)]])
 
 	-- レコード追加
 	local insert_record_stmt = sql:prepare(
 		[[insert into bitstream(name, byte, bit, size, value)
-		 values (?, ?, ?, ?, ?);]]);
+		 values (?, ?, ?, ?, ?)]])
 	function sql_insert_record (name, byte, bit, size, value)
 		sql:reset(insert_record_stmt)
 		sql:bind_text(insert_record_stmt, 1, name)
@@ -532,16 +537,172 @@ function sql_begin()
 		end
 	end
 	
-	gs_sql = sql
+	function sql_commit()
+		sql:exec("commit")
+	end
+
+	function sql_rollback()
+		sql:exec("rollback")
+	end
+
+	function get_sql()
+		return sql
+	end
 end
 
-function sql_commit()
-	gs_sql:exec("commit");
+-- 第三正規形
+function sql_begin_3nf()
+	local sql
+	if windows then
+		sql = SQLite:new(__stream_name__..".db")
+	else
+		sql = SQLite:new(__stream_dir__..__stream_name__..".db")
+	end
+
+	-------------
+	-- トランザクション開始	
+	-------------
+	sql:exec([[begin]])
+	
+	-------------
+	-- テーブル
+	-- id, byte, bit, param_id, name, size, value
+	--  |
+	-- value_table[id]:id, param_id, value
+	-- offset_table[id]: byte, bit
+	-- param_table[param_id]: name, size
+	-------------
+	sql:exec([[drop table if exists param_table]])
+	sql:exec([[
+		create table param_table(
+		param_id  integer primary key,
+		name      text,
+		size      integer)]])
+		
+	sql:exec([[drop table if exists value_table]])
+	sql:exec([[
+		create table value_table (
+		id        integer primary key,
+		param_id  integer,
+		value     text)]])
+
+	sql:exec([[drop table if exists offset_table]])
+	sql:exec([[
+		create table offset_table (
+		id        integer primary key,
+		byte      integer,
+		bit       integer)]])
+
+	-------------
+	-- VIEW
+	-------------
+	sql:exec([[drop view if exists bitstream]])	
+	sql:exec([[
+		create view bitstream as select
+			v.id,
+			p.name,
+			o.byte,
+			o.bit,
+			p.size,
+			v.value
+		from value_table v
+		left join offset_table o on v.id = o.id
+		left join param_table p on v.param_id = p.param_id]])
+
+	-------------
+	-- レコード追加クエリ
+	-------------
+	local insert_param_table_stmt = sql:prepare([[
+		insert into param_table(param_id, name, size) values(?, ?, ?)]])
+	local insert_offset_table_stmt = sql:prepare([[
+		insert into offset_table(byte, bit) values(?, ?)]])
+	local insert_value_table_stmt = sql:prepare([[
+		insert into value_table(param_id, value) values(?, ?)]])
+	local param_ids = {}
+	local id = 0
+	local param_id = 0
+	function sql_insert_record (name, byte, bit, size, value)
+		id = id + 1
+		--パラメータ
+		if param_ids[name] == nil then
+			param_id = param_id + 1
+			param_ids[name] = param_id
+			sql:reset(insert_param_table_stmt)
+			sql:bind_int (insert_param_table_stmt, 1, param_id)
+			sql:bind_text(insert_param_table_stmt, 2, name)
+			sql:bind_int (insert_param_table_stmt, 3, size)
+			sql:step(insert_param_table_stmt)
+		end	
+		-- offset	
+		sql:reset(insert_offset_table_stmt)
+		--sql:bind_int(insert_offset_table_stmt, 1, id)
+		sql:bind_int(insert_offset_table_stmt, 1, byte)
+		sql:bind_int(insert_offset_table_stmt, 2, bit)
+		sql:step(insert_offset_table_stmt)
+		
+		-- 値
+		sql:reset(insert_value_table_stmt)
+		--sql:bind_int(insert_value_table_stmt, 1, id)
+		sql:bind_int (insert_value_table_stmt, 1, param_ids[name])
+		sql:bind_text(insert_value_table_stmt, 2, tostring(value))
+		sql:step(insert_value_table_stmt)
+	end
+	
+	-------------
+	-- レコード取得クエリ
+	-------------
+	function sql_print(stmt, format)
+		local str={}
+		local count=0
+	
+		sql:reset(stmt)
+		if format == nil then
+			for i=0, sql:column_count(stmt)-1 do
+				io.write(
+					string.format("%-12s  ",
+					tostring(sql:column_name(stmt, i)):sub(1, 12)))
+			end
+			print()
+			printf(string.rep("------------  ", sql:column_count(stmt)))
+		end
+		while SQLITE_ROW == sql:step(stmt) do
+			for i=0, sql:column_count(stmt)-1 do
+				local ty = sql:column_type(stmt, i) 
+				if ty == SQLITE_NULL then
+				elseif ty == SQLITE_INTEGER then
+					str[i+1] = tostring(sql:column_int(stmt, i))
+				elseif ty == SQLITE_TEXT then
+					str[i+1] = sql:column_text(stmt, i)
+				else
+					str[i+1] = "unsupported type"
+				end
+				
+				if format == nil then
+					str[i+1] = str[i+1]:sub(1, 10)
+				end
+			end
+			if format == nil then
+				printf(string.rep("%-12s  ", sql:column_count(stmt)), table.unpack(str))
+			else
+				printf(format, table.unpack(str))
+			end
+		end
+	end
+	
+	function sql_commit()
+		sql:exec("commit");
+	end
+
+	function sql_rollback()
+		sql:exec("rollback");
+	end
+
+	function get_sql()
+		return sql
+	end
 end
 
-function sql_rollback()
-	gs_sql:exec("rollback");
-end
+
 
 function get_data()
 	return gs_data
@@ -549,9 +710,5 @@ end
 
 function get_streams()
 	return gs_all_streams
-end
-
-function get_sql()
-	return gs_sql
 end
 

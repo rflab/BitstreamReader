@@ -1,7 +1,7 @@
 -- ts解析
 -- ./a.out test.ts
 
-dofile(__exec_dir__.."script/streamdef/pes.lua")
+dofile(__streamdef_dir__.."pes.lua")
 
 -- ストリーム解析
 local ts_packet_size = 188

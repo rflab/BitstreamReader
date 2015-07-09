@@ -1,6 +1,7 @@
 #
 Debug/
 Release/
+test/
 streamreader_d.exe
 *.csv
 *.zip

@@ -3,9 +3,6 @@
 各種バイナリをビット単位で解析するツールです。
 （現在の対応フォーマット:mp4, mpg (ts, tts), jpg(jfif, exif), iff(avi, wav, aiff), bmp, pes, h264, h265, など）
 
-windowsならfiles/bin/streamreader.exeにファイルをドロップすれば解析が始まります。
-Lua言語/SQLiteベースでスクリプトを書けばビット単位、可変長でどんなバイナリデータも解析/作成できます
-
 ## 使い方
 
 実行時引数にファイル名を指定すると解析が始まります。
@@ -25,4 +22,4 @@ cmd>dump foo 3
 -- ヘルプ
 cmd>help
 ```
-[more..](https://github.com/rflab/stream_reader/blob/master/README.md)
+[もっと詳しく..](https://github.com/rflab/stream_reader/blob/master/README.md)

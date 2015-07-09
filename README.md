@@ -14,12 +14,11 @@ S./a.out test.wav
 ```
 -- とりあえず取得した値を全部見る
 cmd>info
--- 名前に foo もしくは bar を含む値の情報を表示
+-- 名前に foo や bar を含む値の情報を表示
 cmd>grep foo bar
-cmd>list foo bar
--- 名前に foo を含む値の3つ目付近をダンプ表示
-cmd>dump foo 3
--- ヘルプ
+cmd>list foo
+cmd>dump foo
+-- その他ヘルプ
 cmd>help
 ```
 [もっと詳しく..](https://github.com/rflab/stream_reader/blob/master/README_detail.md)

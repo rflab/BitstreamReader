@@ -455,12 +455,7 @@ function sql_rollback() assert(false, "sql is not started.") end
 function get_sql() assert(false, "sql is not started.") end
 
 function sql_begin()
-	local sql
-	if windows then
-		sql = SQLite:new(__stream_name__..".db")
-	else
-		sql = SQLite:new(__stream_dir__..__stream_name__..".db")
-	end
+ 	local sql = SQLite:new(__out_dir__..__stream_name__..".db")
 	
 	sql:exec([[begin]])
 	sql:exec([[drop table if exists bitstream]])
@@ -552,12 +547,7 @@ end
 
 -- 第三正規形
 function sql_begin_3nf()
-	local sql
-	if windows then
-		sql = SQLite:new(__stream_name__..".db")
-	else
-		sql = SQLite:new(__stream_dir__..__stream_name__..".db")
-	end
+	local sql = SQLite:new(__out_dir__..__stream_name__..".db")
 
 	-------------
 	-- トランザクション開始	

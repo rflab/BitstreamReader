@@ -1,8 +1,9 @@
 #
-Debug/
-Release/
+Win32
+x64/
 test/
 streamreader_d.exe
+streamreader64_d.exe
 *.csv
 *.zip
 *.opensdf

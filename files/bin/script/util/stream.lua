@@ -210,9 +210,8 @@ function _m:seek(byte, bit)
 end
 
 function _m:seekoff(byte, bit)
-	assert(self.stream:seekoff(byte, bit or 0))
-	--if byte ~= nil then assert(self.stream:seekoff_byte(byte)) end
-	--if bit  ~= nil then assert(self.stream:seekoff_bit(bit)) end
+	if byte ~= nil then assert(self.stream:seekoff_byte(byte)) end
+	if bit  ~= nil then assert(self.stream:seekoff_bit(bit)) end
 	return true
 end
 

@@ -354,6 +354,8 @@ function ts(size, target)
 	local no = 0
 	local begin
 	local pid
+	local start_indicator
+	local scrambl
 	
 	-- 初期TSパケット長
 	while total < size do
@@ -377,16 +379,18 @@ function ts(size, target)
 		
 		rbit("syncbyte",                     8)
 		rbit("transport_error_indicator",    1)
+		start_indicator =
 		rbit("payload_unit_start_indicator", 1)		
 		rbit("transport_priority",           1)
 		pid = 
 		rbit("PID",                          13)
+		scrambl =
 		rbit("transport_scrambling_control", 2)
 		rbit("adaptation_field_control",     2)
 		rbit("continuity_counter",           4)
 		
 		
-		if get("payload_unit_start_indicator") == 1 and analyse_data_byte then
+		if  start_indicator == 1 and scrambl == 0 and analyse_data_byte then
 			analyze_payload(pid)
 		end
 		

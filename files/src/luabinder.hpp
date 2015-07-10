@@ -24,7 +24,6 @@
 		+ ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
 	#define LUA_ARGUMENT_ERROR(x) std::invalid_argument(std::string("c++ invalid argument exception. L")\
 		 + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
-	#define LUA_FALSE string("lua false");
 #elif defined(__GNUC__) && __cplusplus >= 201300L // __GNUC_PREREQ(4, 9)
 	#define LUA_RUNTIME_ERROR(x) std::runtime_error(std::string("c++ runtime exception. L")\
 		 + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
@@ -32,13 +31,11 @@
 		 + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
 	#define LUA_ARGUMENT_ERROR(x) std::invalid_argument(std::string("c++ invalid argument exception. L")\
 		 + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
-	#define LUA_FALSE string("lua false");
 #else
 	// unsupported
 	#define LUA_RUNTIME_ERROR(x) std::runtime_error("c++ runtime exception.")
 	#define LUA_DOMEIN_ERROR(x) std::domain_error("c++ omein error exception.")
 	#define LUA_ARGUMENT_ERROR(x) std::invalid_argument("c++ invalid argument exception.")
-	#define LUA_FALSE string("lua false");
 	#define make_unique make_shared
 	#define unique_ptr shared_ptr
 	#define nullptr NULL
@@ -329,8 +326,9 @@ namespace rf
 		{
 			return tuple<>();
 		}
-
 		
+	private:
+
 		// 引数型情報とLuaから呼び出す関数をもつスタブのようなオブジェクト
 		// 関数、void関数、メンバ関数、voidメンバ関数を特殊化する
 		template<typename Func, typename Seq, typename IsMember = void>
@@ -350,10 +348,18 @@ namespace rf
 
 				auto f = reinterpret_cast<Ret(*)(Args...)>(lua_tocfunction(L, lua_upvalueindex(1)));
 				
-				Ret r = f(get_stack<Args>(L, Ixs)...);
-				push_stack(L, r);
+				try
+				{
+					Ret r = f(get_stack<Args>(L, Ixs)...);
+					push_stack(L, r);
+					return 1;
+				}
+				catch (const False &)
+				{
+					push_stack(L, false);
+					return 1;
+				}
 
-				return 1;
 			}
 		};
 
@@ -371,9 +377,16 @@ namespace rf
 
 				auto f = reinterpret_cast<void(*)(Args...)>(lua_tocfunction(L, lua_upvalueindex(1)));
 
-				f(get_stack<Args>(L, Ixs)...);
-
-				return 0;
+				try
+				{
+					f(get_stack<Args>(L, Ixs)...);
+					return 0;
+				}
+				catch (const False &)
+				{
+					push_stack(L, false);
+					return 1;
+				}
 			}
 		};
 
@@ -424,10 +437,17 @@ namespace rf
 				auto a = static_cast<std::array<mf_type, 1>*> (buf);
 				mf_type fp = (*a)[0];
 
-				Ret r = (self->*fp)(get_stack<Args>(L, Ixs)...);
-				push_stack(L, r);
-
-				return 1;
+				try
+				{
+					Ret r = (self->*fp)(get_stack<Args>(L, Ixs)...);
+					push_stack(L, r);
+					return 1;
+				}
+				catch (const False &)
+				{
+					push_stack(L, false);
+					return 1;
+				}
 			}
 		};
 		
@@ -456,9 +476,16 @@ namespace rf
 				auto a = static_cast<std::array<mf_type, 1>*> (buf);
 				mf_type fp = (*a)[0];
 
-				(self->*fp)(get_stack<Args>(L, Ixs)...);
-
-				return 0;
+				try
+				{
+					(self->*fp)(get_stack<Args>(L, Ixs)...);
+					return 0;
+				}
+				catch (const False &)
+				{
+					push_stack(L, false);
+					return 1;
+				}
 			}
 		};
 
@@ -575,6 +602,10 @@ namespace rf
 		~LuaBinder(){
 			close();
 		}
+
+
+		// Luaにfalseを返すためのオブジェクト
+		class False{};
 
 		// Luaファイルを実行
 		bool dofile(const string& filename)

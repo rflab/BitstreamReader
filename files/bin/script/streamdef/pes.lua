@@ -54,7 +54,7 @@ function pes(pid)
 	and get("stream_id") ~= program_stream_directory
 	and get("stream_id") ~= ITU_T_Rec_H_222_0_ISO_IEC_13818_1_Annex_B_or_ISO_IEC_13818_6_DSMCC_stream
 	and get("stream_id") ~= ITU_T_Rec_H_222_1_type_E then
-	    rbit("'10'",                                                    2)
+	    cbit("'10'",                                                    2, 2)
 	    rbit("PES_scrambling_control",                                  2)
 	    rbit("PES_priority",                                            1)
 	    rbit("data_alignment_indicator",                                1)
@@ -184,8 +184,13 @@ function pes(pid)
 			seek(cur()+4)
 			local ofs = fstr(hex2str(start_code), false)
 			seek(cur()-4)
-	        tbyte("PES_packet_data_byte", ofs + 4,
-	        	__out_dir__.."pid"..hexstr(pid)..".es")
+			if ofs ~= false then
+		        tbyte("PES_packet_data_byte", ofs + 4,
+		        	__out_dir__.."pid"..hexstr(pid)..".es")
+			else
+		        tbyte("PES_packet_data_byte", get_size() - cur(),
+		        	__out_dir__.."pid"..hexstr(pid)..".es")
+			end
         else
 	        tbyte("PES_packet_data_byte", N,
 	        	__out_dir__.."pid"..hexstr(pid)..".es")
@@ -213,9 +218,9 @@ function pes_stream(size)
 
 	local total_size = 0;
 	while total_size < size do
---	    if fstr("00 00 01".., false) == false then
---	    	break
---	    end
+	    if fstr("00 00 01", false, 0x10000) == false then
+	    	break
+	    end
 		total_size = total_size + pes(0xffff)
 	end
 end

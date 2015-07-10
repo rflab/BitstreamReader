@@ -525,18 +525,18 @@ end
 function analyze()
 	print("analyze PAT")
 	seek(0)
-	enable_print(false)
+	enable_print(true)
 	ts(1024*1024, TYPE_PAT)
 
 	print("analyze PMT")
 	seek(0)
-	enable_print(false)
+	enable_print(true)
 	ts(1024*1024, TYPE_PMT)
 
 	print("analyze PES")
 	analyse_data_byte = true
 	seek(0)
-	enable_print(false)
+	enable_print(true)
 	print("short analyse 1/50 size.")
 	ts(get_size()/100, TYPE_PES)
 	

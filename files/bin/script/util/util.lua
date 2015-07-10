@@ -199,6 +199,16 @@ function fstr(pattern, advance, end_offset)
 	return gs_stream:fstr(pattern, advance, end_offset)
 end
 
+-- １バイト逆検索
+function rfbyte(char, advance, end_offset)
+	return gs_stream:rfbyte(char, advance, end_offset)
+end
+
+-- 文字列を検索、もしくは"00 11 22"のようなバイナリ文字列で逆検索
+function rfstr(pattern, advance, end_offset)
+	return gs_stream:rfstr(pattern, advance, end_offset)
+end
+
 -- ストリームからファイルにデータを追記
 function tbyte(name, size, target)
 	if type(target) == "string" then

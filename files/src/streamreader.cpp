@@ -1229,7 +1229,7 @@ namespace rf
 			if (bs_.find_byte(c, offset, advance, end_offset) == false)
 			{
 				printf("# can not find byte:0x%lx\n", static_cast<uint8_t>(c));
-				throw LUA_FALSE;
+				throw LuaBinder::False();
 			}
 
 			if (printf_on_)
@@ -1258,7 +1258,7 @@ namespace rf
 			if (bs_.find_byte_string(address, size, offset, advance, end_offset) == false)
 			{
 				printf("# can not find byte string: %s\n", s.c_str());
-				throw LUA_FALSE;
+				throw LuaBinder::False();
 			}
 
 			if (printf_on_)
@@ -1273,6 +1273,65 @@ namespace rf
 					offset + prev_byte == this->size() ? "not found [EOS]"
 						: offset == end_offset ? "not found [end_offset]"
 						: "found",
+					offset + prev_byte);
+			}
+
+			return offset;
+		}	
+		
+		// １バイトの一致を検索
+		int rfind_byte(char c, bool advance, int end_offset) throw(...)
+		{
+			int prev_byte = bs_.byte_pos();
+			int offset;
+
+			if (bs_.rfind_byte(c, offset, advance, end_offset) == false)
+			{
+				printf("# can not find byte:0x%lx\n", static_cast<uint8_t>(c));
+				throw LuaBinder::False();
+			}
+
+			if (printf_on_)
+			{
+				printf(" adr=0x%08lx(+0)| ofs=0x%08lx(+0)| search '0x%02x' %s at adr=0x%08lx.\n",
+					bs_.byte_pos(), offset, static_cast<uint8_t>(c),
+					offset + prev_byte == this->size() ? "not found [EOS]"
+					: offset == end_offset ? "not found [end_offset]"
+					: "found",
+					offset + prev_byte);
+			}
+
+			return offset;
+		}
+
+		// 数バイト分の一致を検索
+		int rfind_byte_string(const char* address, int size, bool advance, int end_offset) throw(...)
+		{
+			if (FAIL(valid_ptr(address)))
+				throw logic_error((print_status(), "invalid address"));
+
+			string s(address, size);
+			int prev_byte = bs_.byte_pos();
+			int offset;
+
+			if (bs_.rfind_byte_string(address, size, offset, advance, end_offset) == false)
+			{
+				printf("# can not find byte string: %s\n", s.c_str());
+				throw LuaBinder::False();
+			}
+
+			if (printf_on_)
+			{
+				printf(" adr=0x%08lx(+0)| ofs=0x%08lx(+0)| search [ ",
+					byte_pos(), offset);
+				for (int i = 0; i < size; ++i)
+					printf("%02x ", static_cast<uint8_t>(address[i]));
+
+				printf("] (\"%s\") %s at adr=0x%08lx.\n",
+					s.c_str(),
+					offset + prev_byte == this->size() ? "not found [EOS]"
+					: offset == end_offset ? "not found [end_offset]"
+					: "found",
 					offset + prev_byte);
 			}
 
@@ -1767,6 +1826,8 @@ unique_ptr<LuaBinder> init_lua(int argc, char** argv)
 		def("look_expgolomb",     &LuaGlueBitstream::look_expgolomb).    // ポインタを進めないで指数ゴロムを取得、4byteまで
 		def("find_byte",          &LuaGlueBitstream::find_byte).         // １バイトの一致を検索
 		def("find_byte_string",   &LuaGlueBitstream::find_byte_string).  // 数バイト分の一致を検索
+		def("rfind_byte",         &LuaGlueBitstream::rfind_byte).        // １バイトの一致を終端から逆検索
+		def("rfind_byte_string",  &LuaGlueBitstream::rfind_byte_string). // 数バイト分の一致を終端から逆検索
 		def("transfer_byte",      &LuaGlueBitstream::transfer_byte).     // 部分ストリーム(Bitstream)を作成
 		def("write",              &LuaGlueBitstream::write).             // ビットストリームの現在位置に書き込む
 		def("put_char",           &LuaGlueBitstream::put_char).          // ビットストリームの現在位置に書き込む

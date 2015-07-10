@@ -103,44 +103,34 @@ local function analyse_stream_type(s)
 			end
 		end
 		
-		-- pes
 		seek(0)
-		if __stream_ext__ == ".pes" then
-			ret = ".pes"
-			ascii = "PES"
-			break
-		end
-
-		-- AAC
-		seek(0)
-		if cbit("syncword", 12, 0xfff) then
-			rbit("id", 1)
-			if cbit("layer", 2, 0) then
-				if get("id") == 0 then
-					print("MPEG-4 AAC")
-				elseif get("id") == 1 then
-					print("MPEG-2 AAC")
+		if cbit("syncword", 11, 0x7ff) then
+			local ver = lbit(2)
+			seekoff(0,2)
+			print(cur())
+			local layer = lbit(2)
+			if layer == 0 then
+				if id == 0 then
+					ascii = "MPEG-4 AAC"
+				elseif id == 1 then
+					ascii = "MPEG-2 AAC"
 				end
 				ret = ".aac"
-				ascii = "AAC"
 				break
-			end
-		end
-		
-		-- mp3
-		seek(0)
-		if cbit("syncword", 12, 0xfff) then
-			rbit("id", 1)
-			if cbit("layer", 2, 1) then
-				ret = ".mp3"
+			elseif layer == 1 then
 				ascii = "MP3"
+				ret = ".mp3"
+				break
+			else				
+				ascii = "MPEG Auido Layer"..math.ceil(layer)
+				ret = ".mp2"
 				break
 			end
 		end
 		
 		-- mp4
 		seek(0)
-		if fstr("ftyp", true, 8) ~= 8 then
+		if fstr("ftyp", true, 5) == 4 then
 			ret = ".mp4"
 			ascii = "MPEG-4 Part 14"
 			break
@@ -235,6 +225,10 @@ local function analyse_stream_type(s)
 			break
 		end
 		
+		------------------ 
+		-- 以下、判定が難しい
+		------------------ 
+
 		-- h265
 		seek(0)
 		if lbyte(3) == 1 or lbyte(4) == 1 then
@@ -255,6 +249,28 @@ local function analyse_stream_type(s)
 			ascii = "H.264/MPEG-4 AVC"
 			break
 		end
+		
+		-- pes
+		seek(0)
+		if lbyte(3) == 1 then
+			seek(3)
+			if lbyte(1) == 0xe0 then
+				ret = ".pes"
+				ascii = "Video PES"
+				break
+			elseif lbyte(1) == 0xc0 then
+				ret = ".pes"
+				ascii = "Audio PES"
+				break
+			end
+			seek(6)
+			if lbit(2) == 1 then
+				ret = ".pes"
+				ascii = "PES?"
+			end
+		end
+		
+		
 
 		-- 当てずっぽう
 		seek(0)
@@ -317,6 +333,7 @@ function dispatch_stream(stream)
 		
 	elseif st == ".pes" then
 		dofile(__streamdef_dir__.."pes.lua")
+		pes_stream(get_size())
 
 	elseif st == ".h264" then
 		dofile(__streamdef_dir__.."h264.lua")

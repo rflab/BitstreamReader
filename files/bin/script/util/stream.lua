@@ -20,14 +20,10 @@ local perf = profiler:new() -- 性能計測
 ------------------------------------------------
 
 local function check(_self, result, msg)
-	if 0 == 0 then
-		if result == false or result == nil then
-			print_table(_self.tbl)
-			_self:offset(-127)
-			_self:dump()
-			_self:offset(127)
-			assert(false, "assertion failed! msg=".. msg)
-		end
+	if result == false then
+		print_table(_self.tbl)
+		_self:dump()
+		assert(false, "assertion failed! msg=".. msg)
 	end
 	
 	if _self.break_address ~= nil then
@@ -191,7 +187,6 @@ function _m:fbyte(char, advance, end_offset)
 	if advance == nil then advance = true end
 	if end_offset == nil then end_offset = 0x7fffffff end
 	local ofs = self.stream:find_byte(char, advance, end_offset)
-	check(self, ofs, "fbyte:"..char)
 	return ofs
 end
 
@@ -200,7 +195,21 @@ function _m:fstr(pattern, advance, end_offset)
 	if end_offset == nil then end_offset = 0x7fffffff end
 	local str = pat2str(pattern)
 	local ofs = self.stream:find_byte_string(str, #str, advance, end_offset)
-	check(self, ofs, "fstr:"..pattern)
+	return ofs	
+end
+
+function _m:rfbyte(char, advance, end_offset)	
+	if advance == nil then advance = true end
+	if end_offset == nil then end_offset = 0x10000000 end
+	local ofs = self.stream:rfind_byte(char, advance, end_offset)
+	return ofs
+end
+
+function _m:rfstr(pattern, advance, end_offset)
+	if advance == nil then advance = true end
+	if end_offset == nil then end_offset = 0x10000000 end
+	local str = pat2str(pattern)
+	local ofs = self.stream:rfind_byte_string(str, #str, advance, end_offset)
 	return ofs	
 end
 
@@ -210,7 +219,8 @@ function _m:seek(byte, bit)
 end
 
 function _m:seekoff(byte, bit)
-	if byte ~= nil then assert(self.stream:seekoff_byte(byte)) end
+    -- 暫定である、byteが0ならbitシークのみ
+	if byte ~= 0 then assert(self.stream:seekoff_byte(byte)) end
 	if bit  ~= nil then assert(self.stream:seekoff_bit(bit)) end
 	return true
 end

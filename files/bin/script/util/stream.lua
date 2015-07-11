@@ -200,14 +200,14 @@ end
 
 function _m:rfbyte(char, advance, end_offset)	
 	if advance == nil then advance = true end
-	if end_offset == nil then end_offset = 0x10000000 end
+	if end_offset == nil then end_offset = -0x7fffffff - 1 end
 	local ofs = self.stream:rfind_byte(char, advance, end_offset)
 	return ofs
 end
 
 function _m:rfstr(pattern, advance, end_offset)
 	if advance == nil then advance = true end
-	if end_offset == nil then end_offset = 0x10000000 end
+	if end_offset == nil then end_offset = -0x7fffffff - 1 end
 	local str = pat2str(pattern)
 	local ofs = self.stream:rfind_byte_string(str, #str, advance, end_offset)
 	return ofs	

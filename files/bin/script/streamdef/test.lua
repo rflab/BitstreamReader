@@ -131,9 +131,12 @@ function test_flie()
 	rbyte("data", 10)
 	rbyte("data", 10)
 	rbyte("data", 10)
-	
 end
 
+function test_flie()
+	fstr("10 ", true)
+	rfstr("ff 40", true)
+end
 
 test_flie()
 --test_sqlite()

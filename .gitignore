@@ -3,7 +3,7 @@ Win32
 x64/
 test/
 streamreader_d.exe
-streamreader64_d.exe
+streamreader(x64)_d.exe
 *.csv
 *.zip
 *.opensdf

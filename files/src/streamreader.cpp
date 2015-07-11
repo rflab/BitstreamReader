@@ -682,27 +682,29 @@ namespace rf
 
 		bool rfind_byte(char sc, int &ret_offset, bool advance, int end_offset = INT_MIN)
 		{
-			int ofs = byte_pos_;
+			int ofs = 0;
 			int c;
 			bool ret = false;
 			auto buf = buf_.get(); // パフォーマンス改善のためキャスト
-			for (; 0 <= ofs; --ofs)
+			for (; -byte_pos_ <= ofs; --ofs)
 			{
 				c = buf->sgetc();
-				buf->sungetc();
+				// buf->sungetc();
+				buf->pubseekoff(-1, std::ios::cur);
 				if (static_cast<char>(c) == sc)
 				{
 					ret = true;
-					break;
-				}
-				else if (ofs <= 0)
-				{
 					break;
 				}
 				else if (ofs <= end_offset)
 				{
 					break;
 				}
+			}
+
+			if (ofs < (-byte_pos_))
+			{
+				ofs = (-byte_pos_);
 			}
 
 			if (advance)
@@ -1080,15 +1082,14 @@ namespace rf
 				throw runtime_error((print_status(), string("overflow, size=") + to_string(size)));
 
 			int prev_byte = bs_.byte_pos();
-			int prev_bit = bs_.bit_pos();
 
 			string str;
 			bs_.read_string(size, str);
 			
 			if (printf_on_ || (name[0] == '#'))
 			{
-				printf(" adr=0x%08lx(+%d)| siz=0x%08lx(+0)| %-40s | str=\"%s\"\n",
-					prev_byte, prev_bit, static_cast<unsigned int>(str.length()), name, str.c_str());
+				printf(" adr=0x%08lx    | siz=0x%08lx    | %-40s | str=\"%s\"\n",
+					prev_byte, static_cast<unsigned int>(str.length()), name, str.c_str());
 				if (size < static_cast<int>(str.length() - 1))
 					ERR << "size > str.length() - 1 (" << str.length()
 					<< " != " << size << ")" << endl;
@@ -1225,21 +1226,22 @@ namespace rf
 		{
 			int prev_byte = bs_.byte_pos();
 			int offset;
-
-			if (bs_.find_byte(c, offset, advance, end_offset) == false)
-			{
-				printf("# can not find byte:0x%lx\n", static_cast<uint8_t>(c));
-				throw LuaBinder::False();
-			}
+			bool result = bs_.find_byte(c, offset, advance, end_offset);
 
 			if (printf_on_)
 			{
-				printf(" adr=0x%08lx(+0)| ofs=0x%08lx(+0)| search '0x%02x' %s at adr=0x%08lx.\n",
+				printf(" adr=0x%08lx    | ofs=0x%08lx    | search '0x%02x' %s at adr=0x%08lx.\n",
 					bs_.byte_pos(), offset, static_cast<uint8_t>(c),
 					offset + prev_byte == this->size() ? "not found [EOS]"
 						: offset == end_offset ? "not found [end_offset]"
 						: "found",
 					offset + prev_byte);
+			}
+
+			if (!result)
+			{
+				printf("# can not find byte:0x%lx\n", static_cast<uint8_t>(c));
+				throw LuaBinder::False();
 			}
 
 			return offset;
@@ -1254,16 +1256,11 @@ namespace rf
 			string s(address, size);
 			int prev_byte = bs_.byte_pos();
 			int offset;
-
-			if (bs_.find_byte_string(address, size, offset, advance, end_offset) == false)
-			{
-				printf("# can not find byte string: %s\n", s.c_str());
-				throw LuaBinder::False();
-			}
+			bool result = bs_.find_byte_string(address, size, offset, advance, end_offset);
 
 			if (printf_on_)
 			{
-				printf(" adr=0x%08lx(+0)| ofs=0x%08lx(+0)| search [ ",
+				printf(" adr=0x%08lx    | ofs=0x%08lx    | search [ ",
 					byte_pos(), offset);
 				for (int i = 0; i < size; ++i)
 					printf("%02x ", static_cast<uint8_t>(address[i]));
@@ -1276,6 +1273,12 @@ namespace rf
 					offset + prev_byte);
 			}
 
+			if (!result)
+			{
+				printf("# can not find byte string: %s\n", s.c_str());
+				throw LuaBinder::False();
+			}
+
 			return offset;
 		}	
 		
@@ -1284,21 +1287,22 @@ namespace rf
 		{
 			int prev_byte = bs_.byte_pos();
 			int offset;
-
-			if (bs_.rfind_byte(c, offset, advance, end_offset) == false)
-			{
-				printf("# can not find byte:0x%lx\n", static_cast<uint8_t>(c));
-				throw LuaBinder::False();
-			}
+			bool result = bs_.rfind_byte(c, offset, advance, end_offset);
 
 			if (printf_on_)
 			{
-				printf(" adr=0x%08lx(+0)| ofs=0x%08lx(+0)| search '0x%02x' %s at adr=0x%08lx.\n",
+				printf(" adr=0x%08lx    | ofs=%-12ld  | search '0x%02x' %s at adr=0x%08lx.\n",
 					bs_.byte_pos(), offset, static_cast<uint8_t>(c),
-					offset + prev_byte == this->size() ? "not found [EOS]"
+					offset + prev_byte == 0 ? "not found [pos=0]"
 					: offset == end_offset ? "not found [end_offset]"
 					: "found",
 					offset + prev_byte);
+			}
+
+			if (!result)
+			{
+				printf("# can not find byte:0x%lx\n", static_cast<uint8_t>(c));
+				throw LuaBinder::False();
 			}
 
 			return offset;
@@ -1313,26 +1317,27 @@ namespace rf
 			string s(address, size);
 			int prev_byte = bs_.byte_pos();
 			int offset;
-
-			if (bs_.rfind_byte_string(address, size, offset, advance, end_offset) == false)
-			{
-				printf("# can not find byte string: %s\n", s.c_str());
-				throw LuaBinder::False();
-			}
-
+			bool result = bs_.rfind_byte_string(address, size, offset, advance, end_offset);
+			
 			if (printf_on_)
 			{
-				printf(" adr=0x%08lx(+0)| ofs=0x%08lx(+0)| search [ ",
+				printf(" adr=0x%08lx    | ofs=%-12ld  | search [ ",
 					byte_pos(), offset);
 				for (int i = 0; i < size; ++i)
 					printf("%02x ", static_cast<uint8_t>(address[i]));
 
 				printf("] (\"%s\") %s at adr=0x%08lx.\n",
 					s.c_str(),
-					offset + prev_byte == this->size() ? "not found [EOS]"
+					offset + prev_byte == 0 ? "not found [pos=0]"
 					: offset == end_offset ? "not found [end_offset]"
 					: "found",
 					offset + prev_byte);
+			}
+
+			if (!result)
+			{
+				printf("# can not find byte string: %s\n", s.c_str());
+				throw LuaBinder::False();
 			}
 
 			return offset;

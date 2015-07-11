@@ -137,6 +137,7 @@ function exec_cmd(c)
 				local address = tonumber(c[3]) or 0
 				seek(address)
 				while true do
+							print("0000")
 					if find_func(c[2], true, limit) == false then
 						print("not found ["..c[2].."]")
 						break;
@@ -144,14 +145,24 @@ function exec_cmd(c)
 						print("found ["..c[2].."]")
 						dump()
 						print("n:next, p:prev")
-						if io.read() == "n" then
+						local c = io.read()
+						if c == "n"  then
+							if get_size() <= cur() then
+								print("[EOS]")
+								break;
+							end
 							seekoff(1)
 							find_func = fstr
 							limit = 0x10000
-						elseif io.read() == "p" then
+						elseif c == "p" then
+							if cur() <= 0then
+								print("[pos=0]")
+								break;
+							end
 							seekoff(-1)
 							find_func = rfstr
 							limit = -(0x10000)
+							print("0000")
 						else
 							break
 						end
@@ -175,11 +186,20 @@ function exec_cmd(c)
 						print("found ["..hexstr(c[2]).."]")
 						dump()
 						print("n:next, p:prev")
-						if io.read() == "n" then
+						local c = io.read()
+						if c == "n"  then
+							if get_size() <= cur() then
+								print("[EOS]")
+								break;
+							end
 							seekoff(1)
 							find_func = fbyte
 							limit = 0x10000
-						elseif io.read() == "p" then
+						elseif c == "p"  then
+							if cur() <= 0then
+								print("[pos=0]")
+								break;
+							end
 							seekoff(-1)
 							find_func = rfbyte
 							limit = -(0x10000)
@@ -228,11 +248,32 @@ function exec_cmd(c)
 						if string.find(k, c[2]) ~= nil then
 							if bytes[k] ~= nil and type(c[3]) == "number" then
 								local ix = toindex(c[3], bytes[k])
-								printf("  %s[%d]=%s size=%d in %s=%s",
-									k, ix, ts[k][ix], sizs[k][ix], streams[k][ix].name, streams[k][ix].file_name)
-								swap(streams[k][ix])
-								seek(bytes[k][ix])
-								dump(64)
+								for i=1, 10000 do
+									printf("  %s[%d]=%s size=%d in %s=%s",
+										k, ix, ts[k][ix], sizs[k][ix], streams[k][ix].name, streams[k][ix].file_name)
+									swap(streams[k][ix])
+									seek(bytes[k][ix])
+									dump(128)
+									print("n:next, p:prev")
+									local c = io.read()
+									if c == "n" then
+										if ix < #ts[k] then
+											ix = ix+1
+										else
+											print("END")
+											break
+										end
+									elseif c == "p" then
+										if 0 < ix then
+											ix = ix-1
+										else
+											print("index=0")
+											break
+										end
+									else
+										break
+									end
+								end
 							end
 						end
 					end

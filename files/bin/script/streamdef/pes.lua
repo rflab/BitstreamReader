@@ -27,17 +27,17 @@ local freeze_frame = 0x2;
 local fast_reverse = 0x3;
 local slow_reverse = 0x4;
 
-function pes(pid)
+function pes(pid, size)
 	local begin = cur()
 	local PTS = false
 	local DTS = false
 	local start_code
 	local ofs
 	
-    ofs = fstr("00 00 01", true)
-    start_code = lbyte(4)
-    assert(ofs == 0)
-
+	ofs = fstr("00 00 01", true)
+	assert(ofs == 0)
+	start_code = lbyte(4)
+ 
 	cbit("packet_start_code_prefix",                                    24, 1)
 	rbit("stream_id",                                                   8)
 	rbit("PES_packet_length",                                           16)
@@ -181,15 +181,21 @@ function pes(pid)
 
 	    local N = get("PES_packet_length") - (cur() - begin) + 6
         if no_packet_length then
-			seek(cur()+4)
-			local ofs = fstr(hex2str(start_code), false)
-			seek(cur()-4)
-			if ofs ~= false then
-		        tbyte("PES_packet_data_byte", ofs + 4,
+        	if size ~= nil then
+        		assert(size==(get_size()-begin))
+		        tbyte("PES_packet_data_byte", size - (cur()-begin),
 		        	__out_dir__.."pid"..hexstr(pid)..".es")
-			else
-		        tbyte("PES_packet_data_byte", get_size() - cur(),
-		        	__out_dir__.."pid"..hexstr(pid)..".es")
+        	else
+				seek(cur()+4)
+				local ofs = fstr(hex2str(start_code), false)
+				seek(cur()-4)
+				if ofs ~= false then
+			        tbyte("PES_packet_data_byte", ofs + 4,
+			        	__out_dir__.."pid"..hexstr(pid)..".es")
+				else
+			        tbyte("PES_packet_data_byte", get_size() - cur(),
+			        	__out_dir__.."pid"..hexstr(pid)..".es")
+				end
 			end
         else
 	        tbyte("PES_packet_data_byte", N,
@@ -218,7 +224,7 @@ function pes_stream(size)
 
 	local total_size = 0;
 	while total_size < size do
-	    if fstr("00 00 01", false, 0x10000) == false then
+	    if fstr("00 00 01", false, 0x10000) == get_size()-cur() then
 	    	break
 	    end
 		total_size = total_size + pes(0xffff)
@@ -231,3 +237,4 @@ if __stream_ext__ == ".pes" then
 	stdout_to_file(false)
 	pes_stream(get_size() - 10*1024)
 end
+

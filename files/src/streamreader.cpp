@@ -62,7 +62,7 @@ namespace rf
 	using std::endl;
 	using std::hex;
 	using std::dec;
-	
+
 	inline bool fail(bool b, int line, const std::string &fn, const std::string &exp)
 	{
 		if (!b)
@@ -95,7 +95,7 @@ namespace rf
 			| ((value << 8) & 0xff0000) | ((value << 24) & 0xff000000);
 	}
 	// 指定アドレスをバイト列でダンプ
-	static bool dump_bytes(const char* buf, int offset, int size)
+	static void dump_bytes(const char* buf, int offset, int size)
 	{
 		uint8_t c;
 		for (int i = 0; i < size; ++i)
@@ -103,11 +103,10 @@ namespace rf
 			c = buf[offset + i];
 			printf("%02x ", (c));
 		}
-		return true;
 	}
 
 	// 指定アドレスを文字列でダンプ
-	static bool dump_string(const char* buf, int offset, int size)
+	static void dump_string(const char* buf, int offset, int size)
 	{
 		uint8_t c;
 		for (int i = 0; i < size; ++i)
@@ -118,11 +117,10 @@ namespace rf
 			else
 				putchar('.');
 		}
-		return true;
 	}
 
 	// 指定アドレスをダンプ
-	static bool dump(const char* buf, int offset, int size, int original_address)
+	static void dump(const char* buf, int offset, int size, int original_address)
 	{
 		// ヘッダ表示
 		printf(
@@ -141,7 +139,7 @@ namespace rf
 		for (int cur_line = 0; cur_line < write_lines; ++cur_line)
 		{
 			// アドレス
-			printf("     0x%08lx| ", (original_address + byte_pos) & (~0xf));
+			printf("     0x%08x| ", (original_address + byte_pos) & (~0xf));
 
 			// バイナリ
 			for (int i = 0; i < 16; ++i)
@@ -160,7 +158,7 @@ namespace rf
 
 				++byte_print_pos;
 			}
-			
+
 			printf("| ");
 
 			// キャラクタ
@@ -186,7 +184,6 @@ namespace rf
 
 			putchar('\n');
 		}
-		return true;
 	}
 
 	class FileManager final
@@ -223,7 +220,7 @@ namespace rf
 		}
 
 		// 指定したバイト列を指定したファイル名に出力、二度目以降は追記
-		static bool write_to_file(const char* file_name, const char* address, int size)
+		static void write_to_file(const char* file_name, const char* address, int size)
 		{
 			if (FAIL(valid_ptr(address)))
 				throw logic_error(FAIL_STR("invalid argument."));
@@ -249,11 +246,10 @@ namespace rf
 				ERR << "file write " << file_name << endl;
 				throw runtime_error(FAIL_STR("file write."));
 			}
-			return true;
 		}
 
 		// printfの出力先を変更する
-		static bool stdout_to_file(bool enable)
+		static void stdout_to_file(bool enable)
 		{
 			static FILE* fp = nullptr;
 			if (enable && fp == nullptr)
@@ -276,8 +272,6 @@ namespace rf
 				fclose(fp);
 				fp = nullptr;
 			}
-
-			return true;
 		}
 	};
 
@@ -295,12 +289,11 @@ namespace rf
 	protected:
 
 		// メンバ変数にstreambufを同期する
-		bool sync()
+		void sync()
 		{
 			// リングバッファの場合のように、必ずしもstreambuf上のいちとbyte_posは同じにならない
 			// return byte_pos_ == buf_->pubseekpos(byte_pos_);
 			buf_->pubseekpos(byte_pos_);
-			return true;
 		}
 
 	public:
@@ -319,14 +312,13 @@ namespace rf
 		// 読み込み対象のstreambufを設定する
 		// サイズの扱いをもっとねらないとだめだかなぁ
 		//template<typename Deleter>
-		bool assign(unique_ptr<std::streambuf>&& buf, int size)
+		void assign(unique_ptr<std::streambuf>&& buf, int size)
 		{
 			buf_ = std::move(buf);
 			byte_pos_ = 0;
 			bit_pos_ = 0;
 			size_ = size;
-
-			return sync();
+			sync();
 		}
 
 		// ストリーム内か判定
@@ -356,7 +348,7 @@ namespace rf
 		}
 
 		// 読み込みヘッダを移動
-		bool seekpos(int byte, int bit)
+		void seekpos(int byte, int bit)
 		{
 			if (FAIL((0 >= bit) && (bit < 8)))
 			{
@@ -372,12 +364,11 @@ namespace rf
 
 			byte_pos_ = byte;
 			bit_pos_ = bit;
-
-			return sync();
+			sync();
 		}
 
 		// ビット単位で読み込みヘッダを移動
-		bool seekoff_bit(int offset)
+		void seekoff_bit(int offset)
 		{
 			if (FAIL(check_offset_bit(offset)))
 			{
@@ -387,12 +378,11 @@ namespace rf
 
 			byte_pos_ += (bit_pos_ + offset) / 8;
 			bit_pos_ = (bit_pos_ + offset) % 8; // & 0x07;
-
-			return sync();
+			sync();
 		}
 
 		// バイト単位で読み込みヘッダを移動
-		bool seekoff_byte(int offset)
+		void seekoff_byte(int offset)
 		{
 			if (FAIL(check_offset_byte(offset)))
 			{
@@ -407,14 +397,13 @@ namespace rf
 
 			byte_pos_ += offset;
 			bit_pos_ = 0;
-
-			return sync();
+			sync();
 		}
 
 		// ビット単位で読み込み
-		bool read_bit(int size, unsigned int &ret_value)
+		unsigned int read_bit(int size)
 		{
-			if (FAIL(0 <= size && size <= sizeof(unsigned int)*8))
+			if (FAIL(0 <= size && size <= static_cast<int>(sizeof(unsigned int)*8)))
 			{
 				ERR << "read bit range error. size=" << hex << size << OUTPUT_POS << endl;
 				throw runtime_error(FAIL_STR(" range error."));
@@ -437,8 +426,7 @@ namespace rf
 				value >>= 8 - (bit_pos_ + size); // 下位ビットを合わせる
 				value &= ((1 << size) - 1); // 上位ビットを捨てる
 				seekoff_bit(size);
-				ret_value = value;
-				return true;
+				return value;
 			}
 			else
 			{
@@ -466,12 +454,11 @@ namespace rf
 				}
 			}
 
-			ret_value = value;
-			return true;
+			return value;
 		}
 
 		// バイト単位で読み込み
-		bool read_byte(int size, unsigned int &ret_value)
+		unsigned int read_byte(int size)
 		{
 			if (FAIL(0 <= size && size <= 4))
 			{
@@ -484,39 +471,36 @@ namespace rf
 				ERR << "size=" << hex << size << OUTPUT_POS << endl;
 				throw runtime_error(FAIL_STR("range error."));
 			}
-			
+
 			if (FAIL(bit_pos_ == 0))
 			{
 				WARNING << "bit_pos_ is not aligned. bit_pos_=" << hex << bit_pos_ << " " << OUTPUT_POS << endl;
 			}
 
-			return read_bit(size * 8, ret_value);
+			return read_bit(size * 8);
 		}
 
 		// 指数ゴロムとしてビット単位で読み込み
-		bool read_expgolomb(unsigned int &ret_value, int &ret_size)
+		void read_expgolomb(unsigned int &ret_value, int &ret_size)
 		{
-			unsigned int v = 0;
-			read_bit(1, v);
+			unsigned int v = read_bit(1);
 			if (v == 1)
 			{
 				ret_value = 0;
 				ret_size = 1;
-				return true;
+				return;
 			}
 
-			int count = 1;
+			unsigned int count = 1;
 			for (;;)
 			{
-				read_bit(1, v);
-
+				v = read_bit(1);
 				if (v == 1)
 				{
-					read_bit(count, v);
-
+					v = read_bit(count);
 					ret_value = (v | (1 << count)) - 1;
 					ret_size = 2 * count + 1;
-					return true;
+					return;
 				}
 
 				++count;
@@ -526,7 +510,7 @@ namespace rf
 		// 文字列として読み込み
 		// NULL文字が先に見つかった場合はその分だけ文字列にするがポインタは進む
 		// NULL文字が見つからなかった場合は最大max_lengthの長さ文字列として終端にNULL文字を入れる
-		bool read_string(int size, string &ret_str)
+		string read_string(int size)
 		{
 			if (FAIL(check_offset_byte(size)))
 			{
@@ -540,10 +524,10 @@ namespace rf
 			}
 
 #if 1
-			int ofs = 0;
+			int offset = 0;
 			int c;
 			stringstream ss;
-			for (; ofs < size; ++ofs)
+			for (; offset < size; ++offset)
 			{
 				c = buf_->sbumpc();
 				ss << static_cast<char>(c);
@@ -557,20 +541,20 @@ namespace rf
 				}
 			}
 
-			ret_str = ss.str();
+			seekoff_byte(size);
+			return ss.str(); 
 #else
 			auto pa = make_unique<char[]>(size);
 			buf_->sgetn(pa.get(), size);
-			ret_str.assign(pa.get());
+			seekoff_byte(size);
+			return pa.get();
 #endif
-
-			return seekoff_byte(size);
 		}
 
 		// ビット単位で先読み
-		bool look_bit(int size, unsigned int &ret_val)
+		unsigned int look_bit(int size)
 		{
-			if (FAIL(0 <= size && size <= sizeof(unsigned int) * 8))
+			if (FAIL(0 <= size && size <= static_cast<int>(sizeof(unsigned int)*8)))
 			{
 				ERR << "bit size range error. size=" << hex << size << OUTPUT_POS << endl;
 				throw logic_error(FAIL_STR("out of range"));
@@ -582,12 +566,13 @@ namespace rf
 				throw runtime_error(FAIL_STR("range error."));
 			}
 
-			read_bit(size, ret_val);
-			return seekoff_bit(-size);
+			unsigned int val = read_bit(size);
+			seekoff_bit(-size);
+			return val;
 		}
 
 		// バイト単位で先読み
-		bool look_byte(int size, unsigned int &ret_val)
+		unsigned int look_byte(int size)
 		{
 			if (FAIL(0 <= size && size <= 4))
 			{
@@ -606,22 +591,22 @@ namespace rf
 				WARNING << "bit_pos_ is not aligned. bit_pos_=" << hex << bit_pos_ << " " << OUTPUT_POS << endl;
 			}
 
-			read_byte(size, ret_val);
-			return seekoff_byte(-size);
+			unsigned int val = read_byte(size);
+			seekoff_byte(-size);
+			return val;
 		}
 
 		// 指数ゴロムで先読み
-		bool look_expgolomb(unsigned int &ret_val)
+		void look_expgolomb(unsigned int &ret_val, int &ret_size)
 		{
 			int prev_byte = byte_pos_;
 			int prev_bit  = bit_pos_;
-			int dummy_size;
-			read_expgolomb(ret_val, dummy_size);
-			return seekpos(prev_byte, prev_bit);
+			read_expgolomb(ret_val, ret_size);
+			seekpos(prev_byte, prev_bit);
 		}
 
 		// 指定バッファの分だけ先読み
-		bool look_byte_string(char* address, int size)
+		void look_byte_string(char* address, int size)
 		{
 			if (FAIL(0 <= size))
 			{
@@ -641,84 +626,75 @@ namespace rf
 			}
 
 			buf_->sgetn(address, size);
-			return sync();
+			sync();
 		}
 
 		// 特定の１バイトの値を検索
 		// 見つからなければファイル終端を返す
-		bool find_byte(char sc, int &ret_offset, bool advance, int end_offset = INT_MAX)
+		int find_byte(char sc, bool advance, int end_offset = INT_MAX)
 		{
-			int ofs = 0;
+			int offset = 0;
 			int c;
-			bool ret = false;
 			auto buf = buf_.get(); // パフォーマンス改善のためキャスト
-			for (; byte_pos_ + ofs < size_; ++ofs)
+			for (; byte_pos_ + offset < size_; ++offset)
 			{
 				//c = buf_->sbumpc(); operator -> が重かった
 				c = buf->sbumpc();
 				if (static_cast<char>(c) == sc)
 				{
-					ret = true;
 					break;
 				}
 				else if (c == EOF)
 				{
 					break;
 				}
-				else if (ofs >= end_offset)
+				else if (offset >= end_offset)
 				{
 					break;
 				}
 			}
 
 			if (advance)
-				seekoff_byte(ofs);
+				seekoff_byte(offset);
 			else
 				sync();
-			ret_offset = ofs;
-			return ret;
-
+			return offset;
 		}
 
-		bool rfind_byte(char sc, int &ret_offset, bool advance, int end_offset = INT_MIN)
+		int rfind_byte(char sc, bool advance, int end_offset = INT_MIN)
 		{
-			int ofs = 0;
+			int offset = 0;
 			int c;
-			bool ret = false;
 			auto buf = buf_.get(); // パフォーマンス改善のためキャスト
-			for (; -byte_pos_ <= ofs; --ofs)
+			for (; -byte_pos_ <= offset; --offset)
 			{
 				c = buf->sgetc();
 				// buf->sungetc();
 				buf->pubseekoff(-1, std::ios::cur);
 				if (static_cast<char>(c) == sc)
 				{
-					ret = true;
 					break;
 				}
-				else if (ofs <= end_offset)
+				else if (offset <= end_offset)
 				{
 					break;
 				}
 			}
 
-			if (ofs < (-byte_pos_))
-			{
-				ofs = (-byte_pos_);
-			}
+			if (offset < (-byte_pos_))
+				offset = (-byte_pos_);
 
 			if (advance)
-				seekoff_byte(ofs);
+				seekoff_byte(offset);
 			else
 				sync();
-			ret_offset = ofs;
-			return ret;
+			return offset;
 		}
 
 		// 特定のバイト列を検索
 		// 見つからなければファイル終端を返す
-		bool find_byte_string(
-			const char* address, int size, int &ret_offset, bool advance, int end_offset = INT_MAX)
+		int find_byte_string(
+			const char* address, int size, bool advance, int end_offset = INT_MAX)
 		{
 			//char* contents = new char[size];
 			char contents[256];
@@ -734,55 +710,58 @@ namespace rf
 				throw logic_error(FAIL_STR("invalid argument"));
 			}
 
-			int ofs = 0;
+			int offset = 0;
 			int end_offset_remain = end_offset;
 			int prev_byte_pos = byte_pos_;
 			for (;;)
 			{
 				// 先頭1バイトを検索
-				if (FAIL(find_byte(address[0], ofs, true, end_offset_remain)))
+				offset = find_byte(address[0], true, end_offset_remain);
+
+				// 見つからなかった
+				if (offset >= end_offset_remain)
 				{
 					if (!advance)
 						seekpos(prev_byte_pos, 0);
-					return false;
+					return end_offset;
 				}
 
 				// EOSをはみ出す場合
 				if (!check_offset_byte(size))
 				{
-					ret_offset = size_ - prev_byte_pos;
 					if (!advance)
 						seekpos(prev_byte_pos, 0);
 					else
 						seekpos(size_, 0);
-					return false;
+					return size_ - prev_byte_pos;
 				}
 
-				end_offset_remain -= (ofs+1);
-				
+				end_offset_remain -= offset;
+
 				// 一致
 				// 不一致は1バイト進める
 				look_byte_string(contents, size);
 				if (std::memcmp(contents, address, static_cast<size_t>(size)) == 0)
 				{
-					ret_offset = byte_pos_ - prev_byte_pos;
+					int total_offset = byte_pos_ - prev_byte_pos;
 					if (!advance)
 						seekpos(prev_byte_pos, 0);
-					return true;
+					return total_offset;
 				}
 				else
 				{
 					seekoff_byte(1);
+					--end_offset_remain;
 				}
 			}
 		}
 
 		// 特定のバイト列を検索
 		// 見つからなければファイル終端を返す
-		bool rfind_byte_string(
-			const char* address, int size, int &ret_offset, bool advance, int end_offset = INT_MIN)
+		int rfind_byte_string(
+			const char* address, int size, bool advance, int end_offset = INT_MIN)
 		{
-			//char* contents = new char[size];
+			//char* contents = new char[size];f
 			char contents[256];
 			if (FAIL(sizeof(contents) >= static_cast<size_t>(size)))
 			{
@@ -795,8 +774,8 @@ namespace rf
 				ERR << "invalid address address=" << hex << address << OUTPUT_POS << endl;
 				throw logic_error(FAIL_STR("invalid argument"));
 			}
-			
-			int ofs = 0;
+
+			int offset = 0;
 			int end_offset_remain = end_offset;
 			int prev_byte_pos = byte_pos_;
 
@@ -807,7 +786,7 @@ namespace rf
 				{
 					if (advance)
 						seekpos(0, 0);
-					return false;
+					return 0;
 				}
 				seekpos(size_ - size, 0);
 			}
@@ -815,47 +794,51 @@ namespace rf
 			for (;;)
 			{
 				// 先頭位置バイトを検索
-				if (FAIL(rfind_byte(address[0], ofs, true, end_offset_remain)))
+				offset = rfind_byte(address[0], true, end_offset_remain);
+				if (offset <= 0)
 				{
 					seekpos(prev_byte_pos, 0);
-					return false;
+					return 0;
 				}
 
-				end_offset_remain -= (ofs-1);
+				end_offset_remain -= offset;
 
 				// 一致
 				// 不一致は1バイト進める
 				look_byte_string(contents, size);
 				if (std::memcmp(contents, address, static_cast<size_t>(size)) == 0)
 				{
-					ret_offset = byte_pos_ - prev_byte_pos;
+					int total_offset = byte_pos_ - prev_byte_pos;
 					if (!advance)
 						seekpos(prev_byte_pos, 0);
-					return true;
+					return total_offset;
 				}
 				else
 				{
 					seekoff_byte(-1);
+					++end_offset_remain;
 				}
 			}
 		}
 
 		// ストリームにデータを書く
 		// 辻褄を合わせるためにサイズを計算する
-		bool write(const char *buf, int size)
+		void write(const char *buf, int size)
 		{
 			if (FAIL(size >= 0))
 				throw logic_error(FAIL_STR("size error."));
 
 			size_ = std::max(byte_pos_ + size, size_);
-			return buf_->sputn(buf, size) == size;
+			if (FAIL(buf_->sputn(buf, size) == size))
+				throw runtime_error(FAIL_STR("file write(sputn) error."));
 		}
 
 		// ストリームに１バイト追記する
-		bool put_char(char c)
+		void put_char(char c)
 		{
 			size_ = std::max(byte_pos_ + 1, size_);
-			return buf_->sputc(c) == c;
+			if (FAIL(buf_->sputc(c) == c))
+				throw runtime_error(FAIL_STR("file write(sputc) error."));
 		}
 	};
 
@@ -908,7 +891,7 @@ namespace rf
 		RingBuf() : std::streambuf(), size_(0) {}
 
 		// リングバッファのサイズを指定する
-		bool reserve(int size)
+		void reserve(int size)
 		{
 			if (FAIL(0 <= size))
 			{
@@ -920,7 +903,6 @@ namespace rf
 			size_ = size;
 			setp(buf_.get(), buf_.get() + size);
 			setg(buf_.get(), buf_.get(), buf_.get() + size);
-			return true;
 		}
 	};
 
@@ -930,7 +912,7 @@ namespace rf
 
 		// ストリームからファイルに転送
 		// 現状オーバーヘッド多め
-		static bool transfer_to_file(
+		static void transfer_to_file(
 			const char* file_name, LuaGlueBitstream &stream, int size, bool advance = false)
 		{
 			if (FAIL(size >= 0))
@@ -946,8 +928,6 @@ namespace rf
 				ss << " >> " << file_name;
 				stream.read_byte(ss.str().c_str(), size);
 			}
-
-			return true;
 		}
 
 	private:
@@ -965,16 +945,16 @@ namespace rf
 		// streambufを設定
 		// template<template<typename T> class D >
 		// bool assign(unique_ptr<streambuf, D>&& b)
-		bool assign(unique_ptr<std::streambuf>&& b, int size)
+		void assign(unique_ptr<std::streambuf>&& b, int size)
 		{
-			return bs_.assign(std::move(b), size);
+			bs_.assign(std::move(b), size);
 		}
 
 		// 現在の状態を表示
 		void print_status()
 		{
 			printf("print_status\n");
-			printf("current pos = 0x%0lx(+%lx)\n", byte_pos(), bit_pos());
+			printf("current pos = 0x%0x(+%x)\n", byte_pos(), bit_pos());
 			seekpos(byte_pos() - 127 < 0 ? 0 : byte_pos() - 127, 0);
 			dump(256);
 		}
@@ -999,13 +979,13 @@ namespace rf
 		void little_endian(bool enable_) { little_endian_ = enable_; }
 
 		// 現在位置からファイルポインタ移動
-		bool seekoff_bit(int offset) { return bs_.seekoff_bit(offset); }
+		void seekoff_bit(int offset) { bs_.seekoff_bit(offset); }
 
 		// 現在位置からファイルポインタ移動
-		bool seekoff_byte(int offset) { return bs_.seekoff_byte(offset); }
-		
+		void seekoff_byte(int offset) { bs_.seekoff_byte(offset); }
+
 		// 先頭からファイルポインタ移動
-		bool seekpos(int byte, int bit) { return bs_.seekpos(byte, bit); }
+		void seekpos(int byte, int bit) { bs_.seekpos(byte, bit); }
 
 		// ビット単位で読み込み
 		// 32/64bit以上は0を返す
@@ -1020,7 +1000,7 @@ namespace rf
 			int prev_byte = byte_pos();
 			int prev_bit = bit_pos();
 
-			if (size > sizeof(unsigned int) * 8)
+			if (size > static_cast<int>(sizeof(unsigned int)*8))
 			{
 				char buf[16];
 				int dump_size = std::min<int>(16, (size + 7) / 8);
@@ -1029,7 +1009,7 @@ namespace rf
 
 				if (printf_on_ || (name[0] == '#'))
 				{
-					printf(" adr=0x%08lx(+%d)| siz=0x%08lx(+%d)| %-40s | ",
+					printf(" adr=0x%08x(+%d)| siz=0x%08x(+%d)| %-40s | ",
 						prev_byte, prev_bit, size / 8, size % 8, name);
 					rf::dump_bytes(buf, 0, dump_size);
 
@@ -1044,7 +1024,7 @@ namespace rf
 			else
 			{
 				unsigned int v;
-				bs_.read_bit(size, v);
+				v = bs_.read_bit(size);
 
 				if (little_endian_)
 				{
@@ -1056,7 +1036,7 @@ namespace rf
 
 				if (printf_on_ || (name[0] == '#'))
 				{
-					printf(" adr=0x%08lx(+%d)| siz=0x%08lx(+%d)| %-40s | val=0x%-8x (%d%s)\n",
+					printf(" adr=0x%08x(+%d)| siz=0x%08x(+%d)| %-40s | val=0x%-8x (%d%s)\n",
 						prev_byte, prev_bit, size / 8, size % 8, name, v, v,
 						((size == 32 || size == 16) && little_endian_) ? ", \"little\"" : "");
 				}
@@ -1082,13 +1062,11 @@ namespace rf
 				throw runtime_error((print_status(), string("overflow, size=") + to_string(size)));
 
 			int prev_byte = bs_.byte_pos();
+			string str = bs_.read_string(size);
 
-			string str;
-			bs_.read_string(size, str);
-			
 			if (printf_on_ || (name[0] == '#'))
 			{
-				printf(" adr=0x%08lx    | siz=0x%08lx    | %-40s | str=\"%s\"\n",
+				printf(" adr=0x%08x    | siz=0x%08x    | %-40s | str=\"%s\"\n",
 					prev_byte, static_cast<unsigned int>(str.length()), name, str.c_str());
 				if (size < static_cast<int>(str.length() - 1))
 					ERR << "size > str.length() - 1 (" << str.length()
@@ -1107,10 +1085,10 @@ namespace rf
 			unsigned int v;
 			int size;
 			bs_.read_expgolomb(v, size);
-			
+
 			if (printf_on_ || (name[0] == '#'))
 			{
-				printf(" adr=0x%08lx(+%d)| siz=0x%08lx(+%d)| %-40s | exp=0x%-8x (%d%s)\n",
+				printf(" adr=0x%08x(+%d)| siz=0x%08x(+%d)| %-40s | exp=0x%-8x (%d%s)\n",
 					prev_byte, prev_bit, size / 8, size % 8, name, v, v,
 					((size == 32 || size == 16) && little_endian_) ? ", \"little\"" : "");
 			}
@@ -1124,9 +1102,7 @@ namespace rf
 			if (FAIL(bs_.check_offset_bit(size)))
 				throw runtime_error((print_status(), string("overflow, size=") + to_string(size)));
 
-			unsigned int val;
-			bs_.look_bit(size, val);
-			return val;
+			return bs_.look_bit(size);
 		}
 
 		// バイト単位で先読み
@@ -1135,11 +1111,9 @@ namespace rf
 			if (FAIL(bs_.check_offset_byte(size)))
 				throw runtime_error((print_status(), string("overflow, size=") + to_string(size)));
 
-			unsigned int val;
-			bs_.look_byte(size, val);
-			return val;
+			return bs_.look_byte(size);
 		}
-		
+
 #if 1
 		string look_byte_string(int size) throw(...)
 		{
@@ -1162,7 +1136,8 @@ namespace rf
 		unsigned int look_expgolomb() throw(...)
 		{
 			unsigned int val;
-			bs_.look_expgolomb(val);
+			int size;
+			bs_.look_expgolomb(val, size);
 			return val;
 		}
 
@@ -1175,7 +1150,7 @@ namespace rf
 			unsigned int value = read_bit(name, size);
 			if (value != compvalue)
 			{
-				printf("# compare value [%s] : 0x%08lx(%d) != 0x%08lx(%d)\n",
+				printf("# compare value [%s] : 0x%08x(%d) != 0x%08x(%d)\n",
 					name, value, value, compvalue, compvalue);
 
 				return false;
@@ -1213,7 +1188,7 @@ namespace rf
 			unsigned int value = read_expgolomb(name);
 			if (value != compvalue)
 			{
-				printf("# compare value [%s] : 0x%08lx(%d) != 0x%08lx(%d)\n",
+				printf("# compare value [%s] : 0x%08x(%d) != 0x%08x(%d)\n",
 					name, value, value, compvalue, compvalue);
 
 				return false;
@@ -1225,23 +1200,19 @@ namespace rf
 		int find_byte(char c, bool advance, int end_offset) throw(...)
 		{
 			int prev_byte = bs_.byte_pos();
-			int offset;
-			bool result = bs_.find_byte(c, offset, advance, end_offset);
+			int offset = bs_.find_byte(c, advance, end_offset);
 
 			if (printf_on_)
 			{
-				printf(" adr=0x%08lx    | ofs=0x%08lx    | search '0x%02x' %s at adr=0x%08lx.\n",
+				printf(" adr=0x%08x    | ofs=0x%08x    | search '0x%02x' %s at adr=0x%08x.\n",
 					bs_.byte_pos(), offset, static_cast<uint8_t>(c),
 					offset + prev_byte == this->size() ? "not found [EOS]"
 						: offset == end_offset ? "not found [end_offset]"
 						: "found",
 					offset + prev_byte);
-			}
 
-			if (!result)
-			{
-				printf("# can not find byte:0x%lx\n", static_cast<uint8_t>(c));
-				throw LuaBinder::False();
+				if ((offset == end_offset) || (offset == this->size()))
+					printf("# can not find byte:0x%x\n", static_cast<uint8_t>(c));
 			}
 
 			return offset;
@@ -1255,54 +1226,51 @@ namespace rf
 
 			string s(address, size);
 			int prev_byte = bs_.byte_pos();
-			int offset;
-			bool result = bs_.find_byte_string(address, size, offset, advance, end_offset);
+			int offset = bs_.find_byte_string(address, size, advance, end_offset);
 
 			if (printf_on_)
 			{
-				printf(" adr=0x%08lx    | ofs=0x%08lx    | search [ ",
+				printf(" adr=0x%08x    | ofs=0x%08x    | search [ ",
 					byte_pos(), offset);
 				for (int i = 0; i < size; ++i)
 					printf("%02x ", static_cast<uint8_t>(address[i]));
 
-				printf("] (\"%s\") %s at adr=0x%08lx.\n",
+				printf("] (\"%s\") %s at adr=0x%08x.\n",
 					s.c_str(),
 					offset + prev_byte == this->size() ? "not found [EOS]"
 						: offset == end_offset ? "not found [end_offset]"
 						: "found",
-					offset + prev_byte);
-			}
+						offset + prev_byte);
 
-			if (!result)
-			{
-				printf("# can not find byte string: %s\n", s.c_str());
-				throw LuaBinder::False();
+				if ((offset == end_offset) || (offset == this->size()))
+				{
+					printf("# can not find byte string. [");
+					for (int i = 0; i < size; ++i)
+						printf("%02x ", static_cast<uint8_t>(address[i]));
+					printf("] (\"%s\")\n", s.c_str());
+				}
 			}
 
 			return offset;
-		}	
-		
+		}
+
 		// １バイトの一致を検索
 		int rfind_byte(char c, bool advance, int end_offset) throw(...)
 		{
 			int prev_byte = bs_.byte_pos();
-			int offset;
-			bool result = bs_.rfind_byte(c, offset, advance, end_offset);
+			int offset = bs_.rfind_byte(c, advance, end_offset);
 
 			if (printf_on_)
 			{
-				printf(" adr=0x%08lx    | ofs=%-12ld  | search '0x%02x' %s at adr=0x%08lx.\n",
+				printf(" adr=0x%08x    | ofs=%-12d  | search '0x%02x' %s at adr=0x%08x.\n",
 					bs_.byte_pos(), offset, static_cast<uint8_t>(c),
 					offset + prev_byte == 0 ? "not found [pos=0]"
 					: offset == end_offset ? "not found [end_offset]"
 					: "found",
 					offset + prev_byte);
-			}
 
-			if (!result)
-			{
-				printf("# can not find byte:0x%lx\n", static_cast<uint8_t>(c));
-				throw LuaBinder::False();
+				if ((offset == end_offset) || (offset == this->size()))
+					printf("# can not find byte:0x%x\n", static_cast<uint8_t>(c));
 			}
 
 			return offset;
@@ -1316,35 +1284,36 @@ namespace rf
 
 			string s(address, size);
 			int prev_byte = bs_.byte_pos();
-			int offset;
-			bool result = bs_.rfind_byte_string(address, size, offset, advance, end_offset);
-			
+			int offset = bs_.rfind_byte_string(address, size, advance, end_offset);
+
 			if (printf_on_)
 			{
-				printf(" adr=0x%08lx    | ofs=%-12ld  | search [ ",
+				printf(" adr=0x%08x    | ofs=%-12d  | search [ ",
 					byte_pos(), offset);
 				for (int i = 0; i < size; ++i)
 					printf("%02x ", static_cast<uint8_t>(address[i]));
 
-				printf("] (\"%s\") %s at adr=0x%08lx.\n",
+				printf("] (\"%s\") %s at adr=0x%08x.\n",
 					s.c_str(),
 					offset + prev_byte == 0 ? "not found [pos=0]"
 					: offset == end_offset ? "not found [end_offset]"
 					: "found",
 					offset + prev_byte);
-			}
 
-			if (!result)
-			{
-				printf("# can not find byte string: %s\n", s.c_str());
-				throw LuaBinder::False();
+				if ((offset == end_offset) || (offset == this->size()))
+				{
+					printf("# can not find byte string. [");
+					for (int i = 0; i < size; ++i)
+						printf("%02x ", static_cast<uint8_t>(address[i]));
+					printf("] (\"%s\")\n", s.c_str());
+				}
 			}
 
 			return offset;
 		}
 
 		// ストリームに書き込み
-		bool write(const char *buf, int size)
+		void write(const char *buf, int size)
 		{
 			if (FAIL(valid_ptr(buf)))
 			{
@@ -1358,51 +1327,51 @@ namespace rf
 				throw logic_error(FAIL_STR("invalid argument."));
 			}
 
-			return bs_.write(buf, size);
+			bs_.write(buf, size);
 		}
 
-		bool put_char(char c)
+		void put_char(char c)
 		{
-			return bs_.put_char(c);
+			bs_.put_char(c);
 		}
 
 		// ストリームに追記
-		bool append(const char *buf, int size)
+		void append(const char *buf, int size)
 		{
 			if (FAIL(valid_ptr(buf)))
 			{
 				ERR << "buf=" << hex << buf << OUTPUT_POS << endl;
 				throw logic_error(FAIL_STR("invalid argument."));
 			}
-			
+
 			if (FAIL(size >= 0))
 			{
 				ERR << "size=" << hex << size << OUTPUT_POS << endl;
 				throw logic_error(FAIL_STR("invalid argument."));
 			}
-			
+
 			int prev_byte = byte_pos();
 			int prev_bit = bit_pos();
 
 			bs_.seekpos(this->size(), 0);
 			bs_.write(buf, size);
-			return seekpos(prev_byte, prev_bit);
+			seekpos(prev_byte, prev_bit);
 		}
 
-		bool append_char(char c)
+		void append_char(char c)
 		{
 			int prev_byte = byte_pos();
 			int prev_bit = bit_pos();
 
 			bs_.seekpos(size(), 0);
 			bs_.put_char(c);
-			return seekpos(prev_byte, prev_bit);
+			seekpos(prev_byte, prev_bit);
 		}
 
 
 		// 別のストリームに転送
 		// 現状オーバーヘッド多め
-		bool transfer_byte(const char* name, LuaGlueBitstream &stream, int size, bool advance)
+		void transfer_byte(const char* name, LuaGlueBitstream &stream, int size, bool advance)
 		{
 			if (FAIL(bs_.check_offset_byte(size)))
 			{
@@ -1413,42 +1382,40 @@ namespace rf
 			char* buf = new char[static_cast<unsigned int>(size)];
 			bs_.look_byte_string(buf, size);
 			stream.append(buf, size);
-			
+
 			if (advance)
 			{
 				stringstream ss;
 				ss << " >> transfer: " << name;
 				read_byte(ss.str().c_str(), size);
 			}
-
-			return true;
 		}
 
 		// 現在位置からバイト表示
-		bool dump_bytes(int max_size)
+		void dump_bytes(int max_size)
 		{
 			int dump_len = std::min<int>(bs_.size() - bs_.byte_pos(), max_size);
 			auto buf = make_unique<char[]>(dump_len);
 			bs_.look_byte_string(buf.get(), dump_len);
-			return rf::dump_bytes(buf.get(), 0, dump_len);
+			rf::dump_bytes(buf.get(), 0, dump_len);
 		}
 
 		// 現在位置からバイト表示
-		bool dump_string(int max_size)
+		void dump_string(int max_size)
 		{
 			int dump_len = std::min<int>(bs_.size() - bs_.byte_pos(), max_size);
 			auto buf = make_unique<char[]>(dump_len);
 			bs_.look_byte_string(buf.get(), dump_len);
-			return rf::dump_string(buf.get(), 0, dump_len);
+			rf::dump_string(buf.get(), 0, dump_len);
 		}
 
 		// 現在位置からバイト表示
-		bool dump(int max_size)
+		void dump(int max_size)
 		{
 			int dump_len = std::min<int>(bs_.size() - bs_.byte_pos(), max_size);
 			auto buf = make_unique<char[]>(dump_len);
 			bs_.look_byte_string(buf.get(), dump_len);
-			return rf::dump(buf.get(), 0, dump_len, byte_pos());
+			rf::dump(buf.get(), 0, dump_len, byte_pos());
 		}
 	};
 
@@ -1470,11 +1437,11 @@ namespace rf
 		LuaGlueFifoBitstream(int size) :LuaGlueBitstream(){ reserve(size); }
 
 		// バッファを確保
-		bool reserve(int size)
+		void reserve(int size)
 		{
 			auto rb = make_unique<RingBuf>();
 			rb->reserve(size);
-			return assign(std::move(rb), 0);
+			assign(std::move(rb), 0);
 		}
 	};
 
@@ -1494,7 +1461,7 @@ namespace rf
 		// "a" -> 書き込み＋末尾追加追加
 		// "+" -> リードライト
 		// "b" -> バイナリモード
-		bool open(const string& file_name, const string& mode = "ib")
+		void open(const string& file_name, const string& mode = "ib")
 		{
 			//auto del = [](std::filebuf* p){p->close(); delete p; };
 			//unique_ptr<std::filebuf, decltype(del)> fb(new std::filebuf, del);
@@ -1516,7 +1483,7 @@ namespace rf
 
 			if (mode.find('+') != string::npos)
 				m |= (std::ios::in | std::ios::out);
-			
+
 			if (mode.find('b') != string::npos)
 				m |= std::ios::binary;
 
@@ -1526,22 +1493,22 @@ namespace rf
 			if (size == EOF)
 				size = 0;
 
-			return assign(std::move(fb), size);
+			assign(std::move(fb), size);
 		}
 	};
 
 	class SqliteWrapper final
 	{
 	private:
-		
+
 		string filename_;
 
 		// unique_ptr<sqlite3> db_;
 		sqlite3* db_;
 
 		vector<sqlite3_stmt*> stmts_;
-				
-		bool close()
+
+		void close()
 		{
 			for (auto stmt : stmts_)
 			{
@@ -1554,10 +1521,9 @@ namespace rf
 				ERR << "close error." << endl;
 				throw runtime_error(FAIL_STR("file close error."));
 			}
-			return true;
 		}
 
-		bool open(const string& filename)
+		void open(const string& filename)
 		{
 			int ret = sqlite3_open(filename.c_str(), &db_);
 			if (FAIL(ret == SQLITE_OK))
@@ -1574,8 +1540,6 @@ namespace rf
 			//};
 			//unique_ptr<sqlite3*> p(&db);
 			//db_ = std::move(p);
-
-			return true;
 		}
 
 		// 呼び出し拒否
@@ -1583,7 +1547,7 @@ namespace rf
 
 	public:
 
-		bool exec(const string& sql)
+		void exec(const string& sql)
 		{
 			// テーブルの作成
 			char *msg = nullptr;
@@ -1594,7 +1558,6 @@ namespace rf
 				sqlite3_free(msg);
 				throw runtime_error(FAIL_STR("sql exec failed."));
 			}
-			return true;
 		}
 
 		// 別のクラスにしたい
@@ -1614,7 +1577,7 @@ namespace rf
 			return static_cast<int>(stmts_.size()) - 1;
 		}
 
-		bool reset(int stmt_ix)
+		void reset(int stmt_ix)
 		{
 			if (FAIL(stmt_ix < static_cast<int>(stmts_.size())))
 			{
@@ -1622,7 +1585,6 @@ namespace rf
 				throw runtime_error(FAIL_STR("unprepared index."));
 			}
 			sqlite3_reset(stmts_[stmt_ix]);
-			return true;
 		}
 
 		int step(int stmt_ix)
@@ -1662,7 +1624,7 @@ namespace rf
 			return ret;
 		}
 
-		bool bind_int(int stmt_ix, int sql_ix, int value)
+		void bind_int(int stmt_ix, int sql_ix, int value)
 		{
 			if (FAIL(stmt_ix < static_cast<int>(stmts_.size())))
 			{
@@ -1670,10 +1632,9 @@ namespace rf
 				throw runtime_error(FAIL_STR("unprepared index."));
 			}
 			sqlite3_bind_int(stmts_[stmt_ix], sql_ix, value);
-			return true;
 		}
 
-		bool bind_text(int stmt_ix, int sql_ix, const string &text)
+		void bind_text(int stmt_ix, int sql_ix, const string &text)
 		{
 			if (FAIL(stmt_ix < static_cast<int>(stmts_.size())))
 			{
@@ -1682,10 +1643,9 @@ namespace rf
 			}
 			sqlite3_bind_text(stmts_[stmt_ix], sql_ix,
 				text.c_str(), static_cast<int>(text.length()), SQLITE_TRANSIENT);
-			return true;
 		}
 
-		bool bind_real(int stmt_ix, int sql_ix, double value)
+		void bind_real(int stmt_ix, int sql_ix, double value)
 		{
 			if (FAIL(stmt_ix < static_cast<int>(stmts_.size())))
 			{
@@ -1693,11 +1653,10 @@ namespace rf
 				throw runtime_error(FAIL_STR("unprepared index."));
 			}
 			sqlite3_bind_double(stmts_[stmt_ix], sql_ix, value);
-			return true;
 		}
 
-		bool bind_blob(int stmt_ix, int sql_ix, const void* blob, int size,
-			void(*destructor)(void*))
+		void bind_blob(int stmt_ix, int sql_ix,
+			const void* blob, int size, void(*destructor)(void*))
 		{
 			if (FAIL(stmt_ix < static_cast<int>(stmts_.size())))
 			{
@@ -1706,7 +1665,6 @@ namespace rf
 			}
 			sqlite3_bind_blob(stmts_[stmt_ix], sql_ix,
 				blob, size, destructor);
-			return true;
 		}
 
 		int column_count(int stmt_ix)
@@ -1799,14 +1757,14 @@ using namespace rf;
 unique_ptr<LuaBinder> init_lua(int argc, char** argv)
 {
 	auto lua = make_unique<LuaBinder>();
-	
+
 	// 関数バインド
 	lua->def("stdout_to_file",   FileManager::stdout_to_file);        // コンソール出力の出力先切り替え
 	lua->def("write_to_file",    FileManager::write_to_file);         // 指定したバイト列をファイルに出力
 	lua->def("transfer_to_file", LuaGlueBitstream::transfer_to_file); // 指定したストリームををファイルに出力
 	lua->def("reverse_16",       reverse_endian_16);                  // 16ビットエンディアン変換
 	lua->def("reverse_32",       reverse_endian_32);                  // 32ビットエンディアン変換
-	
+
 	// インターフェース
 	lua->def_class<LuaGlueBitstream>("IBitstream")->
 		def("size",               &LuaGlueBitstream::size).              // ファイルサイズ取得
@@ -1901,6 +1859,11 @@ unique_ptr<LuaBinder> init_lua(int argc, char** argv)
 	{
 		ERR << "lua.dostring err" << endl;
 	}
+#else
+	if (FAIL(lua->dostring("_G.windows = false")))
+	{
+		ERR << "lua.dostring err" << endl;
+	}
 #endif
 
 	// Luaにmain関数の引数を継承
@@ -1947,14 +1910,13 @@ void show_help()
 	cout << "\n"
 		"a.out [--lua|-l filename] [--help|-h]\n"
 		"\n"
-		"--lua  :start with file mode\n"
+		"--lua  :start by file mode\n"
 		"--help :show this help" << endl;
-	return;
 }
 
 int main(int argc, char** argv)
 {
-	
+
 	for (int i=0;i< argc; i++)
 	{
 		cout << argv[i] << endl;
@@ -1989,11 +1951,11 @@ int main(int argc, char** argv)
 		{
 			ERR << "lua.dostring err" << endl;
 		}
-	
+
 		lua_file_name = exe_dir + "script/default.lua";
 	}
 
-	
+
 	// C++側で引数を適用
 	int flag = 0;
 	for (int i = 0; i < argc; ++i)

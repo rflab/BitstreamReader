@@ -17,5 +17,6 @@ dispatch_stream(stream)
 sql_commit()
 
 -- 解析コマンド起動
+exec_cmd({"info"})
 cmd()
 

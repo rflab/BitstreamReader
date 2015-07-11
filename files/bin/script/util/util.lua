@@ -129,7 +129,7 @@ end
 function rbyte(name, size)
 	local byte, bit = cur()
 	local value = gs_stream:rbyte(name, size)
-	on_set_value(name, byte, bit, size, value)
+	on_set_value(name, byte, bit, size*8, value)
 	return value
 end
 
@@ -137,7 +137,7 @@ end
 function rstr(name, size)
 	local byte, bit = cur()
 	local value = gs_stream:rstr(name, size)
-	on_set_value(name, byte, bit, size, value)
+	on_set_value(name, byte, bit, size*8, value)
 	return value
 end
 

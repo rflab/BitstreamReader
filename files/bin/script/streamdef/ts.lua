@@ -497,7 +497,7 @@ function analyze_payload(pid)
 	if  pes_buf ~= nil then
 		local ts_file = swap(pes_buf)
 		if get_size() ~= cur() then
-			local size, PTS, DTS = pes(pid)
+			local size, PTS, DTS = pes(pid, get_size() - cur())
 			store_recode(pid, cur(), size, false, PTS, DTS)
 			if get_size() ~= cur() then
 				rbyte("#unknown remain data", get_size() - cur())
@@ -525,18 +525,18 @@ end
 function analyze()
 	print("analyze PAT")
 	seek(0)
-	enable_print(true)
+	enable_print(false)
 	ts(1024*1024, TYPE_PAT)
 
 	print("analyze PMT")
 	seek(0)
-	enable_print(true)
+	enable_print(false)
 	ts(1024*1024, TYPE_PMT)
 
 	print("analyze PES")
 	analyse_data_byte = true
 	seek(0)
-	enable_print(true)
+	enable_print(false)
 	print("short analyse 1/50 size.")
 	ts(get_size()/100, TYPE_PES)
 	

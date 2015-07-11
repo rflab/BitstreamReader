@@ -645,7 +645,6 @@ namespace rf
 		// Luaスクリプト文字列を実行
 		bool dostring(const string& str)
 		{
-			bool ret = false;
 			int top = lua_gettop(L_);
 			lua_pushcfunction(L_, traceback);
 			lua_insert(L_, top);
@@ -655,7 +654,7 @@ namespace rf
 			{
 				if ((!luaresult(luaL_loadstring(L_, str.c_str())))
 				|| (!luaresult(lua_pcall(L_, 0, LUA_MULTRET, func))))
-					ret = false;
+					return false;
 			}
 			catch (const std::exception &e)
 			{
@@ -675,7 +674,7 @@ namespace rf
 			lua_remove(L_, func);
 			lua_settop(L_, top);
 
-			return true;
+			return false;
 		}
 
 		// Lua関数をC++からコール

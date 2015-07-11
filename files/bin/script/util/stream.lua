@@ -186,42 +186,38 @@ end
 function _m:fbyte(char, advance, end_offset)	
 	if advance == nil then advance = true end
 	if end_offset == nil then end_offset = 0x7fffffff end
-	local ofs = self.stream:find_byte(char, advance, end_offset)
-	return ofs
+	return self.stream:find_byte(char, advance, end_offset)
 end
 
 function _m:fstr(pattern, advance, end_offset)
 	if advance == nil then advance = true end
 	if end_offset == nil then end_offset = 0x7fffffff end
 	local str = pat2str(pattern)
-	local ofs = self.stream:find_byte_string(str, #str, advance, end_offset)
-	return ofs	
+	return self.stream:find_byte_string(str, #str, advance, end_offset)
 end
 
 function _m:rfbyte(char, advance, end_offset)	
 	if advance == nil then advance = true end
 	if end_offset == nil then end_offset = -0x7fffffff - 1 end
-	local ofs = self.stream:rfind_byte(char, advance, end_offset)
-	return ofs
+	return self.stream:rfind_byte(char, advance, end_offset)
 end
 
 function _m:rfstr(pattern, advance, end_offset)
 	if advance == nil then advance = true end
 	if end_offset == nil then end_offset = -0x7fffffff - 1 end
 	local str = pat2str(pattern)
-	local ofs = self.stream:rfind_byte_string(str, #str, advance, end_offset)
-	return ofs	
+	return self.stream:rfind_byte_string(str, #str, advance, end_offset)
 end
 
 function _m:seek(byte, bit)
-	assert(self.stream:seekpos(byte, bit or 0))
+	self.stream:seekpos(byte, bit or 0)
 	return true
 end
 
 function _m:seekoff(byte, bit)
     -- 暫定である、byteが0ならbitシークのみ
-	if byte ~= 0 then assert(self.stream:seekoff_byte(byte)) end
-	if bit  ~= nil then assert(self.stream:seekoff_bit(bit)) end
+	if byte ~= 0 then self.stream:seekoff_byte(byte) end
+	if bit  ~= nil then self.stream:seekoff_bit(bit) end
 	return true
 end
 

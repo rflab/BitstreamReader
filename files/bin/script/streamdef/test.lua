@@ -138,13 +138,14 @@ function test_flie()
 	rfstr("ff 40", true)
 end
 
-test_flie()
+--test_flie()
 --test_sqlite()
 --test_sql()
 --test_fifo()
---dofile(__exec_dir__.."script/bmp.lua")
---dofile(__exec_dir__.."script/jpg.lua")
---dofile(__exec_dir__.."script/ts.lua")
+--dofile(__streamdef_dir__.."bmp.lua")
+--dofile(__streamdef_dir__.."jpg.lua")
+--dofile(__streamdef_dir__.."ts.lua")
+dofile(__streamdef_dir__.."h265.lua")
 
 
 

@@ -13,6 +13,9 @@ void Bitstream::sync()
 Bitstream::Bitstream()
 	: size_(0), bit_pos_(0), byte_pos_(0)
 {
+	// とりあえずただのバッファ
+	buf_ = std::make_unique<std::stringbuf>();
+
 }
 
 // このBitstreamの現在サイズ

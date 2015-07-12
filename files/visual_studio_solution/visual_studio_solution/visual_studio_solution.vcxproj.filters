@@ -19,6 +19,9 @@
     <Filter Include="ソース ファイル\sqlite">
       <UniqueIdentifier>{b1253cc8-fc90-4b46-ba2d-0dfaafb1ca56}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ソース ファイル\rflib">
+      <UniqueIdentifier>{88f65f57-4d1c-475b-b19a-d2c6783025ae}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\streamreader.cpp">
@@ -129,11 +132,17 @@
     <ClCompile Include="..\..\src\sqlite\sqlite3.c">
       <Filter>ソース ファイル\sqlite</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\rflib\bitstream.cpp">
+      <Filter>ソース ファイル\rflib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\rflib\bighead.cpp">
+      <Filter>ソース ファイル\rflib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\rflib\sqlwrapper.cpp">
+      <Filter>ソース ファイル\rflib</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\src\luabinder.hpp">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\lua\lstring.h">
       <Filter>ソース ファイル\lua</Filter>
     </ClInclude>
@@ -217,6 +226,18 @@
     </ClInclude>
     <ClInclude Include="..\..\src\sqlite\sqlite3.h">
       <Filter>ソース ファイル\sqlite</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\rflib\bitstream.h">
+      <Filter>ソース ファイル\rflib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\rflib\luabinder.hpp">
+      <Filter>ソース ファイル\rflib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\rflib\bighead.h">
+      <Filter>ソース ファイル\rflib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\rflib\sqlwrapper.h">
+      <Filter>ソース ファイル\rflib</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

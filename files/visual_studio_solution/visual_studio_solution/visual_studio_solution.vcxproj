@@ -151,6 +151,9 @@
     <ClCompile Include="..\..\src\lua\lutf8lib.c" />
     <ClCompile Include="..\..\src\lua\lvm.c" />
     <ClCompile Include="..\..\src\lua\lzio.c" />
+    <ClCompile Include="..\..\src\rflib\bitstream.cpp" />
+    <ClCompile Include="..\..\src\rflib\bighead.cpp" />
+    <ClCompile Include="..\..\src\rflib\sqlwrapper.cpp" />
     <ClCompile Include="..\..\src\sqlite\shell.c">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -164,7 +167,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\src\luabinder.hpp" />
     <ClInclude Include="..\..\src\lua\lapi.h" />
     <ClInclude Include="..\..\src\lua\lauxlib.h" />
     <ClInclude Include="..\..\src\lua\lcode.h" />
@@ -191,6 +193,10 @@
     <ClInclude Include="..\..\src\lua\lundump.h" />
     <ClInclude Include="..\..\src\lua\lvm.h" />
     <ClInclude Include="..\..\src\lua\lzio.h" />
+    <ClInclude Include="..\..\src\rflib\bitstream.h" />
+    <ClInclude Include="..\..\src\rflib\bighead.h" />
+    <ClInclude Include="..\..\src\rflib\luabinder.hpp" />
+    <ClInclude Include="..\..\src\rflib\sqlwrapper.h" />
     <ClInclude Include="..\..\src\sqlite\sqlite3.h" />
     <ClInclude Include="..\..\src\sqlite\sqlite3ext.h" />
   </ItemGroup>

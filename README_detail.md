@@ -156,12 +156,12 @@ lua->def_class<LuaGlueFifoBitstream>("Fifo", "IBitstream")->
 	def("reserve", &LuaGlueFifoBitstream::reserve); // バッファを再確保、書き込み済みデータは破棄
 
 // SQLiterラッパー
-lua->rawset("SQLITE_ROW",        SQLITE_ROW);
-lua->rawset("SQLITE_INTEGER",    SQLITE_INTEGER);
-lua->rawset("SQLITE_FLOAT",      SQLITE_FLOAT);
-lua->rawset("SQLITE_TEXT",       SQLITE_TEXT);
-lua->rawset("SQLITE_BLOB",       SQLITE_BLOB);
-lua->rawset("SQLITE_NULL",       SQLITE_NULL);
+lua->setglobal("SQLITE_ROW",        SQLITE_ROW);
+lua->setglobal("SQLITE_INTEGER",    SQLITE_INTEGER);
+lua->setglobal("SQLITE_FLOAT",      SQLITE_FLOAT);
+lua->setglobal("SQLITE_TEXT",       SQLITE_TEXT);
+lua->setglobal("SQLITE_BLOB",       SQLITE_BLOB);
+lua->setglobal("SQLITE_NULL",       SQLITE_NULL);
 lua->def_class<SqliteWrapper>("SQLite")->
 	def("new",          LuaBinder::constructor<SqliteWrapper(const string&)>()).
 	def("exec",         &SqliteWrapper::exec).

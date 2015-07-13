@@ -504,7 +504,7 @@ function sei_message()
 	rbit("last_payload_type_byte",       8, 0xff) -- u(8)
 	payloadType = payloadType + get("last_payload_type_byte")
 
-	payloadSize = 0
+	local payloadSize = 0
 	while lbyte(1) == 0xff do
 		cbit("ff_byte",                  8, 0xff) -- f(8)
 		payloadSize = payloadSize + 255
@@ -674,12 +674,7 @@ function nal_unit(rbsp, NumBytesInNALunit)
 	local total
 	local ofs
 
-	if __stream_ext__ == ".h264" then
-		total = nal_unit_header_h264()
-	elseif __stream_ext__ == ".h265" then
-		total = nal_unit_header_h265()
-	end
-
+	total = nal_unit_header_h264()
 	while true do
 		ofs = math.min(fstr("00 00 03", false), NumBytesInNALunit - total)
 		if ofs >= NumBytesInNALunit - total then 
@@ -692,11 +687,7 @@ function nal_unit(rbsp, NumBytesInNALunit)
 		end
 	end
 
-	if __stream_ext__ == ".h264" then
-		rbsp_h264(rbsp, get("nal_unit_type"))
-	elseif __stream_ext__ == ".h265" then
-		rbsp_h265(rbsp, get("nal_unit_type"))
-	end
+	rbsp_h264(rbsp, get("nal_unit_type"))
 end
 
 function nal_unit_header_h264()
@@ -746,58 +737,6 @@ function rbsp_h264(rbsp, nal_unit_type)
 	swap(file)
 end
 
-function nal_unit_header_h265()
-	cbit("forbidden_zero_bit",    1, 0) -- f(1)
-	rbit("nal_unit_type",         6) -- u(6)
-	rbit("nuh_layer_id",          6) -- u(6)
-	rbit("nuh_temporal_id_plus1", 3) -- u(3)
-	return 2
-end
-
-function rbsp_h265(rbsp, nal_unit_type)
-	local file = swap(rbsp)
-
-	if     nal_unit_type == 0  then print("TRAIL_N")
-    elseif nal_unit_type == 1  then print("TRAIL_R")
-    elseif nal_unit_type == 2  then print("TSA_N") 
-    elseif nal_unit_type == 3  then print("TSA_R")
-    elseif nal_unit_type == 4  then print("STSA_N")
-    elseif nal_unit_type == 5  then print("STSA_R")
-    elseif nal_unit_type == 6  then print("RADL_N")
-    elseif nal_unit_type == 7  then print("RADL_R")
-    elseif nal_unit_type == 8  then print("RASL_N")
-    elseif nal_unit_type == 9  then print("RASL_R")
-    elseif nal_unit_type == 10 then print("RSV_VCL_N10")
-    elseif nal_unit_type == 12 then print("RSV_VCL_N12") 
-    elseif nal_unit_type == 14 then print("RSV_VCL_N14")
-    elseif nal_unit_type == 11 then print("RSV_VCL_R11")
-    elseif nal_unit_type == 13 then print("RSV_VCL_R13")
-    elseif nal_unit_type == 15 then print("RSV_VCL_R15")
-    elseif nal_unit_type == 16 then print("BLA_W_LP")
-    elseif nal_unit_type == 17 then print("BLA_W_RADL")
-    elseif nal_unit_type == 18 then print("BLA_N_LP")
-    elseif nal_unit_type == 19 then print("IDR_W_RADL")
-    elseif nal_unit_type == 20 then print("IDR_N_LP")
-    elseif nal_unit_type == 21 then print("CRA_NUT")
-		slice_header()
-	elseif nal_unit_type == 32 then
-		video_parameter_set_rbsp()
-	elseif nal_unit_type == 33 then
-		seq_parameter_set_rbsp()
-	elseif nal_unit_type == 34 then
-		pic_parameter_set_rbsp()
-	elseif nal_unit_type == 35 then
-		access_unit_delimiter_rbsp()
-	elseif nal_unit_type == 39
-	or     nal_unit_type == 40 then
-		sei_rbsp()
-	end
-	
-	-- とりあえず余ったデータを読み捨てる
-	seek(get_size())
-
-	swap(file)
-end
 
 function byte_stream_nal_unit(rbsp, NumBytesInNALunit)
 print("------------"..hexstr(cur()).."------------")
@@ -826,7 +765,7 @@ print("------------"..hexstr(cur()).."------------")
 	return cur() - begin
 end
 
-function h264_byte_stream(max_length)
+function byte_stream(max_length)
 	local rbsp = stream:new(1024*1024*3)
 	rbsp:enable_print(__default_enable_print__)
 	local total_size = 0;
@@ -835,9 +774,10 @@ function h264_byte_stream(max_length)
 	end
 end
 
-open(__stream_path__)
-print_status()
-enable_print(__default_enable_print__)
-h264_byte_stream(get_size() / 100)
-print_status()
-
+if __stream_ext__ == ".h264" then
+	open(__stream_path__)
+	print_status()
+	enable_print(__default_enable_print__)
+	byte_stream(get_size() / 100)
+	print_status()
+end

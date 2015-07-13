@@ -1968,9 +1968,11 @@ function byte_stream(max_length)
 	end
 end
 
-open(__stream_path__)
-print_status()
-enable_print(__default_enable_print__)
-byte_stream(get_size()/10)
-print_status()
+if __stream_ext__ == ".h265" then
+	open(__stream_path__)
+	print_status()
+	enable_print(__default_enable_print__)
+	byte_stream(get_size()/10)
+	print_status()
+end
 

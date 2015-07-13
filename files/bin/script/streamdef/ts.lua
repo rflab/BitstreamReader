@@ -6,12 +6,11 @@ dofile(__streamdef_dir__.."pes.lua")
 -- ストリーム解析
 local ts_packet_size = 188
 local pmt_pid = nil
-local pes_buf_array = {}
+local pes_array = {}
 local analyse_data_byte = true
 local TYPE_PES = 0
 local TYPE_PAT = 1
 local TYPE_PMT = 2
-
 
 local PAT_PID    = 0x0000 -- 以下、PSI
 local CAT_PID    = 0x0001
@@ -47,6 +46,10 @@ local Null_Packet_PID           = 0x1FFF
 -- CAT -> EMM, EMM-S
 -- DCT -> DLT
 -- ST  -> 0x0000, 0x0001, 0x0014を除く
+
+local ES_H264  = 1
+local ES_H265  = 2
+local ES_OTHER = 3
 
 function descriptor()
 	local begin = cur()
@@ -231,9 +234,9 @@ function pat()
 	return cur() - begin
 end
 
-function stream_type_to_string(stream_type, format_identifire)
+function get_stream_type(stream_type, format_identifire)
 	local ret1
-	local ret2
+	local ret2 = ES_OTHER
 	
 	if     stream_type == 0x00 then ret1 = "ITU-T | ISO/IEC Reserved"
 	elseif stream_type == 0x01 then ret1 = "[MPEG-1 Video]" -- ISO/IEC 11172-2 Video"
@@ -262,7 +265,7 @@ function stream_type_to_string(stream_type, format_identifire)
 	elseif stream_type == 0x18 then ret1 = "Metadata carried in ISO/IEC 13818-6 Object Carousel"
 	elseif stream_type == 0x19 then ret1 = "Metadata carried in ISO/IEC 13818-6 Synchronized Download Protocol"
 	elseif stream_type == 0x1A then ret1 = "IPMP stream (defined in ISO/IEC 13818-11, MPEG-2 IPMP)"
-	elseif stream_type == 0x1B then ret1 = "[H.264 / MPEG-4 AVC]"
+	elseif stream_type == 0x1B then ret1 = "[H.264 / MPEG-4 AVC]"; ret2 = ES_H264
 	-- AVC video stream conforming to one or more profiles defined in Annex A of Rec. ITU-T H.264 |
 	-- ISO/IEC 14496-10 or AVC video sub-bitstream of SVC as defined in 2.1.78 or MVC base view
 	-- sub-bitstream, as defined in 2.1.85, or AVC video sub-bitstream of MVC, as defined in 2.1.88
@@ -274,9 +277,9 @@ function stream_type_to_string(stream_type, format_identifire)
 	elseif stream_type == 0x21 then ret1 = "Video stream conforming to one or more profiles as defined in Rec. ITU-T T.800 | ISO/IEC 15444-1"
 	elseif stream_type == 0x22 then ret1 = "Additional view Rec. ITU-T H.262 | ISO/IEC 13818-2 video stream for service-compatible stereoscopic 3D services (see Notes 3 and 4)"
 	elseif stream_type == 0x23 then ret1 = "Additional view Rec. ITU-T H.264 | ISO/IEC 14496-10 video stream conforming to one or more profiles defined in Annex A for service-compatible stereoscopic 3D services (see Notes 3 and 4)"
-	elseif stream_type == 0x24 then ret1 = "[H.265 / HEVC]"
-	elseif stream_type == 0x24 then ret1 = "[H.265 / HEVC]"
-	elseif stream_type == 0x2A then ret1 = "[H.265 / HEVC]"
+	elseif stream_type == 0x24 then ret1 = "[H.265 / HEVC]"; ret2 = ES_H265
+	elseif stream_type == 0x24 then ret1 = "[H.265 / HEVC]"; ret2 = ES_H265
+	elseif stream_type == 0x2A then ret1 = "[H.265 / HEVC]"; ret2 = ES_H265
 	elseif 0x24 <= stream_type and stream_type <= 0x7E then
 		ret1 = "Rec. ITU-T H.222.0 | ISO/IEC 13818-1 Reserved"
 	elseif stream_type == 0x7F then
@@ -290,14 +293,14 @@ function stream_type_to_string(stream_type, format_identifire)
 	end
 	
 	if format_identifire == nil then
-		ret2 = ""
+		-- none
 	elseif format_identifire == "HEVC" then
-		ret2 = "[HEVC]"
+		ret1 = ret1.."[HEVC]"
 	else 
-		ret2 = format_identifire
+		ret1 = ret1..format_identifire
 	end
 	
-	return ret1..ret2
+	return ret1, ret2
 end
 
 function pmt()
@@ -335,12 +338,17 @@ function pmt()
 		
 		-- 初めて見るPIDなら追加
 		-- local buf, prev = open(1024*1024*3)
-		local buf, prev = open(__out_dir__..hexstr(get("elementary_PID"))..".pes", "wb+")
+		local type_str, es_type = get_stream_type(
+			get("stream_type"), peek("format_identifier"))
+		local buf, prev = open(
+			__out_dir__..hexstr(get("elementary_PID"))..".pes", "wb+")
+		enable_print(__default_enable_print__)
+	    buf.es_type = es_type
+	    buf.es_file_name = __out_dir__.."pid"..hexstr(get("elementary_PID"))..".es"
+		pes_array[get("elementary_PID")] = buf
 	    swap(prev)
-	    pes_buf_array[get("elementary_PID")] = buf
-		buf:enable_print(__default_enable_print__)
-		print("", stream_type_to_string(get("stream_type"), peek("format_identifier"))..
-			" = "..hexstr(get("elementary_PID")))
+		
+		print("", type_str.." = "..hexstr(get("elementary_PID")))
 
 		total = total + get("ES_info_length") + 5
 	end
@@ -419,9 +427,9 @@ function data_byte(target, pid, size)
 		if analyse_data_byte == false then
 			rbyte("data data_byte", size)
 			return true
-		elseif pes_buf_array[pid] ~= nil then
+		elseif pes_array[pid] ~= nil then
 			-- バッファにデータ転送
-			tbyte("data_byte", size, pes_buf_array[pid])
+			tbyte("data_byte", size, pes_array[pid])
 			return true
 		else
 			rbyte("unknown data", size)
@@ -493,11 +501,11 @@ function get_pid_string(pid)
 end
 
 function analyze_payload(pid)
-	local pes_buf = pes_buf_array[pid]
+	local pes_buf = pes_array[pid]
 	if  pes_buf ~= nil then
 		local ts_file = swap(pes_buf)
 		if get_size() ~= cur() then
-			local size, PTS, DTS = pes(pid, get_size() - cur())
+			local size, PTS, DTS = pes(pid, get_size() - cur(), pes_buf.es_file_name)
 			store_recode(pid, cur(), size, false, PTS, DTS)
 			if get_size() ~= cur() then
 				rbyte("#unknown remain data", get_size() - cur())
@@ -541,10 +549,27 @@ function analyze()
 	ts(get_size()/100, TYPE_PES)
 	
 	print("analyze more? [y]")
-	if io.read() == "y" then
+	--if io.read() == "y" then
+	if false then
 		ts(get_size()-(cur())-192, TYPE_PES)-- - cur() - 1000, TYPE_PES)
 	end
 	
+	print("analyze ES")
+	for k, v in pairs(pes_array) do
+		if v.es_type == ES_H264 then
+			dofile(__streamdef_dir__.."h264.lua")
+			open(v.es_file_name)
+			print_status()
+			enable_print(__default_enable_print__)
+			byte_stream(get_size())
+		elseif v.es_type == ES_H264 then
+			dofile(__streamdef_dir__.."h265.lua")
+			open(v.es_file_name)
+			print_status()
+			enable_print(__default_enable_print__)
+			byte_stream(get_size())
+		end
+	end
 end
 
 print_status()

@@ -27,7 +27,7 @@ local freeze_frame = 0x2;
 local fast_reverse = 0x3;
 local slow_reverse = 0x4;
 
-function pes(pid, size)
+function pes(pid, size, out_file_name)
 	local begin = cur()
 	local PTS = false
 	local DTS = false
@@ -183,23 +183,19 @@ function pes(pid, size)
         if no_packet_length then
         	if size ~= nil then
         		assert(size==(get_size()-begin))
-		        tbyte("PES_packet_data_byte", size - (cur()-begin),
-		        	__out_dir__.."pid"..hexstr(pid)..".es")
+		        tbyte("PES_packet_data_byte", size - (cur()-begin), out_file_name)
         	else
 				seek(cur()+4)
 				local ofs = fstr(hex2str(start_code), false)
 				seek(cur()-4)
 				if ofs ~= false then
-			        tbyte("PES_packet_data_byte", ofs + 4,
-			        	__out_dir__.."pid"..hexstr(pid)..".es")
+			        tbyte("PES_packet_data_byte", ofs + 4, out_file_name)
 				else
-			        tbyte("PES_packet_data_byte", get_size() - cur(),
-			        	__out_dir__.."pid"..hexstr(pid)..".es")
+			        tbyte("PES_packet_data_byte", get_size() - cur(), out_file_name)
 				end
 			end
         else
-	        tbyte("PES_packet_data_byte", N,
-	        	__out_dir__.."pid"..hexstr(pid)..".es")
+	        tbyte("PES_packet_data_byte", N, out_file_name)
         end
         
 	elseif get("stream_id") == program_stream_map
@@ -209,10 +205,9 @@ function pes(pid, size)
 	or     get("stream_id") == program_stream_directory
 	or     get("stream_id") == ITU_T_Rec_H_222_0_ISO_IEC_13818_1_Annex_B_or_ISO_IEC_13818_6_DSMCC_stream
 	or     get("stream_id") == ITU_T_Rec_H_222_1_type_E then
-	    tbyte("PES_packet_data_byte",                                   get("PES_packet_length"), __out_dir__.."pid.es")
-	    --rbyte("PES_packet_data_byte",                                   get("PES_packet_length"))
+	    tbyte("PES_packet_data_byte", get("PES_packet_length"), out_file_name)
 	elseif ( stream_id == padding_stream) then
-        rbyte("padding_byte",                                           get("PES_packet_length"))
+        rbyte("padding_byte", get("PES_packet_length"))
 	end
 
 	return cur() - begin, PTS, DTS
@@ -227,7 +222,7 @@ function pes_stream(size)
 	    if fstr("00 00 01", false, 0x10000) == get_size()-cur() then
 	    	break
 	    end
-		total_size = total_size + pes(0xffff)
+		total_size = total_size + pes(0xffff, nil, __out_dir__.."out.es")
 	end
 end
 

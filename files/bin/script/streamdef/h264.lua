@@ -828,7 +828,7 @@ end
 
 function h264_byte_stream(max_length)
 	local rbsp = stream:new(1024*1024*3)
-	rbsp:enable_print(true)
+	rbsp:enable_print(__default_enable_print__)
 	local total_size = 0;
 	while total_size < max_length do
 		total_size = total_size + byte_stream_nal_unit(rbsp, max_length-total_size)
@@ -837,8 +837,7 @@ end
 
 open(__stream_path__)
 print_status()
-enable_print(true)
-stdout_to_file(false)
+enable_print(__default_enable_print__)
 h264_byte_stream(get_size() / 100)
 print_status()
 

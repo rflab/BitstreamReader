@@ -714,7 +714,7 @@ function sei_message()
 	rbit("last_payload_type_byte",       8, 0xff) -- u(8)
 	payloadType = payloadType + get("last_payload_type_byte")
 
-	payloadSize = 0
+	local payloadSize = 0
 	while lbyte(1) == 0xff do
 		cbit("ff_byte",                  8, 0xff) -- f(8)
 		payloadSize = payloadSize + 255
@@ -1958,7 +1958,7 @@ end
 
 function byte_stream(max_length)
 	local rbsp = stream:new(1024*1024*5)
-	rbsp:enable_print(false)
+	rbsp:enable_print(__default_enable_print__)
 
 	reset_initial_values()
 
@@ -1970,7 +1970,7 @@ end
 
 open(__stream_path__)
 print_status()
-enable_print(false)
+enable_print(__default_enable_print__)
 byte_stream(get_size()/10)
 print_status()
 

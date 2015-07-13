@@ -10,6 +10,7 @@ global("__stream_name__",   sn)
 global("__stream_ext__",    se)
 global("__out_dir__",       __exec_dir__.."out/")
 global("__streamdef_dir__", __exec_dir__.."script/streamdef/")
+global("__default_enable_print__",  false)
 
 -- __out_dir__を作成しておく
 if windows then

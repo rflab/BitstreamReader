@@ -33,10 +33,10 @@ uint32_t rf::reverse_endian_32(uint32_t value)
 }
 	
 // 指定アドレスをバイト列でダンプ
-void rf::dump_bytes(const char* buf, int offset, int size)
+void rf::dump_bytes(const char* buf, integer offset, integer size)
 {
 	uint8_t c;
-	for (int i = 0; i < size; ++i)
+	for (integer i = 0; i < size; ++i)
 	{
 		c = buf[offset + i];
 		printf("%02x ", (c));
@@ -44,10 +44,10 @@ void rf::dump_bytes(const char* buf, int offset, int size)
 }
 
 // 指定アドレスを文字列でダンプ
-void rf::dump_string(const char* buf, int offset, int size)
+void rf::dump_string(const char* buf, integer offset, integer size)
 {
 	uint8_t c;
-	for (int i = 0; i < size; ++i)
+	for (integer i = 0; i < size; ++i)
 	{
 		c = buf[offset + i];
 		if (isgraph(c))
@@ -58,26 +58,27 @@ void rf::dump_string(const char* buf, int offset, int size)
 }
 
 // 指定アドレスをダンプ
-void rf::dump(const char* buf, int offset, int size, int original_address)
+void rf::dump(const char* buf, integer offset, integer size, integer original_address)
 {
 	// ヘッダ表示
 	printf(
-		"     offset    "
+		"       offset    "
 		"| +0 +1 +2 +3 +4 +5 +6 +7 +8 +9 +A +B +C +D +E +F "
 		"| 0123456789ABCDE\n");
 
 	// データ表示
-	int padding = original_address & 0xf;
-	int write_lines = (size + padding + 15) / 16;
-	int byte_print_pos = 0;
-	int str_print_pos = 0;
-	int byte_pos = 0;
-	int str_pos = 0;
+	integer padding = original_address & 0xfLLU;
+	integer write_lines = (size + padding + 15) / 16;
+	integer byte_print_pos = 0;
+	integer str_print_pos = 0;
+	integer byte_pos = 0;
+	integer str_pos = 0;
 	uint8_t c;
-	for (int cur_line = 0; cur_line < write_lines; ++cur_line)
+	for (integer cur_line = 0; cur_line < write_lines; ++cur_line)
 	{
 		// アドレス
-		printf("     0x%08x| ", (original_address + byte_pos) & (~0xf));
+		printf("     0x%010llx| ", 
+			static_cast<unsigned long long>((original_address + byte_pos) & (~0xfLLU)));
 
 		// バイナリ
 		for (int i = 0; i < 16; ++i)

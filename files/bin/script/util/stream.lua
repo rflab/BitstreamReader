@@ -211,14 +211,11 @@ end
 
 function _m:seek(byte, bit)
 	self.stream:seekpos(byte, bit or 0)
-	return true
 end
 
 function _m:seekoff(byte, bit)
     -- 暫定である、byteが0ならbitシークのみ
-	if byte ~= 0 then self.stream:seekoff_byte(byte) end
-	if bit  ~= nil then self.stream:seekoff_bit(bit) end
-	return true
+	self.stream:seekoff(byte or 0, bit or 0)
 end
 
 function _m:putc(c)

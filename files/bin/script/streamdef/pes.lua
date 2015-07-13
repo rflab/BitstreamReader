@@ -233,8 +233,7 @@ end
 
 if __stream_ext__ == ".pes" then
 	open(__stream_path__)
-	enable_print(false)
-	stdout_to_file(false)
+	enable_print(__default_enable_print__)
 	pes_stream(get_size() - 10*1024)
 end
 

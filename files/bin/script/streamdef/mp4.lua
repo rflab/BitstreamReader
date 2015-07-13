@@ -816,8 +816,7 @@ function analyse_mp4()
 end
 
 open(__stream_path__)
-enable_print(false)
-stdout_to_file(false)
+enable_print(__default_enable_print__)
 mp4(get_size())
 
 print_status()

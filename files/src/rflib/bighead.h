@@ -34,6 +34,17 @@
 
 namespace rf
 {
+
+#ifdef _WIN64
+	using integer = long long;
+	using uinteger = unsigned long long;
+	static const integer integer_max = LLONG_MAX;
+#else
+	using integer = int;
+	using uinteger = unsigned int;
+	static const integer integer_max = INT_MAX;
+#endif
+
 	using std::vector;
 	using std::array;
 	using std::map;
@@ -58,9 +69,9 @@ namespace rf
 	bool valid_ptr(const void *p);
 	uint16_t reverse_endian_16(uint16_t value);
 	uint32_t reverse_endian_32(uint32_t value);
-	void dump_bytes(const char* buf, int offset, int size);
-	void dump_string(const char* buf, int offset, int size);
-	void dump(const char* buf, int offset, int size, int original_address);
+	void dump_bytes(const char* buf, integer offset, integer size);
+	void dump_string(const char* buf, integer offset, integer size);
+	void dump(const char* buf, integer offset, integer size, integer original_address);
 }
 
 #endif

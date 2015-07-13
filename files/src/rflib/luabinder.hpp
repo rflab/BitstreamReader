@@ -674,7 +674,7 @@ namespace rf
 			lua_remove(L_, func);
 			lua_settop(L_, top);
 
-			return false;
+			return true;
 		}
 
 		// Lua関数をC++からコール
@@ -718,7 +718,7 @@ namespace rf
 
 		// 変数バインド
 		template<typename T>
-		void rawset(const string& name, T v)
+		void setglobal(const string& name, T v)
 		{
 			push_stack(L_, v);
 			lua_setglobal(L_, name.c_str());

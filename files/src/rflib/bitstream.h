@@ -3,42 +3,41 @@
 
 #include "bighead.h"
 
-namespace rf{
-
+namespace rf
+{
 	class Bitstream final
 	{
+	public:
 	private:
 		unique_ptr<std::streambuf> buf_;
-		int size_;
-		int bit_pos_;
-		int byte_pos_;
+		integer size_;
+		integer bit_pos_;
+		integer byte_pos_;
 	protected:
 		void sync();
 	public:
 		Bitstream();
-		int size() const;
-		int bit_pos() const;
-		int byte_pos() const;
-		void assign(std::unique_ptr<std::streambuf>&& buf, int size);
-		bool check_pos(int byte_pos) const;
-		bool check_offset_bit(int offset) const;
-		bool check_offset_byte(int offset) const;
-		void seekpos(int byte, int bit);
-		void seekoff_bit(int offset);
-		void seekoff_byte(int offset);
-		unsigned int read_bit(int size);
-		unsigned int read_byte(int size);
-		void read_expgolomb(unsigned int &ret_value, int &ret_size);
-		string read_string(int size);
-		unsigned int look_bit(int size);
-		unsigned int look_byte(int size);
-		void look_expgolomb(unsigned int &ret_val, int &ret_size);
-		void look_byte_string(char* address, int size);
-		int find_byte(char sc, bool advance, int end_offset = INT_MAX);
-		int rfind_byte(char sc, bool advance, int end_offset = INT_MIN);
-		int find_byte_string(const char* address, int size, bool advance, int end_offset = INT_MAX);
-		int rfind_byte_string(const char* address, int size, bool advance, int end_offset = INT_MIN);
-		void write(const char *buf, int size);
+		integer size() const;
+		integer bit_pos() const;
+		integer byte_pos() const;
+		void assign(std::unique_ptr<std::streambuf>&& buf, integer size);
+		bool check_pos(integer byte) const;
+		bool check_off(integer byte, integer bit) const;
+		void seekpos(integer byte, integer bit);
+		void seekoff(integer byte, integer bit);
+		uinteger read_bit(integer size);
+		uinteger read_byte(integer size);
+		void read_expgolomb(uinteger &ret_value, integer &ret_size);
+		string read_string(integer size);
+		uinteger look_bit(integer size);
+		uinteger look_byte(integer size);
+		void look_expgolomb(uinteger &ret_val, integer &ret_size);
+		void look_byte_string(char* address, integer size);
+		integer find_byte(char sc, bool advance, integer end_offset = integer_max);
+		integer rfind_byte(char sc, bool advance, integer end_offset = integer_max);
+		integer find_byte_string(const char* address, integer size, bool advance, integer end_offset = integer_max);
+		integer rfind_byte_string(const char* address, integer size, bool advance, integer end_offset = integer_max);
+		void write(const char *buf, integer size);
 		void put_char(char c);
 	};
 
@@ -46,7 +45,7 @@ namespace rf{
 	{
 	private:
 		std::unique_ptr<char[]> buf_;
-		int size_;
+		integer size_;
 	protected:
 		int overflow(int c) override;
 		int underflow() override;
@@ -54,7 +53,7 @@ namespace rf{
 		std::ios::pos_type seekpos(std::ios::pos_type pos, std::ios::openmode which) override;
 	public:
 		RingBuf();
-		void reserve(int size);
+		void reserve(integer size);
 	};
 }
 

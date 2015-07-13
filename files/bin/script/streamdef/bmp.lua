@@ -67,7 +67,7 @@ end
 
 open(__stream_path__)
 little_endian(true)
-enable_print(true)
+enable_print(__default_enable_print__)
 bmp()
 print_table(info)
 

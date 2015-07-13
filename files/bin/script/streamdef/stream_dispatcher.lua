@@ -94,11 +94,18 @@ local function analyse_stream_type(s)
 		if fbyte(0x47, true, 5) ~= 12 then
 			if get_size() > 200 then
 				seekoff(188)
-				if lbyte(1) == 0x47
-				or seekoff(4) and lbyte(1) == 0x47 then
+				print("#########", lbyte(1))
+				if lbyte(1) == 0x47 then
 					ret = ".ts"
 					ascii = "MPEG-2 TS"
 					break
+				else
+					seekoff(4)
+					if lbyte(1) == 0x47 then
+						ret = ".tts"
+						ascii = "MPEG-2 TS(TTS)"
+						break
+					end
 				end
 			end
 		end

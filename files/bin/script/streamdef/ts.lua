@@ -335,10 +335,10 @@ function pmt()
 		
 		-- 初めて見るPIDなら追加
 		-- local buf, prev = open(1024*1024*3)
-		local buf, prev = open(__out_dir__..hexstr(get("elementary_PID"))..".pes", "ab+")
+		local buf, prev = open(__out_dir__..hexstr(get("elementary_PID"))..".pes", "wb+")
 	    swap(prev)
 	    pes_buf_array[get("elementary_PID")] = buf
-		buf:enable_print(false)
+		buf:enable_print(__default_enable_print__)
 		print("", stream_type_to_string(get("stream_type"), peek("format_identifier"))..
 			" = "..hexstr(get("elementary_PID")))
 
@@ -525,18 +525,18 @@ end
 function analyze()
 	print("analyze PAT")
 	seek(0)
-	enable_print(false)
+	enable_print(__default_enable_print__)
 	ts(1024*1024, TYPE_PAT)
 
 	print("analyze PMT")
 	seek(0)
-	enable_print(false)
+	enable_print(__default_enable_print__)
 	ts(1024*1024, TYPE_PMT)
 
 	print("analyze PES")
 	analyse_data_byte = true
 	seek(0)
-	enable_print(false)
+	enable_print(__default_enable_print__)
 	print("short analyse 1/50 size.")
 	ts(get_size()/100, TYPE_PES)
 	

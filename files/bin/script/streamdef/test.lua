@@ -134,18 +134,19 @@ function test_flie()
 end
 
 function test_flie()
-	fstr("10 ", true)
-	rfstr("ff 40", true)
+	rbyte("test", 0x10400000)
+	rbit("test", 0x104)
 end
 
---test_flie()
+test_flie()
 --test_sqlite()
 --test_sql()
 --test_fifo()
 --dofile(__streamdef_dir__.."bmp.lua")
+--dofile(__streamdef_dir__.."ts.lua")
 --dofile(__streamdef_dir__.."jpg.lua")
 --dofile(__streamdef_dir__.."ts.lua")
-dofile(__streamdef_dir__.."h265.lua")
+--dofile(__streamdef_dir__.."h265.lua")
 
 
 

@@ -840,7 +840,7 @@ end
 
 open(__stream_path__)
 little_endian(false)
-enable_print(false)
+enable_print(__default_enable_print__)
 jpg()
 print_table(info)
 print_status()

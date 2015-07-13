@@ -3,7 +3,7 @@ local gs_all_streams = {}
 local gs_progress
 local gs_perf
 local gs_csv
-local gs_data = {values={}, tables={}, bytes={}, bits={}, sizes={}, streams={}}
+local gs_data = {values={}, tables={}, bytes={}, bits={}, sizes={}, streams={}, ignore_nil=nil}
 local gs_store_to_table = true
 
 --------------------------------------------
@@ -86,7 +86,19 @@ end
 -- これまでに読み込んだ値を取得する
 function get(name)
 	local val = gs_data.values[name]
-	assert(val, "get nil value \""..name.."\"")
+	if val == nil then
+		if gs_data.ignore_nil ~= true then
+			print("get nil value \""..name.."\" continue [y/n]")
+			if io.read() == "y" then
+				gs_data.ignore_nil = true
+			else
+				assert(false, "abort");
+			end
+		else
+			print("# set 0", name)
+			val = 0
+		end
+	end
 	return val
 end
 

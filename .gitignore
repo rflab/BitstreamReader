@@ -21,6 +21,7 @@ streamreader(x64)_d.exe
 *.pes
 *.h264
 *.h265
+*.avi
 *.pat
 *.pmt
 *.wav

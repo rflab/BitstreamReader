@@ -114,11 +114,7 @@ lua->def_class<LuaGlueBitstream>("IBitstream")->
 	def("size",               &LuaGlueBitstream::size).              // ファイルサイズ取得
 	def("enable_print",       &LuaGlueBitstream::enable_print).      // 解析ログのON/OFF
 	def("little_endian",      &LuaGlueBitstream::little_endian).     // ２バイト/４バイトの読み込み時はエンディアンを変換する
-	def("seekpos_bit",        &LuaGlueBitstream::seekpos_bit).       // 先頭からファイルポインタ移動
-	def("seekpos_byte",       &LuaGlueBitstream::seekpos_byte).      // 先頭からファイルポインタ移動
 	def("seekpos",            &LuaGlueBitstream::seekpos).           // 先頭からファイルポインタ移動
-	def("seekoff_bit",        &LuaGlueBitstream::seekoff_bit).       // 現在位置からファイルポインタ移動
-	def("seekoff_byte",       &LuaGlueBitstream::seekoff_byte).      // 現在位置からファイルポインタ移動
 	def("seekoff",            &LuaGlueBitstream::seekoff).           // 現在位置からファイルポインタ移動
 	def("bit_pos",            &LuaGlueBitstream::bit_pos).           // 現在のビットオフセットを取得
 	def("byte_pos",           &LuaGlueBitstream::byte_pos).          // 現在のバイトオフセットを取得

@@ -267,9 +267,15 @@ function DESCRIPTIONRECORD()
 	if header == "m4ds"
 	or header == "btrt" then
 		VisualSampleEntryBox(header, box_size-header_size)
-	elseif header == "avc1"
-	or     header == "avcC" then
+	elseif header == "avc1" then
+	elseif header == "avcC" then
 		--	
+	elseif header == "hvc1" then
+		--HEVCSampleEntry()
+	elseif header == "hev1" then
+		--HEVCSampleEntry()
+	elseif header == "hvcC" then
+		--HEVCConfigurationBox()
 	elseif header == "mp4a" then
 	    --
 	else
@@ -749,12 +755,26 @@ function analyse_trak(trak)
 	end
 	
 	-- ES書き出し
-	local prev = cur()
+	-- Videoであれば解析
 	print(cur_trak.descriptor)
+	local prev = cur()
+	local out_file_name = __out_dir__..trak.descriptor..".es"
 	for i = 1, #Offset do
-		--print(Offset[i], Size[i])
 		seek(Offset[i])
-		tbyte("es", Size[i], __out_dir__..trak.descriptor..".es")
+		tbyte("es", Size[i], out_file_name)
+	end
+	if trak.descriptor == "avc1" then
+		dofile(__streamdef_dir__.."h264.lua")
+		local stream, prev = open(out_file_name)
+		enable_print(__default_enable_print__)
+		length_stream()
+		swap(prev)
+	elseif trak.descriptor == "hvc1" then
+		dofile(__streamdef_dir__.."h265.lua")
+		enable_print(__default_enable_print__)
+		local stream, prev = open(out_file_name)
+		length_stream()
+		swap(prev)
 	end
 	seek(prev)
 	

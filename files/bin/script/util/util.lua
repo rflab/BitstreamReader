@@ -91,6 +91,7 @@ function get(name)
 			print("get nil value \""..name.."\" continue [y/n]")
 			if io.read() == "y" then
 				gs_data.ignore_nil = true
+				val = 0
 			else
 				assert(false, "abort");
 			end
@@ -231,9 +232,13 @@ function tbyte(name, size, target)
 end
 
 -- 文字列、もしくは"00 11 22"のようなバイナリ文字列をファイルに追記
-function write(filename, pattern)
-	local str = pat2str(pattern)
-	return write_to_file(filename, str, #str)
+function write(target, pattern)
+	if type(target) == "string" then
+		local str = pat2str(pattern)
+		return write_to_file(target, str, #str)
+	else
+		return target:write(pattern)
+	end
 end
 
 function putchar(filename, char)

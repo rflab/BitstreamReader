@@ -546,7 +546,7 @@ function analyze()
 	seek(0)
 	enable_print(__default_enable_print__)
 	print("short analyse 1/50 size.")
-	ts(get_size()/100, TYPE_PES)
+	ts(get_size()/50, TYPE_PES)
 	
 	print("analyze more? [y]")
 	--if io.read() == "y" then

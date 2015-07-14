@@ -1968,6 +1968,21 @@ function byte_stream(max_length)
 	end
 end
 
+-- 5.2.3 of ISO 14496-15. とりあえずサイズを4byte固定
+function length_stream()
+	local rbsp, prev = open(1024*1024*3)
+	swap(prev)
+	rbsp:enable_print(__default_enable_print__)
+
+	local total_size = 0;
+	local nal_size = 0
+	while total_size < get_size() do
+		nal_size = rbyte("nal_size", 4)
+		nal_unit(rbsp, nal_size)
+		total_size = total_size + nal_size
+	end
+end
+
 if __stream_ext__ == ".h265" then
 	open(__stream_path__)
 	print_status()

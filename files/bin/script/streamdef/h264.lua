@@ -74,8 +74,20 @@ function access_unit_delimiter_rbsp()
 	rbsp_trailing_bits()
 end
 
-function scaling_list()
-	assert(false)
+local ScalingList4x4 = {}
+local ScalingList8x8 = {}
+function scaling_list(scalingList, sizeOfScalingList, useDefaultScalingMatrixFlag)
+	local lastScale = 8
+	local nextScale = 8
+	for j = 0, sizeOfScalingList - 1 do
+		if nextScale ~= 0 then
+			rexp("delta_scale")
+			nextScale = ( lastScale + delta_scale + 256 ) % 256
+			useDefaultScalingMatrixFlag = ((j == 0) and (nextScale == 0))
+		end
+		scalingList[j] = (nextScale == 0) and lastScale or nextScale
+		lastScale = scalingList[j]
+	end
 end
 
 function video_parameter_set_rbsp()
@@ -286,15 +298,15 @@ print("seq_parameter_set_rbsp")
 			else
 				num = 12
 			end
-			for i = 0, num do
+			for i = 0, num - 1 do
 				rbit("seq_scaling_list_present_flag",          1)
 				if get("seq_scaling_list_present_flag") then
 					if i <= 6 then
-						scaling_list(get("ScalingList4x4["..i.."]"), 16,
-							get("UseDefaultScalingMatrix4x4Flag["..i.."]"))
+						ScalingList4x4[i] = ScalingList4x4[i] or {}
+						scaling_list(ScalingList4x4[i], 16, UseDefaultScalingMatrix4x4Flag[i])
 					else
-						scaling_list(get("ScalingList8x8["..(i-6).."]"), 64,
-							get("UseDefaultScalingMatrix8x8Flag["..(i-6).."]"))
+						ScalingList8x8[i] = ScalingList8x8[i] or {}
+						scaling_list(ScalingList8x8[i-6], 64, UseDefaultScalingMatrix8x8Flag[i-6])
 					end
 				end
 			end	
@@ -455,19 +467,15 @@ print("pic_parameter_set_rbsp")
 		rbit("transform_8x8_mode_flag",                           1) -- u(1)
 		rbit("pic_scaling_matrix_present_flag",                   1) -- u(1)
 		if get("pic_scaling_matrix_present_flag") then
-			for i = 1, 6 + (get("chroma_format_idc") ~= 3 and 2 or 6) * get("transform_8x8_mode_flag") do
+			for i = 0, 6 - 1 + (get("chroma_format_idc") ~= 3 and 2 or 6) * get("transform_8x8_mode_flag") do
 				rbit("pic_scaling_list_present_flag["..i.."]",    1) -- u(1)
 				if get("pic_scaling_list_present_flag["..i.."]") then
 					if i <= 6 then
-						scaling_list(
-							get("ScalingList4x4["..i.."]"),
-							16,
-							get("UseDefaultScalingMatrix4x4Flag["..i.."]"))
+						ScalingList4x4[i] = ScalingList4x4[i] or {}
+						scaling_list(ScalingList4x4[i], 16, UseDefaultScalingMatrix4x4Flag[i])
 					else
-						scaling_list(
-							get("ScalingList8x8["..(i-6).."]"),
-							64,
-							get("UseDefaultScalingMatrix8x8Flag["..(i-6).."]"))
+						ScalingList8x8[i] = ScalingList8x8[i] or {}
+						scaling_list(ScalingList8x8[i-6], 64, UseDefaultScalingMatrix8x8Flag[i-6])
 					end
 				end
 			end
@@ -671,23 +679,30 @@ function nal_unit_264(rbsp, NumBytesInNALunit)
 end
 
 function nal_unit(rbsp, NumBytesInNALunit)
-	local total
-	local ofs
 
-	total = nal_unit_header_h264()
+	local i = nal_unit_header_h264()
+
+	local NumBytesInRbsp = 0
+	local ofs
 	while true do
-		ofs = math.min(fstr("00 00 03", false), NumBytesInNALunit - total)
-		if ofs >= NumBytesInNALunit - total then 
-			tbyte("rbsp end", ofs, rbsp)
-			break
-		else
+		ofs = fstr("00 00 03", false, NumBytesInNALunit-i)
+		if i + ofs < NumBytesInNALunit then 
 			tbyte("rbsp", ofs+2, rbsp)
-			rbyte("dummy", 1)
-			total = total + ofs + 2 + 1
+			cbyte("emulation_prevention_three_byte", 1, 3) -- equal to 0x03
+			NumBytesInRbsp = NumBytesInRbsp + ofs + 2
+			i = i + ofs + 2
+		else
+			tbyte("rbsp end", ofs, rbsp)
+			NumBytesInRbsp = NumBytesInRbsp + ofs
+			break
 		end
+		i=i+1
 	end
 
-	rbsp_h264(rbsp, get("nal_unit_type"))
+	-- RBSPを解析
+	local file = swap(rbsp)
+	nal_unit_payload(rbsp, NumBytesInRbsp)
+	swap(file)
 end
 
 function nal_unit_header_h264()
@@ -710,8 +725,9 @@ function nal_unit_header_h264()
 	return cur() - begin
 end
 
-function rbsp_h264(rbsp, nal_unit_type)
-	local file = swap(rbsp)
+function nal_unit_payload(rbsp, NumBytesInRbsp)
+	local begin = cur()
+	local nal_unit_type = get("nal_unit_type")
 	
 	if nal_unit_type == 0 then
 		print("Unspecified RBSP")
@@ -732,9 +748,7 @@ function rbsp_h264(rbsp, nal_unit_type)
 	end
 	
 	-- とりあえず余ったデータを読み捨てる
-	seek(get_size())
-
-	swap(file)
+	seek(begin + NumBytesInRbsp)
 end
 
 
@@ -779,13 +793,15 @@ function length_stream()
 	local rbsp, prev = open(1024*1024*3)
 	swap(prev)
 	rbsp:enable_print(__default_enable_print__)
+	prev:enable_print(__default_enable_print__)
 
 	local total_size = 0;
 	local nal_size = 0
+	local nal_size_length = 4
 	while total_size < get_size() do
-		nal_size = rbyte("nal_size", 4)
+		nal_size = rbyte("nal_size", nal_size_length)
 		nal_unit(rbsp, nal_size)
-		total_size = total_size + nal_size
+		total_size = total_size + nal_size + nal_size_length
 	end
 end
 

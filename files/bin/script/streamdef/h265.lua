@@ -1524,7 +1524,7 @@ function sei_payload(payloadType, payloadSize)
 	
 	if get("nal_unit_type") == PREFIX_SEI_NUT then
 		if payloadType == 0 then
-			buffering_period(payloadSize)
+			print("buffering_period")--buffering_period(payloadSize)
 		elseif payloadType == 1 then
 			print("pic_timing( payloadSize ) 5")
 		elseif payloadType == 2 then

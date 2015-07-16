@@ -759,6 +759,8 @@ function analyse_trak(trak)
 	print(cur_trak.descriptor)
 	local prev = cur()
 	local out_file_name = __out_dir__..trak.descriptor..".es"
+	
+	local size = 0
 	for i = 1, #Offset do
 		seek(Offset[i])
 		tbyte("es", Size[i], out_file_name)

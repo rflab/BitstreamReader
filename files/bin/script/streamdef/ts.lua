@@ -562,7 +562,7 @@ function analyze()
 			print_status()
 			enable_print(__default_enable_print__)
 			byte_stream(get_size())
-		elseif v.es_type == ES_H264 then
+		elseif v.es_type == ES_H265 then
 			dofile(__streamdef_dir__.."h265.lua")
 			open(v.es_file_name)
 			print_status()

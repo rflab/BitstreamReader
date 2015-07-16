@@ -38,6 +38,17 @@ namespace rf
 			return instance;
 		}
 
+		// 暫定
+		static void close_file(const char* file_name)
+		{
+			auto it = ofs_map_.find(file_name);
+			if (it != ofs_map_.end())
+			{
+				it->second->close();
+				ofs_map_.erase(it);
+			}
+		}
+
 		// 指定したバイト列を指定したファイル名に出力、二度目以降は追記
 		static void write_to_file(const char* file_name, const char* address, integer size)
 		{
@@ -456,8 +467,8 @@ namespace rf
 					static_cast<unsigned long long>(bs_.byte_pos()),
 					static_cast<unsigned long long>(offset),
 					static_cast<uint8_t>(c),
-					offset + prev_byte == this->size() ? "not found [EOS]"
-						: offset == end_offset ? "not found [end_offset]"
+					offset == end_offset ? "not found [end_offset]"
+						: offset + prev_byte == this->size() ? "not found [EOS]"
 						: "found",
 					static_cast<unsigned long long>(offset + prev_byte));
 
@@ -488,8 +499,8 @@ namespace rf
 
 				printf("] (\"%s\") %s at adr=0x%010llx.\n",
 					s.c_str(),
-					offset + prev_byte == this->size() ? "not found [EOS]"
-						: offset == end_offset ? "not found [end_offset]"
+					offset == end_offset ? "not found [end_offset]"
+						: offset + prev_byte == this->size() ? "not found [EOS]"
 						: "found",
 					static_cast<unsigned long long>(offset + prev_byte));
 
@@ -763,6 +774,7 @@ unique_ptr<LuaBinder> init_lua(int argc, char** argv)
 	// 関数バインド
 	lua->def("stdout_to_file",   FileManager::stdout_to_file);        // コンソール出力の出力先切り替え
 	lua->def("write_to_file",    FileManager::write_to_file);         // 指定したバイト列をファイルに出力
+	lua->def("close_file",       FileManager::close_file);         // 指定したバイト列をファイルに出力
 	lua->def("transfer_to_file", LuaGlueBitstream::transfer_to_file); // 指定したストリームををファイルに出力
 	lua->def("reverse_16",       reverse_endian_16);                  // 16ビットエンディアン変換
 	lua->def("reverse_32",       reverse_endian_32);                  // 32ビットエンディアン変換

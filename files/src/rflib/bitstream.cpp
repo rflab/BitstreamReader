@@ -268,7 +268,7 @@ uinteger Bitstream::look_bit(integer size)
 	}
 
 	uinteger val = read_bit(size);
-	seekoff(-size, 0);
+	seekoff(0, -size);
 	return val;
 }
 

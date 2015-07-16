@@ -1,5 +1,6 @@
 local gs_stream
 local gs_all_streams = {}
+local gs_files = {}
 local gs_progress
 local gs_perf
 local gs_csv
@@ -20,6 +21,9 @@ local gs_store_to_table = true
 function open(arg1, openmode)
 	openmode = openmode or "rb"
 	local prev_stream = gs_stream
+	if type(arg1)=="string" and gs_files[arg1] == true then
+		close_file(arg1)
+	end
 	gs_stream = stream:new(arg1, openmode)
 	gs_csv = csv:new()
 	table.insert(gs_all_streams, gs_stream) 
@@ -225,6 +229,7 @@ end
 -- ストリームからファイルにデータを追記
 function tbyte(name, size, target)
 	if type(target) == "string" then
+		gs_files[target] = gs_files[target] or true 
 		return transfer_to_file(target, gs_stream.stream, size, true)
 	else
 		return gs_stream:tbyte(name, size, target, true)

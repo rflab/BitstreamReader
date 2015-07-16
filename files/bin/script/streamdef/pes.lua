@@ -186,7 +186,7 @@ function pes(pid, size, out_file_name)
 		        tbyte("PES_packet_data_byte", size - (cur()-begin), out_file_name)
         	else
 				seek(cur()+4)
-				local ofs = fstr(hex2str(start_code), false)
+				local ofs = fstr(val2str(start_code), false)
 				seek(cur()-4)
 				if ofs ~= false then
 			        tbyte("PES_packet_data_byte", ofs + 4, out_file_name)

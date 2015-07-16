@@ -412,7 +412,7 @@ function pat2str(pattern)
 end
 
 -- 数値をchar配列に変える
-function hex2str(val, size, le)
+function val2str(val, size, le)
 	size = size or 4
 	assert(size <= 4)
 	local str = ""

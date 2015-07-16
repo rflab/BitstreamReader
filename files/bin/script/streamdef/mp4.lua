@@ -2,6 +2,10 @@
 local cur_trak = nil
 local trak_no = 0
 local trak_data = {}
+local sps_offset = 0
+local sps_size = 0
+local pps_offset = 0
+local pps_size = 0
 
 function BOXHEADER()
 	rbyte("boxsize",                     4)
@@ -241,12 +245,62 @@ function stbl(size)
 	end
 end
 
-function VisualSampleEntryBox(header, size)
+function HEVCSampleEntry(size)
+	rbyte("some data", box_size)
+	--if header == "hev1" then
+	--	--HEVCSampleEntry()
+	--	rbyte("some data", box_size-header_size)
+	--elseif header == "hvcC" then
+	--	cur_trak.descriptor = header
+	--	--HEVCConfigurationBox()
+	--end
+end
+
+function MPEG4BitRateBox()
+	rbit("bufferSizeDB",         32) -- unsigned int(32)
+	rbit("maxBitrate",           32) -- unsigned int(32)
+	rbit("avgBitrate",           32) -- unsigned int(32)
+end
+
+function MPEG4ExtensionDescriptorsBox(size)
+	rstr("Descriptor", size)
+end
+
+function AVCSampleEntry(size)
+	local begin = cur()
+
+	VisualSampleEntryBox()
+
+	local total_size = cur() - begin;
+	while total_size < size do
+		local header, box_size, header_size = BOXHEADER()
+
+		if header == "m4ds" then
+			MPEG4ExtensionDescriptorsBox(box_size - header_size)
+		elseif header == "avcC" then
+			AVCConfigurationBox()
+		elseif header == "btrt" then
+			MPEG4BitRateBox()
+		else
+			print("# unknown box", header)
+			rbyte("payload", box_size - header_size)
+		end
+		
+		total_size = total_size + box_size
+	end
+end
+
+
+function AVCConfigurationBox()
+	AVCDecoderConfigurationRecord()
+end
+
+function VisualSampleEntryBox()
 	rbyte("Reserved",                    6)
 	rbyte("DataReferenceIndex",          2)
 	rbyte("Predefined",                  2)
 	rbyte("Reserved",                    2)
-	rbyte("Predefined",                  4)
+	rbyte("Predefined[3]",               4*3)
 	rbyte("Width",                       2)
 	rbyte("Height",                      2)
 	rbyte("HorizResolution",             4)
@@ -258,41 +312,58 @@ function VisualSampleEntryBox(header, size)
 	rbyte("Predefined",                  2)
 end
 
+function AVCDecoderConfigurationRecord()
+	cbit("configurationVersion",            8, 1) -- unsigned int(8)
+	rbit("AVCProfileIndication",            8) -- unsigned int(8)
+	rbit("profile_compatibility",           8) -- unsigned int(8)
+	rbit("AVCLevelIndication",              8) -- unsigned int(8)
+	cbit("reserved",                        6, 0x3f)
+	rbit("lengthSizeMinusOne",              2) -- unsigned int(2)
+	cbit("reserved",                        3, 0x7)
+	rbit("numOfSequenceParameterSets",      5) -- unsigned int(5)
+	for i=0, get("numOfSequenceParameterSets") - 1 do
+		rbit("sequenceParameterSetLength",  16) -- unsigned int(16) 
+		sps_offset = cur()
+		sps_size = get("sequenceParameterSetLength")
+		rbit("sequenceParameterSetNALUnit", 8*get("sequenceParameterSetLength"))
+	end
+	rbit("numOfPictureParameterSets",       8) -- unsigned int(8)
+	for i=0, get("numOfPictureParameterSets") - 1 do
+		rbit("pictureParameterSetLength",   16) -- unsigned int(16) 
+		pps_offset = cur()
+		pps_size = get("sequenceParameterSetLength")
+		rbit("pictureParameterSetNALUnit",  8*get("pictureParameterSetLength"))
+	end
+end
+
 function DESCRIPTIONRECORD()
-	local begin = cur()
 	local header, box_size, header_size = BOXHEADER()
 	
 	cur_trak.descriptor = header
-	
-	if header == "m4ds"
-	or header == "btrt" then
-		VisualSampleEntryBox(header, box_size-header_size)
-	elseif header == "avc1" then
-	elseif header == "avcC" then
-		--	
+		
+	if header == "avc1" then
+		AVCSampleEntry(box_size-header_size)
 	elseif header == "hvc1" then
-		--HEVCSampleEntry()
-	elseif header == "hev1" then
-		--HEVCSampleEntry()
-	elseif header == "hvcC" then
-		--HEVCConfigurationBox()
+		HEVCSampleEntry(box_size - header_size)
 	elseif header == "mp4a" then
-	    --
+		rbyte("some data", box_size - header_size)
 	else
 		print("# unknown box", header)
-		--VisualSampleEntryBox(box_size-header_size)
+		rbyte("payload", box_size - header_size)
 	end
-
-	rbyte("some data", box_size - (cur()-begin))
 end
 
 function stsd(size)
+	local begin = cur()
+	
 	rbyte("Version",      1)
 	rbyte("Flags",        3)
 	rbyte("Count",        4)
 	for i=1, get("Count") do
 		DESCRIPTIONRECORD()
 	end
+	
+	rbyte("#unknown data", size - (cur() - begin))
 end
 
 function rtmp(size)
@@ -759,6 +830,15 @@ function analyse_trak(trak)
 	print(cur_trak.descriptor)
 	local prev = cur()
 	local out_file_name = __out_dir__..trak.descriptor..".es"
+	if trak.descriptor == "avc1" then
+		seek(sps_offset)
+		write(out_file_name, val2str(sps_size, 4))
+		tbyte("sps", sps_size, out_file_name)
+		seek(pps_offset)
+		write(out_file_name, val2str(pps_size, 4))
+		tbyte("pps", pps_size, out_file_name)
+	elseif trak.descriptor == "hvc1" then
+	end
 	
 	local size = 0
 	for i = 1, #Offset do

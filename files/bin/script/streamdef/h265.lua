@@ -48,9 +48,29 @@ local UsedByCurrPicS1 = {}
 local DeltaPocS0 = {}
 local DeltaPocS1 = {}
 local use_delta_flag = {}
+local slice_reserved_flag = {}
+local LayerIdxInVps = {}
+local poc_lsb_not_present_flag = {}
 
 function reset_initial_values()
 	reset("chroma_qp_offset_list_enabled_flag", 0)
+	reset("deblocking_filter_override_enabled_flag", 0)
+	reset("deblocking_filter_override_flag", 0)
+	reset("dependent_slice_segment_flag", 0)
+	reset("slice_segment_address", 0)
+	reset("slice_sao_luma_flag", 0)
+	reset("slice_sao_chroma_flag", 0)
+	reset("separate_colour_plane_flag", 0)
+	reset("sps_range_extension_flag",      0)
+	reset("sps_multilayer_extension_flag", 0)
+	reset("sps_extension_6bits",           0)
+	reset("pps_range_extension_flag",      0)
+	reset("pps_multilayer_extension_flag", 0)
+	reset("pps_extension_6bits",           0)
+	reset("collocated_from_l0_flag", 1)
+	reset("inter_ref_pic_set_prediction_flag", 0)
+	reset("delta_idx_minus1", 0)
+	reset("poc_reset_idc", 0)
 end
 
 function more_rbsp_data()
@@ -105,11 +125,11 @@ print("video_parameter_set_rbsp")
 		end
 	end
 	rbit("vps_timing_info_present_flag",                        1)  -- u(1)
-	if get("vps_timing_info_present_flag") ~= 0 then
+	if get("vps_timing_info_present_flag") == 1 then
 		rbit("vps_num_units_in_tick",                           32) -- u(32)
 		rbit("vps_time_scale",                                  32) -- u(32)
 		rbit("vps_poc_proportional_to_timing_flag",             1)  -- u(1)
-		if get("vps_poc_proportional_to_timing_flag") ~= 0 then
+		if get("vps_poc_proportional_to_timing_flag") == 1 then
 			rexp("vps_num_ticks_poc_diff_one_minus1"            )   -- ue(v)
 		end
 		rexp("vps_num_hrd_parameters"                           )   -- ue(v)
@@ -122,13 +142,13 @@ print("video_parameter_set_rbsp")
 		end
 	end
 	rbit("vps_extension_flag",                                          1)  -- u(1)
-	if get("vps_extension_flag") ~= 0 then
+	if get("vps_extension_flag") == 1 then
 		while byte_aligned() ~= true do
 			rbit("vps_extension_alignment_bit_equal_to_one",            1)  -- u(1)
 		end
 		vps_extension()
 		rbit("vps_extension2_flag",                                     1)  -- u(1)
-		if get("vps_extension2_flag") then
+		if get("vps_extension2_flag") == 1 then
 			while more_rbsp_data() do
 				rbit("vps_extension_data_flag",                         1)  -- u(1)
 			end
@@ -137,6 +157,9 @@ print("video_parameter_set_rbsp")
 	rbsp_trailing_bits()
 end
 
+function vps_extension()
+	assert(false, "unsupported")
+end
 
 function seq_parameter_set_rbsp()
 print("seq_parameter_set_rbsp")
@@ -148,11 +171,9 @@ print("seq_parameter_set_rbsp")
 	rexp("chroma_format_idc"                               )
 	if get("chroma_format_idc") == 3 then
 		rbit("separate_colour_plane_flag",                 1)
-		if get("separate_colour_plane_flag") ~= 0 then
+		if get("separate_colour_plane_flag") == 1 then
 			ChromaArrayType = get("chroma_format_idc")
 		end
-	else
-		reset("separate_colour_plane_flag", 0)
 	end
 	
 	rexp("pic_width_in_luma_samples"                       )
@@ -162,7 +183,7 @@ print("seq_parameter_set_rbsp")
 	print("width  = "..hexstr(get("pic_width_in_luma_samples")))
 	print("height = "..hexstr(get("pic_height_in_luma_samples")))
 
-	if get("conformance_window_flag") ~= 0 then
+	if get("conformance_window_flag") == 1 then
 		rexp("conf_win_left_offset")      
 		rexp("conf_win_right_offset")     
 		rexp("conf_win_top_offset")       
@@ -189,9 +210,9 @@ print("seq_parameter_set_rbsp")
 	rexp("max_transform_hierarchy_depth_intra"         )
 	rbit("scaling_list_enabled_flag",                  1)
 	
-	if get("scaling_list_enabled_flag") ~= 0 then
+	if get("scaling_list_enabled_flag") == 1 then
 		rbit("sps_scaling_list_data_present_flag",     1)
-		if get("sps_scaling_list_data_present_flag") ~= 0 then
+		if get("sps_scaling_list_data_present_flag") == 1 then
 			scaling_list_data( )
 		end
 	end
@@ -199,7 +220,7 @@ print("seq_parameter_set_rbsp")
 	rbit("amp_enabled_flag",                                 1)
 	rbit("sample_adaptive_offset_enabled_flag",              1)
 	rbit("pcm_enabled_flag",                                 1)
-	if get("pcm_enabled_flag") ~= 0 then
+	if get("pcm_enabled_flag") == 1 then
 		rbit("pcm_sample_bit_depth_luma_minus1",             1)
 		rbit("pcm_sample_bit_depth_chroma_minus1",           1)
 		rexp("log2_min_pcm_luma_coding_block_size_minus3"    )
@@ -213,7 +234,7 @@ print("seq_parameter_set_rbsp")
 		st_ref_pic_set( i )
 	end
 	rbit("long_term_ref_pics_present_flag",                    1) -- u(1))
-	if get("long_term_ref_pics_present_flag") ~= 0 then 
+	if get("long_term_ref_pics_present_flag") == 1 then 
 		rexp("num_long_term_ref_pics_sps"                      ) -- ue(v))
 		for  i = 0, get("num_long_term_ref_pics_sps") - 1 do
 			rbit("lt_ref_pic_poc_lsb_sps[i]",                      get("log2_max_pic_order_cnt_lsb_minus4") + 4) -- u(v))
@@ -225,31 +246,27 @@ print("seq_parameter_set_rbsp")
 	rbit("strong_intra_smoothing_enabled_flag",                    1) -- u(1))
 	rbit("vui_parameters_present_flag",                            1) -- u(1))
 	
-	if get("vui_parameters_present_flag") ~= 0 then
+	if get("vui_parameters_present_flag") == 1 then
 		vui_parameters( )
 	end
 	
 	rbit("sps_extension_present_flag",                             1) -- u(1))
 	
-	if get("sps_extension_present_flag") ~= 0 then 
+	if get("sps_extension_present_flag") == 1 then 
 		rbit("sps_range_extension_flag",                           1) -- u(1))
 		rbit("sps_multilayer_extension_flag",                      1) -- u(1))
 		rbit("sps_extension_6bits",                                6) -- u(6))
-	else
-		reset("sps_range_extension_flag",      0)
-		reset("sps_multilayer_extension_flag", 0)
-		reset("sps_extension_6bits",           0)
 	end
 	
-	if get("sps_range_extension_flag") ~= 0 then
+	if get("sps_range_extension_flag") == 1 then
 		sps_range_extension( )
 	end
 	
-	if get("sps_multilayer_extension_flag") ~= 0 then
+	if get("sps_multilayer_extension_flag") == 1 then
 		sps_multilayer_extension( ) -- specified in Annex F 
 	end
 	
-	if get("sps_extension_6bits") ~= 0 then
+	if get("sps_extension_6bits") == 1 then
 		while more_rbsp_data( ) do
 			rbit("sps_extension_data_flag",                        1) -- u(1))
 			rbsp_trailing_bits( )
@@ -272,7 +289,7 @@ end
 function vui_parameters()
 print("vui_parameters")
 	rbit("aspect_ratio_info_present_flag",                    1)
-	if get("aspect_ratio_info_present_flag") ~= 0 then     
+	if get("aspect_ratio_info_present_flag") == 1 then     
 		rbit("aspect_ratio_idc",                              8)
 		if get("aspect_ratio_idc") == 255 then  
 			rbit("sar_width",                                 16)
@@ -281,16 +298,16 @@ print("vui_parameters")
 	end
 
 	rbit("overscan_info_present_flag",                        1)
-	if get("overscan_info_present_flag") ~= 0 then 
+	if get("overscan_info_present_flag") == 1 then 
 		rbit("overscan_appropriate_flag",                     1)
 	end
 
 	rbit("video_signal_type_present_flag",                    1)
-	if get("video_signal_type_present_flag") ~= 0 then     
+	if get("video_signal_type_present_flag") == 1 then     
 		rbit("video_format",                                  3)
 		rbit("video_full_range_flag",                         1)
 		rbit("colour_description_present_flag",               1)
-		if get("colour_description_present_flag") ~= 0 then  
+		if get("colour_description_present_flag") == 1 then  
 			rbit("colour_primaries",                          8)
 			rbit("transfer_characteristics",                  8)
 			rbit("matrix_coefficients",                       8)
@@ -298,37 +315,37 @@ print("vui_parameters")
 	end
 
 	rbit("chroma_loc_info_present_flag",                      1)
-	if get("chroma_loc_info_present_flag") ~= 0 then  
+	if get("chroma_loc_info_present_flag") == 1 then  
 		rexp("chroma_sample_loc_type_top_field"               )
 		rexp("chroma_sample_loc_type_bottom_field"            )
 	end
 
 	rbit("timing_info_present_flag",                          1)
-	if get("timing_info_present_flag") ~= 0 then  
+	if get("timing_info_present_flag") == 1 then  
 		rbit("num_units_in_tick",                             32)
 		rbit("time_scale",                                    32)
 		rbit("fixed_frame_rate_flag",                         1)
 	end
 
 	rbit("nal_hrd_parameters_present_flag",                   1)
-	if get("nal_hrd_parameters_present_flag") ~= 0 then 
+	if get("nal_hrd_parameters_present_flag") == 1 then 
 		hrd_parameters(1, get("sps_max_sub_layers_minus1"))
 	end
 
 	rbit("vcl_hrd_parameters_present_flag",                   1)
-	if get("vcl_hrd_parameters_present_flag") ~= 0 then 
+	if get("vcl_hrd_parameters_present_flag") == 1 then 
 		rbit("hrd_parameters",                                0)
 	end
 	
-	if get("nal_hrd_parameters_present_flag") ~= 0
-	or get("vcl_hrd_parameters_present_flag") ~= 0 then 
+	if get("nal_hrd_parameters_present_flag") == 1
+	or get("vcl_hrd_parameters_present_flag") == 1 then 
 		rbit("low_delay_hrd_flag",                            1)
 	end
 
 	rbit("pic_struct_present_flag",                           1)
 
 	rbit("bitstream_restriction_flag",                        1)
-	if get("bitstream_restriction_flag") ~= 0 then  
+	if get("bitstream_restriction_flag") == 1 then  
 		rbit("motion_vectors_over_pic_boundaries_flag",       1)
 		rexp("max_bytes_per_pic_denom"                         )
 		rexp("max_bits_per_mb_denom"                           )
@@ -340,13 +357,13 @@ print("vui_parameters")
 end
 
 function hrd_parameters( commonInfPresentFlag, maxNumSubLayersMinus1 )
-	if commonInfPresentFlag ~= 0 then
+	if commonInfPresentFlag == 1 then
 		rbit("nal_hrd_parameters_present_flag",                          1) -- u(1))
 		rbit("vcl_hrd_parameters_present_flag",                          1) -- u(1))
-		if nal_hrd_parameters_present_flag ~= 0 
-		or vcl_hrd_parameters_present_flag ~= 0 then
+		if nal_hrd_parameters_present_flag == 1 
+		or vcl_hrd_parameters_present_flag == 1 then
 			rbit("sub_pic_hrd_params_present_flag",                      1) -- u(1))
-			if get("sub_pic_hrd_params_present_flag") ~= 0 then
+			if get("sub_pic_hrd_params_present_flag") == 1 then
 				rbit("tick_divisor_minus2",                              8) -- u(8))
 				rbit("du_cpb_removal_delay_increment_length_minus1",     5) -- u(5))
 				rbit("sub_pic_cpb_params_in_pic_timing_sei_flag",        1) -- u(1))
@@ -354,7 +371,7 @@ function hrd_parameters( commonInfPresentFlag, maxNumSubLayersMinus1 )
 			end
 			rbit("bit_rate_scale",                                       4) -- u(4))
 			rbit("cpb_size_scale",                                       4) -- u(4))
-			if sub_pic_hrd_params_present_flag ~= 0 then                                                
+			if sub_pic_hrd_params_present_flag == 1 then                                                
 				rbit("cpb_size_du_scale",                                4) -- u(4))
 			end
 			rbit("initial_cpb_removal_delay_length_minus1",              5) -- u(5))
@@ -367,7 +384,7 @@ function hrd_parameters( commonInfPresentFlag, maxNumSubLayersMinus1 )
 		if fixed_pic_rate_general_flag[i] == 0 then                                                
 			rbit("fixed_pic_rate_within_cvs_flag[i]",                    1) -- u(1))
 		end
-		if fixed_pic_rate_within_cvs_flag[i] ~= 0 then
+		if fixed_pic_rate_within_cvs_flag[i] == 1 then
 			rexp("elemental_duration_in_tc_minus1[i]"                    )  -- ue(v)
 		else
 			rbit("low_delay_hrd_flag[i]",                                1) -- u(1))
@@ -375,10 +392,10 @@ function hrd_parameters( commonInfPresentFlag, maxNumSubLayersMinus1 )
 		if  get("low_delay_hrd_flag[i]") == 0 then
 			rbit("cpb_cnt_minus1[i]"                                     )  -- ue(v)
 		end
-		if ger("nal_hrd_parameters_present_flag") ~= 0 then
+		if ger("nal_hrd_parameters_present_flag") == 1 then
 			sub_layer_hrd_parameters( i )
 		end
-		if get("vcl_hrd_parameters_present_flag") ~= 0 then
+		if get("vcl_hrd_parameters_present_flag") == 1 then
 			sub_layer_hrd_parameters( i )
 		end
 	end
@@ -388,7 +405,7 @@ function sub_layer_hrd_parameters( subLayerId )
 	for i = 0, CpbCnt do
 		rexp("bit_rate_value_minus1[i]"           )  -- ue(v)
 		rexp("cpb_size_value_minus1[i]"           )  -- ue(v)
-		if get("sub_pic_hrd_params_present_flag") ~= 0 then
+		if get("sub_pic_hrd_params_present_flag") == 1 then
 			rexp("cpb_size_du_value_minus1[i]"    )  -- ue(v)
 			rexp("bit_rate_du_value_minus1[i]"    )  -- ue(v)
 		end
@@ -405,13 +422,15 @@ print("pic_parameter_set_rbsp")
 	rbit("num_extra_slice_header_bits",                     3) -- u(3))
 	rbit("sign_data_hiding_enabled_flag",                   1) -- u(1))
 	rbit("cabac_init_present_flag",                         1) -- u(1))
-	rexp("num_ref_idx_l0_default_active_minus1"             ) -- ue(v))
-	rexp("num_ref_idx_l1_default_active_minus1"             ) -- ue(v))
-	rexp("init_qp_minus26"                                  ) -- se(v))
+	reset("num_ref_idx_l0_active_minus1",
+		rexp("num_ref_idx_l0_default_active_minus1"))          -- ue(v))
+	reset("num_ref_idx_l1_active_minus1",
+		rexp("num_ref_idx_l1_default_active_minus1"))          -- ue(v))
+	rexp("init_qp_minus26"                                  )  -- se(v))
 	rbit("constrained_intra_pred_flag",                     1) -- u(1))
 	rbit("transform_skip_enabled_flag",                     1) -- u(1))
 	rbit("cu_qp_delta_enabled_flag",                        1) -- u(1))
-	if get("cu_qp_delta_enabled_flag") ~= 0 then
+	if get("cu_qp_delta_enabled_flag") == 1 then
 		rexp("diff_cu_qp_delta_depth"                       ) -- ue(v))
 	end
 	
@@ -423,7 +442,7 @@ print("pic_parameter_set_rbsp")
 	rbit("transquant_bypass_enabled_flag",                  1) -- u(1))
 	rbit("tiles_enabled_flag",                              1) -- u(1))
 	rbit("entropy_coding_sync_enabled_flag",                1) -- u(1))
-	if get("tiles_enabled_flag") ~= 0 then 
+	if get("tiles_enabled_flag") == 1 then 
 		rexp("num_tile_columns_minus1"                      ) -- ue(v))
 		rexp("num_tile_rows_minus1"                         ) -- ue(v))
 		rbit("uniform_spacing_flag",                        1) -- u(1))
@@ -439,7 +458,7 @@ print("pic_parameter_set_rbsp")
 	end
 	rbit("pps_loop_filter_across_slices_enabled_flag",      1) -- u(1))
 	rbit("deblocking_filter_control_present_flag",          1) -- u(1))
-	if get("deblocking_filter_control_present_flag") ~= 0 then 
+	if get("deblocking_filter_control_present_flag") == 1 then 
 		rbit("deblocking_filter_override_enabled_flag",     1) -- u(1))
 		rbit("pps_deblocking_filter_disabled_flag",         1) -- u(1))
 		if get("pps_deblocking_filter_disabled_flag") ~= 1 then 
@@ -449,7 +468,7 @@ print("pic_parameter_set_rbsp")
 	end
 	
 	rbit("pps_scaling_list_data_present_flag",              1) -- u(1))
-	if get("pps_scaling_list_data_present_flag") ~= 0 then
+	if get("pps_scaling_list_data_present_flag") == 1 then
 		scaling_list_data( )
 	end
 
@@ -458,40 +477,34 @@ print("pic_parameter_set_rbsp")
 	rbit("slice_segment_header_extension_present_flag",         1) -- u(1))
 
 	rbit("pps_extension_present_flag",                          1) -- u(1))
-	if get("pps_extension_present_flag") ~= 0 then 
+	if get("pps_extension_present_flag") == 1 then 
 		rbit("pps_range_extension_flag",                        1) -- u(1))
 		rbit("pps_multilayer_extension_flag",                   1) -- u(1))
 		rbit("pps_extension_6bits",                             6) -- u(6))
-	else
-		reset("pps_range_extension_flag",      0)
-		reset("pps_multilayer_extension_flag", 0)
-		reset("pps_extension_6bits",           0)
 	end
 	
-	if get("pps_range_extension_flag") ~= 0 then
+	if get("pps_range_extension_flag") == 1 then
 		pps_range_extension( )
 	end	
-	if get("pps_multilayer_extension_flag") ~= 0 then
+	if get("pps_multilayer_extension_flag") == 1 then
 		pps_multilayer_extension( ) -- specified in Annex F 
 	end
-	if get("pps_extension_6bits") ~= 0 then
+	if get("pps_extension_6bits") == 1 then
 		while more_rbsp_data( ) do
 			rbit("pps_extension_data_flag",                      1) -- u(1))
 		end
 	end
 end
 
-function pps_range_extension()
-	rbsp_trailing_bits( )
-	
-	if get("transform_skip_enabled_flag") ~= 0 then
+function pps_range_extension()	
+	if get("transform_skip_enabled_flag") == 1 then
 		rexp("log2_max_transform_skip_block_size_minus2"             ) -- ue(v))
 	end
 
 	rbit("cross_component_prediction_enabled_flag",              1) -- u(1))
 	rbit("chroma_qp_offset_list_enabled_flag",                   1) -- u(1))
 
-	if get("chroma_qp_offset_list_enabled_flag") ~= 0 then 
+	if get("chroma_qp_offset_list_enabled_flag") == 1 then 
 		rexp("diff_cu_chroma_qp_offset_depth"                    ) -- ue(v))
 		rexp("chroma_qp_offset_list_len_minus1"                  ) -- ue(v))
 		for  i = 0, chroma_qp_offset_list_len_minus1  do 
@@ -515,7 +528,7 @@ function access_unit_delimiter_rbsp()
 	rbit("pic_type",                            3)
 
 	if     get("pic_type") == 0 then print("AUD I")  
-	elseif get("pic_type") ~= 0 then print("AUD IP") 
+	elseif get("pic_type") == 1 then print("AUD IP") 
 	elseif get("pic_type") == 2 then print("AUD IPB")
 	else print("AUD unknown")
 	end
@@ -551,8 +564,10 @@ end
 
 function rbsp_trailing_bits()
 	local bit = select(2, cur())
-	cbit("rbsp_stop_one_bit",                          1,       1)
-	cbit("rbsp_alignment_zero_bit",                    8-1-bit, 0) 
+	if bit == 1 then
+		cbit("rbsp_stop_one_bit",       1,       1)
+		cbit("rbsp_alignment_zero_bit", 8-1-bit, 0)
+	end
 end
 
 function byte_alignment()
@@ -563,7 +578,7 @@ function byte_alignment()
 end
 
 function profile_tier_level(profilePresentFlag, maxNumSubLayersMinus1 )
-	if profilePresentFlag ~= 0 then
+	if profilePresentFlag == 1 then
 		rbit("general_profile_space",                            2) -- u(2)
 		rbit("general_tier_flag",                                1) -- u(1)
 		rbit("general_profile_idc",                              5) -- u(5)
@@ -579,10 +594,10 @@ function profile_tier_level(profilePresentFlag, maxNumSubLayersMinus1 )
 		rbit("general_frame_only_constraint_flag",           1) -- u(1)
 
 		local general_profile_idc = get("general_profile_idc")
-		if general_profile_idc == 4 or general_profile_compatibility_flag[4] ~= 0
-		or general_profile_idc == 5 or general_profile_compatibility_flag[5] ~= 0
-		or general_profile_idc == 6 or general_profile_compatibility_flag[6] ~= 0
-		or general_profile_idc == 7 or general_profile_compatibility_flag[7] ~= 0 then
+		if general_profile_idc == 4 or general_profile_compatibility_flag[4] == 1
+		or general_profile_idc == 5 or general_profile_compatibility_flag[5] == 1
+		or general_profile_idc == 6 or general_profile_compatibility_flag[6] == 1
+		or general_profile_idc == 7 or general_profile_compatibility_flag[7] == 1 then
 			rbit("general_max_12bit_constraint_flag",        1) -- u(1)
 			rbit("general_max_10bit_constraint_flag",        1) -- u(1)
 			rbit("general_max_8bit_constraint_flag",         1) -- u(1)
@@ -598,11 +613,11 @@ function profile_tier_level(profilePresentFlag, maxNumSubLayersMinus1 )
 		end
 
 		if (general_profile_idc >= 1 and general_profile_idc <= 5)
-		or general_profile_compatibility_flag[1] ~= 0 
-		or general_profile_compatibility_flag[2] ~= 0 
-		or general_profile_compatibility_flag[3] ~= 0 
-		or general_profile_compatibility_flag[4] ~= 0 
-		or general_profile_compatibility_flag[5] ~= 0 then
+		or general_profile_compatibility_flag[1] == 1 
+		or general_profile_compatibility_flag[2] == 1 
+		or general_profile_compatibility_flag[3] == 1 
+		or general_profile_compatibility_flag[4] == 1 
+		or general_profile_compatibility_flag[5] == 1 then
 		 	rbit("general_inbld_flag",                     1) -- u(1)
 		else
 			rbit("general_reserved_zero_bit",              1) -- u(1)
@@ -627,7 +642,7 @@ function profile_tier_level(profilePresentFlag, maxNumSubLayersMinus1 )
 	local sub_layer_profile_idc = {}
 	local sub_layer_profile_compatibility_flag = {}
 	for i = 0, maxNumSubLayersMinus1-1 do
-		if sub_layer_profile_present_flag[i] ~= 0 then
+		if sub_layer_profile_present_flag[i] == 1 then
 			rbit("sub_layer_profile_space[i]",                         2) -- u(2)
 			rbit("sub_layer_tier_flag[i]",                             1) -- u(1)
 			rbit("sub_layer_profile_idc[i]",                           5) -- u(5)
@@ -643,10 +658,10 @@ function profile_tier_level(profilePresentFlag, maxNumSubLayersMinus1 )
 			rbit("sub_layer_non_packed_constraint_flag[i]",            1) -- u(1)
 			rbit("sub_layer_frame_only_constraint_flag[i]",            1) -- u(1)			
 
-			if sub_layer_profile_idc[i] == 4 or sub_layer_profile_compatibility_flag[i][4] ~= 0 
-			or sub_layer_profile_idc[i] == 5 or sub_layer_profile_compatibility_flag[i][5] ~= 0 
-			or sub_layer_profile_idc[i] == 6 or sub_layer_profile_compatibility_flag[i][6] ~= 0 
-			or sub_layer_profile_idc[i] == 7 or sub_layer_profile_compatibility_flag[i][7] ~= 0 then
+			if sub_layer_profile_idc[i] == 4 or sub_layer_profile_compatibility_flag[i][4] == 1 
+			or sub_layer_profile_idc[i] == 5 or sub_layer_profile_compatibility_flag[i][5] == 1 
+			or sub_layer_profile_idc[i] == 6 or sub_layer_profile_compatibility_flag[i][6] == 1 
+			or sub_layer_profile_idc[i] == 7 or sub_layer_profile_compatibility_flag[i][7] == 1 then
 				rbit("sub_layer_max_12bit_constraint_flag[i]",         1) -- u(1)
 				rbit("sub_layer_max_10bit_constraint_flag[i]",         1) -- u(1)
 				rbit("sub_layer_max_8bit_constraint_flag[i]",          1) -- u(1)
@@ -662,17 +677,17 @@ function profile_tier_level(profilePresentFlag, maxNumSubLayersMinus1 )
 			end
 			
 			if (sub_layer_profile_idc[i] >= 1 and sub_layer_profile_idc[i] <= 5) 
-			or sub_layer_profile_compatibility_flag[1]  ~= 0 
-			or sub_layer_profile_compatibility_flag[2]  ~= 0 
-			or sub_layer_profile_compatibility_flag[3]  ~= 0 
-			or sub_layer_profile_compatibility_flag[4]  ~= 0 
-			or sub_layer_profile_compatibility_flag[5]  ~= 0 then
+			or sub_layer_profile_compatibility_flag[1]  == 1 
+			or sub_layer_profile_compatibility_flag[2]  == 1 
+			or sub_layer_profile_compatibility_flag[3]  == 1 
+			or sub_layer_profile_compatibility_flag[4]  == 1 
+			or sub_layer_profile_compatibility_flag[5]  == 1 then
 				rbit("sub_layer_inbld_flag[i]",                        1) -- u(1)
 			else
 				rbit("sub_layer_reserved_zero_bit[i]",                 1) -- u(1)
 			end
 		end
-		if get(sub_layer_level_present_flag[i]) ~= 0then                                    
+		if get(sub_layer_level_present_flag[i]) == 1then                                    
 			rbit("sub_layer_level_idc[i]",                                 8) -- u(8)
 		end
 	end
@@ -725,7 +740,7 @@ function sei_message()
 	sei_payload(payloadType, payloadSize)
 end
 
-
+local NumDirectRefLayers = {}
 function slice_segment_header(nal_unit_type)
 	rbit("first_slice_segment_in_pic_flag",                       1) -- u(1))
 	if nal_unit_type >= BLA_W_LP and nal_unit_type <= RSV_IRAP_VCL23 then
@@ -733,46 +748,54 @@ function slice_segment_header(nal_unit_type)
 	end
 	rexp("slice_pic_parameter_set_id"                             ) -- ue(v))
 	if get("first_slice_segment_in_pic_flag") ~= 1 then 
-		if get("dependent_slice_segments_enabled_flag") ~= 0 then
+		if get("dependent_slice_segments_enabled_flag") == 1 then
 			rbit("dependent_slice_segment_flag",                  1) -- u(1))
 		end
 		rbit("slice_segment_address",                             v) -- u(v))
-	else
-		reset("dependent_slice_segment_flag", 0)
-		reset("slice_segment_address", 0)
 	end
+	
 	if get("dependent_slice_segment_flag") ~= 1 then 
+		local i = 0
+		if get("num_extra_slice_header_bits") > i then
+			i = i + 1
+			rbit("discardable_flag",                                   1) -- u(1))
+		end
+
+		if get("num_extra_slice_header_bits") > i then
+			i = i + 1
+			rbit("cross_layer_bla_flag",                               1) -- u(1))
+		end
+	
 		for  i = 0, get("num_extra_slice_header_bits")-1 do
-			rbit("slice_reserved_flag[i]",                             1) -- u(1))
+			slice_reserved_flag[i] = rbit("slice_reserved_flag[i]",    1) -- u(1))
 		end
 		
 		rexp("slice_type"                                              ) -- ue(v))
-		if     get("slice_type") == B then print("slice_type = B")  
-		elseif get("slice_type") == P then print("slice_type = P") 
-		elseif get("slice_type") == I then print("slice_type = I")
-		else print("unknown slice type")
-		end
 
-		if get("output_flag_present_flag") ~= 0 then
+		if get("output_flag_present_flag") == 1 then
 			rbit("pic_output_flag",                                    1) -- u(1))
 		end
 		
-		if get("separate_colour_plane_flag") ~= 0 then
+		if get("separate_colour_plane_flag") == 1 then
 			rbit("colour_plane_id",                                    2) -- u(2))
+		end
+		
+		if get("nuh_layer_id") > 0 
+		and poc_lsb_not_present_flag[LayerIdxInVps[get("nuh_layer_id")]] ~= 1
+		or (nal_unit_type ~= IDR_W_RADL and nal_unit_type ~= IDR_N_LP) then
+			rbit("slice_pic_order_cnt_lsb",                            get("log2_max_pic_order_cnt_lsb_minus4") + 4) -- u(v))
 		end
 		
 		if  nal_unit_type ~= IDR_W_RADL 
 		and nal_unit_type ~= IDR_N_LP then 
-			rbit("slice_pic_order_cnt_lsb",                            get("log2_max_pic_order_cnt_lsb_minus4") + 4) -- u(v))
 			rbit("short_term_ref_pic_set_sps_flag",                    1) -- u(1))
-		
 			if get("short_term_ref_pic_set_sps_flag") ~= 1 then
 				st_ref_pic_set( get("num_short_term_ref_pic_sets") )
 			elseif get("num_short_term_ref_pic_sets") > 1 then
 				rbit("short_term_ref_pic_set_idx",                     math.ceil(math.log(get("num_short_term_ref_pic_sets"), 2))) -- u(v))
 			end
 		
-			if get("long_term_ref_pics_present_flag") ~= 0 then 
+			if get("long_term_ref_pics_present_flag") == 1 then 
 				if get("num_long_term_ref_pics_sps") > 0  then
 					rexp("num_long_term_sps"                               ) -- ue(v))
 				end
@@ -788,39 +811,49 @@ function slice_segment_header(nal_unit_type)
 						rbit("used_by_curr_pic_lt_flag[i]",                1) -- u(1))
 					end
 					rbit("delta_poc_msb_present_flag[i]",                  1) -- u(1))
-					if get("delta_poc_msb_present_flag[i]") ~= 0 then
+					if get("delta_poc_msb_present_flag[i]") == 1 then
 						rexp("delta_poc_msb_cycle_lt[i]"                   ) -- ue(v))
 					end
 				end
 			end
-			if get("sps_temporal_mvp_enabled_flag") ~= 0 then
+			if get("sps_temporal_mvp_enabled_flag") == 1 then
 				rbit("slice_temporal_mvp_enabled_flag",                    1) -- u(1))
 			end
 		end
-		
-		if get("sample_adaptive_offset_enabled_flag") ~= 0 then 
-			rbit("slice_sao_luma_flag",                                1) -- u(1))
-			if ChromaArrayType ~= 0 then
-				rbit("slice_sao_chroma_flag",                          1) -- u(1))
+
+		if get("nuh_layer_id") > 0
+		and get("default_ref_layers_active_flag") ~= 1
+		and NumDirectRefLayers[nuh_layer_id] > 0 then
+			rbit("inter_layer_pred_enabled_flag", 1)
+			if  inter_layer_pred_enabled_flag
+			and NumDirectRefLayers[ nuh_layer_id ] > 1 then
+				if get("max_one_active_ref_layer_flag") ~= 1 then
+					rbit("num_inter_layer_ref_pics_minus1", math.ceil(math.log(NumDirectRefLayers[nuh_layer_id]), 2))
+				end
+				if NumActiveRefLayerPics ~= NumDirectRefLayers[ nuh_layer_id ] then
+					for i = 0, NumActiveRefLayerPics-1 do
+						inter_layer_pred_layer_idc[i] = rbit("inter_layer_pred_layer_idc[i]",
+							maht.ceil(maht.log(NumDirectRefLayers[ nuh_layer_id ], 2)))
+					end
+				end
 			end
-		else
-			reset("slice_sao_luma_flag", 0)
-			reset("slice_sao_chroma_flag", 0)
+		end					
+				
+		if get("sample_adaptive_offset_enabled_flag") == 1 then 
+			rbit("slice_sao_luma_flag",                            1) -- u(1))
+			rbit("slice_sao_chroma_flag",                          1) -- u(1))
 		end
 		
 		if get("slice_type") == P or get("slice_type") == B then 
 			rbit("num_ref_idx_active_override_flag",                   1) -- u(1))
-			if get("num_ref_idx_active_override_flag") ~= 0 then 
+			if get("num_ref_idx_active_override_flag") == 1 then 
 				rexp("num_ref_idx_l0_active_minus1"                        ) -- ue(v))
 				if get("slice_type") == B then
 					rexp("num_ref_idx_l1_active_minus1"                    ) -- ue(v))
 				end
-			else
-				reset("num_ref_idx_l0_active_minus1", get("num_ref_idx_l0_default_active_minus1"))
-				reset("num_ref_idx_l1_active_minus1", get("num_ref_idx_l1_default_active_minus1"))
 			end
 			
-			if get("lists_modification_present_flag") ~= 0 and NumPicTotalCurr > 1 then
+			if get("lists_modification_present_flag") == 1 and NumPicTotalCurr > 1 then
 				ref_pic_lists_modification( )
 			end
 
@@ -828,24 +861,22 @@ function slice_segment_header(nal_unit_type)
 				rbit("mvd_l1_zero_flag",                                   1) -- u(1))
 			end
 
-			if get("cabac_init_present_flag") ~= 0 then
+			if get("cabac_init_present_flag") == 1 then
 				rbit("cabac_init_flag",                                    1) -- u(1))
 			end
 
-			if get("slice_temporal_mvp_enabled_flag") ~= 0 then 
+			if get("slice_temporal_mvp_enabled_flag") == 1 then 
 				if get("slice_type") == B then
 					rbit("collocated_from_l0_flag",                        1) -- u(1))
-				else
-					reset("collocated_from_l0_flag", 1)
 				end
-				if (get("collocated_from_l0_flag") ~= 0 and get("num_ref_idx_l0_active_minus1") > 0 )
+				if (get("collocated_from_l0_flag") == 1 and get("num_ref_idx_l0_active_minus1") > 0 )
 				or (get("collocated_from_l0_flag") ~= 1 and get("num_ref_idx_l1_active_minus1") > 0 ) then
 					rexp("collocated_ref_idx"                              ) -- ue(v))
 				end
 			end
 
-			if ( get("weighted_pred_flag") ~= 0 and get("slice_type") == P )
-			or ( get("weighted_bipred_flag") ~= 0 and get("slice_type") == B ) then
+			if ( get("weighted_pred_flag") == 1 and get("slice_type") == P )
+			or ( get("weighted_bipred_flag") == 1 and get("slice_type") == B ) then
 				pred_weight_table( )
 			end
 			rexp("five_minus_max_num_merge_cand"                           ) -- ue(v))
@@ -853,20 +884,16 @@ function slice_segment_header(nal_unit_type)
 
 		rexp("slice_qp_delta"                                              ) -- se(v))
 
-		if get("pps_slice_chroma_qp_offsets_present_flag") ~= 0 then 
+		if get("pps_slice_chroma_qp_offsets_present_flag") == 1 then 
 			rexp("slice_cb_qp_offset"                                      ) -- se(v))
 			rexp("slice_cr_qp_offset"                                      ) -- se(v))
 		end
 
-		if get("chroma_qp_offset_list_enabled_flag") ~= 0 then
-			rbit("cu_chroma_qp_offset_enabled_flag",                       1) -- u(1))
-		end
-
-		if get("deblocking_filter_override_enabled_flag") ~= 0 then
+		if get("deblocking_filter_override_enabled_flag") == 1 then
 			rbit("deblocking_filter_override_flag",                        1) -- u(1))
 		end
 
-		if get("deblocking_filter_override_flag") ~= 0 then 
+		if get("deblocking_filter_override_flag") == 1 then 
 			rbit("slice_deblocking_filter_disabled_flag",                  1) -- u(1))
 			if get("slice_deblocking_filter_disabled_flag") ~= 1 then 
 				rexp("slice_beta_offset_div2"                              ) -- se(v))
@@ -874,33 +901,62 @@ function slice_segment_header(nal_unit_type)
 			end
 		end
 
-		if get("pps_loop_filter_across_slices_enabled_flag")
-		and (get("slice_sao_luma_flag") ~= 0 or get("slice_sao_chroma_flag") ~= 0
-			or get("slice_deblocking_filter_disabled_flag") ~=1 ) then
+		if get("pps_loop_filter_across_slices_enabled_flag") == 1
+		and (get("slice_sao_luma_flag") == 1
+			or get("slice_sao_chroma_flag") == 1
+			or get("slice_deblocking_filter_disabled_flag") ~= 1 ) then
 			rbit("slice_loop_filter_across_slices_enabled_flag",           1) -- u(1))
 		end
 	end
 
-	if get("tiles_enabled_flag") or get("entropy_coding_sync_enabled_flag") then 
-		rexp("num_entry_point_offsets"                                 ) -- ue(v))
+	if get("tiles_enabled_flag") == 1 or get("entropy_coding_sync_enabled_flag") == 1 then 
+		rexp("num_entry_point_offsets")
 		if get("num_entry_point_offsets") > 0 then 
-			rexp("offset_len_minus1"                                   ) -- ue(v))
+			rexp("offset_len_minus1")
 			for i = 0, get("num_entry_point_offsets")-1 do
-				rbit("entry_point_offset_minus1[i]",                   get("offset_len_minus1") + 1) -- u(v))
+				rbit("entry_point_offset_minus1[i]", get("offset_len_minus1") + 1) -- u(v))
 			end
 		end
 	end
 
-	if get("slice_segment_header_extension_present_flag") ~= 0 then 
-		rexp("slice_segment_header_extension_length"                   ) -- ue(v))
-		for  i = 0, get("slice_segment_header_extension_length") - 1 do
-			rbit("slice_segment_header_extension_data_byte[i]",        8) -- u(8))
+	if get("slice_segment_header_extension_present_flag") == 1 then 
+		rexp("slice_segment_header_extension_length") -- ue(v))
+		local begin_byte, begin_bit = cur()
+		if get("poc_reset_info_present_flag") == 1then
+			rbit("poc_reset_idc", 2)
+		end		
+		if get("poc_reset_idc") ~= 0 then
+			rbit("poc_reset_period_id", 2)
+		end		
+		if get("poc_reset_idc") == 3 then
+			rbit("full_poc_reset_flag", 1)
+			rbit("poc_lsb_val", get("log2_max_pic_order_cnt_lsb_minus4") + 4)
+		end		
+		
+		if PocMsbValRequiredFlag ~= 1
+		and get("vps_poc_lsb_aligned_flag") == 1 then
+			rbit("poc_msb_cycle_val_present_flag", 1)
+		end
+		if get("poc_msb_cycle_val_present_flag") == 1 then
+			rexp("poc_msb_cycle_val")
+		end
+	
+		local end_byte = begin_byte + (get("slice_segment_header_extension_length") * 8)
+		local end_bit = begin_bit
+		function more_data_in_slice_segment_header_extension()
+			if end_byte > cur() and end_bit > select(2, cur()) then
+				return true
+			else
+				return false
+			end
+		end
+		while more_data_in_slice_segment_header_extension() do
+			rbit("slice_segment_header_extension_data_bit", 1)
 		end
 	end
 
 	byte_alignment( )
 end
-
 
 function st_ref_pic_set( stRpsIdx ) 
 print("st_ref_pic_set", stRpsIdx)
@@ -912,15 +968,11 @@ print("st_ref_pic_set", stRpsIdx)
 
 	if stRpsIdx ~= 0  then
 		rbit("inter_ref_pic_set_prediction_flag",                     1) -- u(1))
-	else
-		reset("inter_ref_pic_set_prediction_flag", 0)
 	end
 	
-	if get("inter_ref_pic_set_prediction_flag") ~= 0 then 
+	if get("inter_ref_pic_set_prediction_flag") == 1 then 
 		if stRpsIdx == get("num_short_term_ref_pic_sets") then
 			rexp("delta_idx_minus1"                                   ) -- ue(v))
-		else
-			reset("delta_idx_minus1", 0)
 		end
 		rbit("delta_rps_sign",                                        1) -- u(1))
 		rexp("abs_delta_rps_minus1"                                   ) -- ue(v))
@@ -944,21 +996,21 @@ print("st_ref_pic_set", stRpsIdx)
 		local j = NumPositivePics[RefRpsIdx] - 1
 		while j >= 0 do
 			local dPoc = DeltaPocS1[RefRpsIdx][j] + deltaRps
-			if dPoc < 0 and use_delta_flag[NumNegativePics[RefRpsIdx]+j] ~= 0 then
+			if dPoc < 0 and use_delta_flag[NumNegativePics[RefRpsIdx]+j] == 1 then
 				DeltaPocS0[stRpsIdx][i] = dPoc
 				UsedByCurrPicS0[stRpsIdx][i] = used_by_curr_pic_flag[NumNegativePics[RefRpsIdx]+j]
 				i = i + 1
 			end
 			j = j - 1
 		end
-		if deltaRps < 0 and use_delta_flag[NumDeltaPocs[RefRpsIdx]] ~= 0 then
+		if deltaRps < 0 and use_delta_flag[NumDeltaPocs[RefRpsIdx]] == 1 then
 			DeltaPocS0[stRpsIdx][i] = deltaRps
 			UsedByCurrPicS0[stRpsIdx][i] = used_by_curr_pic_flag[NumDeltaPocs[RefRpsIdx]]
 			i = i + 1
 		end
 		for j = 0, NumNegativePics[RefRpsIdx] - 1 do
 			local dPoc = DeltaPocS0[RefRpsIdx][j] + deltaRps
-			if dPoc < 0 and use_delta_flag[j] ~= 0 then
+			if dPoc < 0 and use_delta_flag[j] == 1 then
 				DeltaPocS0[stRpsIdx][i] = dPoc
 				UsedByCurrPicS0[stRpsIdx][i] = used_by_curr_pic_flag[j]
 				i = i + 1
@@ -970,21 +1022,21 @@ print("st_ref_pic_set", stRpsIdx)
 		local j = NumNegativePics[RefRpsIdx] - 1
 		while j >= 0 do
 			local dPoc = DeltaPocS0[ RefRpsIdx ][ j ] + deltaRps
-			if dPoc > 0 and use_delta_flag[ j ] ~= 0  then
+			if dPoc > 0 and use_delta_flag[ j ] == 1  then
 				DeltaPocS1[ stRpsIdx ][i] = dPoc
 				UsedByCurrPicS1[ stRpsIdx ][i] = used_by_curr_pic_flag[ j ]
 				i = i + 1	
 			end
 			j = j - 1
 		end
-		if deltaRps > 0 and use_delta_flag[ NumDeltaPocs[ RefRpsIdx ] ] ~= 0 then
+		if deltaRps > 0 and use_delta_flag[ NumDeltaPocs[ RefRpsIdx ] ] == 1 then
 			DeltaPocS1[ stRpsIdx ][i] = deltaRps
 			UsedByCurrPicS1[ stRpsIdx ][i] = used_by_curr_pic_flag[ NumDeltaPocs[ RefRpsIdx ] ]
 			i = i + 1
 		end
 		for j = 0, NumPositivePics[ RefRpsIdx ] - 1 do
 			local dPoc = DeltaPocS1[ RefRpsIdx ][ j ] + deltaRps
-			if dPoc > 0 and use_delta_flag[ NumNegativePics[ RefRpsIdx ] + j ]  ~= 0 then
+			if dPoc > 0 and use_delta_flag[ NumNegativePics[ RefRpsIdx ] + j ]  == 1 then
 				DeltaPocS1[ stRpsIdx ][i] = dPoc
 				UsedByCurrPicS1[ stRpsIdx ][i] = used_by_curr_pic_flag[ NumNegativePics[ RefRpsIdx ] + j ] 
 				i = i + 1
@@ -1029,14 +1081,14 @@ end
 
 function ref_pic_lists_modification( ) 
 	rbit("ref_pic_list_modification_flag_l0",                          1) -- u(1))
-	if get("ref_pic_list_modification_flag_l0") ~= 0 then
+	if get("ref_pic_list_modification_flag_l0") == 1 then
 		for  i = 0, num_ref_idx_l0_active_minus1  do
 			rbit("list_entry_l0[i]",                                   v) -- u(v))
 		end
 	end
 	if get("slice_type") == B then 
 		rbit("ref_pic_list_modification_flag_l1",                      1) -- u(1))
-		if get("ref_pic_list_modification_flag_l1") ~= 0 then
+		if get("ref_pic_list_modification_flag_l1") == 1 then
 			for  i = 0, get("num_ref_idx_l1_active_minus1") do
 				rbit("list_entry_l1[i]",                               v) -- u(v))
 			end
@@ -1044,6 +1096,7 @@ function ref_pic_lists_modification( )
 	end
 end                                       
 
+local chroma_weight_l0_flag = {}
 function pred_weight_table( )
 	rexp("luma_log2_weight_denom"                                      ) -- ue(v))
 	if ChromaArrayType ~= 0 then
@@ -1054,15 +1107,15 @@ function pred_weight_table( )
 	end
 	if ChromaArrayType ~= 0 then
 		for  i = 0, get("num_ref_idx_l0_active_minus1") do
-			rbit("chroma_weight_l0_flag[i]",                           1) -- u(1))
+			chroma_weight_l0_flag[i] = rbit("chroma_weight_l0_flag[i]", 1) -- u(1))
 		end
 	end
 	for  i = 0, get("num_ref_idx_l0_active_minus1")  do 
-		if get("luma_weight_l0_flag[i]") ~= 0 then 
+		if get("luma_weight_l0_flag[i]") == 1 then 
 			rexp("delta_luma_weight_l0[i]"                             ) -- se(v))
 			rexp("luma_offset_l0[i]"                                   ) -- se(v))
 		end
-		if ( chroma_weight_l0_flag[i] ) == true then
+		if chroma_weight_l0_flag[i] == true then
 			for  j = 0, 2 -1 do 
 				rexp("delta_chroma_weight_l0[i][j]"                    ) -- se(v))
 				rexp("delta_chroma_offset_l0[i][j]"                    ) -- se(v))
@@ -1083,7 +1136,7 @@ function pred_weight_table( )
 				rexp("delta_luma_weight_l1[i]"                         ) -- se(v))
 				rexp("luma_offset_l1[i]"                               ) -- se(v))
 			end
-			if get("chroma_weight_l1_flag[i]") ~= 0 then
+			if get("chroma_weight_l1_flag[i]") == 1 then
 				for  j = 0, 2-1 do 
 					rexp("delta_chroma_weight_l1[i][j]"                ) -- se(v))
 					rexp("delta_chroma_offset_l1[i][j]"                ) -- se(v))
@@ -1104,8 +1157,8 @@ function slice_segment_data( )
 		rexp("end_of_slice_segment_flag"                                              ) -- ae(v))
 		CtbAddrInTs = CtbAddrInTs + 1
 		CtbAddrInRs = CtbAddrTsToRs[CtbAddrInTs]
-		if ((get("end_of_slice_segment_flag") == 0)        and (get("tiles_enabled_flag") ~= 0)     and (TileId[CtbAddrInTs] ~= TileId[CtbAddrInTs - 1]))
-		or ((get("entropy_coding_sync_enabled_flag") ~= 0) and (CtbAddrInTs % PicWidthInCtbsY == 0) or  (TileId[CtbAddrInTs] ~= TileId[CtbAddrRsToTs[CtbAddrInRs - 1] ])) then 
+		if ((get("end_of_slice_segment_flag") == 0)        and (get("tiles_enabled_flag") == 1)     and (TileId[CtbAddrInTs] ~= TileId[CtbAddrInTs - 1]))
+		or ((get("entropy_coding_sync_enabled_flag") == 1) and (CtbAddrInTs % PicWidthInCtbsY == 0) or  (TileId[CtbAddrInTs] ~= TileId[CtbAddrRsToTs[CtbAddrInRs - 1] ])) then 
 			cexp("end_of_subset_one_bit", 1) -- equal to 1 ae(v)
 			byte_alignment()
 		end
@@ -1119,7 +1172,7 @@ local CtbLog2SizeY
 function coding_tree_unit( ) 
 	xCtb = ( CtbAddrInRs % PicWidthInCtbsY ) << CtbLog2SizeY
 	yCtb = ( CtbAddrInRs / PicWidthInCtbsY ) << CtbLog2SizeY
-	if get("slice_sao_luma_flag") ~= 0 or get("slice_sao_chroma_flag") ~= 0 then
+	if get("slice_sao_luma_flag") == 1 or get("slice_sao_chroma_flag") == 1 then
 		sao( xCtb >> CtbLog2SizeY, yCtb >> CtbLog2SizeY )
 		coding_quadtree( xCtb, yCtb, CtbLog2SizeY, 0 )
 	end
@@ -1723,29 +1776,29 @@ function buffering_period(payloadSize)
 	if get("sub_pic_hrd_params_present_flag") == 0 then 
 		rbit("irap_cpb_params_present_flag",                           1) -- u(1)
 	end
-	if get("irap_cpb_params_present_flag") ~= 0 then
+	if get("irap_cpb_params_present_flag") == 1 then
 		rbit("cpb_delay_offset",                                       get("au_cpb_removal_delay_length_minus1") + 1) -- u(v)
 		rbit("dpb_delay_offset",                                       get("dpb_output_delay_length_minus1") + 1)     -- u(v)
 	end
 	rbit("concatenation_flag",                                         1) -- u(1)
 	rbit("au_cpb_removal_delay_delta_minus1",                          get("au_cpb_removal_delay_length_minus1") + 1) -- u(v)
-	if NalHrdBpPresentFlag ~= 0 then
+	if NalHrdBpPresentFlag == 1 then
 		for i = 0, CpbCnt do
 			rbit("nal_initial_cpb_removal_delay[i]",                   get("initial_cpb_removal_delay_length_minus1") + 1) -- u(v)
 			rbit("nal_initial_cpb_removal_offset[i]",                  get("initial_cpb_removal_delay_length_minus1") + 1) -- u(v)
-			if get("sub_pic_hrd_params_present_flag") ~= 0 
-			or get("irap_cpb_params_present_flag") ~= 0 then
+			if get("sub_pic_hrd_params_present_flag") == 1 
+			or get("irap_cpb_params_present_flag") == 1 then
 				rbit("nal_initial_alt_cpb_removal_delay[i]",           get("initial_cpb_removal_delay_length_minus1") + 1) -- u(v)
 				rbit("nal_initial_alt_cpb_removal_offset[i]",          get("initial_cpb_removal_delay_length_minus1") + 1) -- u(v)
 			end
 		end
 	end
-	if VclHrdBpPresentFlag ~= 0 then
+	if VclHrdBpPresentFlag == 1 then
 		for i = 0, CpbCnt do
 			rbit("vcl_initial_cpb_removal_delay[i]",                   get("initial_cpb_removal_delay_length_minus1") + 1) -- u(v)
 			rbit("vcl_initial_cpb_removal_offset[i]",                  get("initial_cpb_removal_delay_length_minus1") + 1) -- u(v)
-			if get("sub_pic_hrd_params_present_flag")
-			or get("irap_cpb_params_present_flag") then
+			if get("sub_pic_hrd_params_present_flag") == 1
+			or get("irap_cpb_params_present_flag") == 1 then
 				rbit("vcl_initial_alt_cpb_removal_delay[i]",           get("initial_cpb_removal_delay_length_minus1") + 1) -- u(v)
 				rbit("vcl_initial_alt_cpb_removal_offset[i]",          get("initial_cpb_removal_delay_length_minus1") + 1) -- u(v)
 			end
@@ -1770,22 +1823,22 @@ function payload_extension_present(remain_size)
 end
 
 function pic_timing( payloadSize )
-	if get("frame_field_info_present_flag") ~= 0 then
+	if get("frame_field_info_present_flag") == 1 then
 		rbit("pic_struct",                                                4) -- u(4))
 		rbit("source_scan_type",                                          2) -- u(2))
 		rbit("duplicate_flag",                                            1) -- u(1))
 	end
-	if( CpbDpbDelaysPresentFlag) ~= 0 then
+	if( CpbDpbDelaysPresentFlag) == 1 then
 		rbit("au_cpb_removal_delay_minus1",                               get("au_cpb_removal_delay_length_minus1") + 1) -- u(v))
 		rbit("pic_dpb_output_delay",                                      get("dpb_output_delay_length_minus1") + 1) -- u(v))
-		if( sub_pic_hrd_params_present_flag) ~= 0 then
+		if( sub_pic_hrd_params_present_flag) == 1 then
 			rbit("pic_dpb_output_du_delay",                               get("dpb_output_delay_du_length_minus1") + 1) -- u(v))
 		end
-		if  get("sub_pic_hrd_params_present_flag") ~= 0
-		and get("sub_pic_cpb_params_in_pic_timing_sei_flag") ~= 0 then
+		if  get("sub_pic_hrd_params_present_flag") == 1
+		and get("sub_pic_cpb_params_in_pic_timing_sei_flag") == 1 then
 			rexp("num_decoding_units_minus1"                              ) -- ue(v))
 			rbit("du_common_cpb_removal_delay_flag",                      1) -- u(1))
-			if get("du_common_cpb_removal_delay_flag") ~= 0 then
+			if get("du_common_cpb_removal_delay_flag") == 1 then
 				rbit("du_common_cpb_removal_delay_increment_minus1",      get("du_cpb_removal_delay_increment_length_minus1") + 1) -- u(v))
 			end
 			for i = 0, num_decoding_units_minus1 do
@@ -1969,17 +2022,20 @@ function byte_stream(max_length)
 end
 
 -- 5.2.3 of ISO 14496-15. とりあえずサイズを4byte固定
-function length_stream()
+function length_stream(lenght_size)
 	local rbsp, prev = open(1024*1024*3)
 	swap(prev)
+	prev:enable_print(__default_enable_print__)
 	rbsp:enable_print(__default_enable_print__)
 
+	reset_initial_values()
+	
 	local total_size = 0;
 	local nal_size = 0
 	while total_size < get_size() do
-		nal_size = rbyte("nal_size", 4)
+		nal_size = rbyte("nal_size", lenght_size)
 		nal_unit(rbsp, nal_size)
-		total_size = total_size + nal_size
+		total_size = total_size + nal_size + lenght_size
 	end
 end
 

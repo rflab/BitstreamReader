@@ -9,7 +9,7 @@ local function analyse_stream_type(s)
 		print("====================================================================================================================")
 		--ascii_art("stream?")
 		print("check stream...")
-		print("")		
+		print("")
 
 		-- test	
 		if __stream_ext__ == ".test" then
@@ -39,6 +39,19 @@ local function analyse_stream_type(s)
 			end
 			ret = ".txt"
 			break
+		end
+		
+		-- text2dat
+		if rstr("hex", 3):find("^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
+			if rstr("hex", 3):find("^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
+				if rstr("hex", 3):find("^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
+					if rstr("hex", 3):find("^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
+						ret = ".hextext"
+						ascii = "Hex Convert"
+						break
+					end
+				end
+			end
 		end
 		
 		-- RIFFのほうが正確
@@ -276,8 +289,6 @@ local function analyse_stream_type(s)
 				ascii = "PES?"
 			end
 		end
-		
-		
 
 		-- 当てずっぽう
 		seek(0)
@@ -354,8 +365,11 @@ function dispatch_stream(stream)
 	elseif st == ".dat" then
 		dofile(__streamdef_dir__.."dat.lua")
 		
+	elseif st == ".hextext" then
+		dofile(__streamdef_dir__.."hexconv.lua")
+
 	elseif string.match(argv[1], "^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
-		dofile(__streamdef_dir__.."string.lua")
+		dofile(__streamdef_dir__.."hexarg.lua")
 
 	elseif st == ".txt" then
 		dump(256)

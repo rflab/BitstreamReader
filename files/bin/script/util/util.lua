@@ -21,9 +21,13 @@ local gs_store_to_table = true
 function open(arg1, openmode)
 	openmode = openmode or "rb"
 	local prev_stream = gs_stream
+	
+	-- tbyteでファイルを開いている場合があるのでここでクローズする。
+	-- 暫定処理である。
 	if type(arg1)=="string" and gs_files[arg1] == true then
 		close_file(arg1)
 	end
+	
 	gs_stream = stream:new(arg1, openmode)
 	gs_csv = csv:new()
 	table.insert(gs_all_streams, gs_stream) 
@@ -35,6 +39,11 @@ function swap(stream)
 	local prev = gs_stream
 	gs_stream = stream
 	return prev
+end
+
+-- ストリームを入れ替える
+function get_stream()
+	return gs_stream
 end
 
 -- ストリーム状態表示

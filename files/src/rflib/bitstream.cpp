@@ -102,7 +102,7 @@ void  Bitstream::seekoff(integer byte, integer bit)
 
 
 // ビット単位で読み込み
-uinteger Bitstream::read_bit(integer size)
+uinteger Bitstream::read_bits(integer size)
 {
 	if (FAIL(0 <= size && size <= static_cast<integer>(sizeof(uinteger) * 8)))
 	{
@@ -159,7 +159,7 @@ uinteger Bitstream::read_bit(integer size)
 }
 
 // バイト単位で読み込み
-uinteger Bitstream::read_byte(integer size)
+uinteger Bitstream::read_bytes(integer size)
 {
 	if (FAIL(0 <= size && size <= 4))
 	{
@@ -178,34 +178,29 @@ uinteger Bitstream::read_byte(integer size)
 		WARNING << "bit_pos_ is not aligned. bit_pos_=" << hex << bit_pos_ << " " << OUTPUT_POS << endl;
 	}
 
-	return read_bit(size * 8);
+	return read_bits(size * 8);
 }
 
 // 指数ゴロムとしてビット単位で読み込み
 void  Bitstream::read_expgolomb(uinteger &ret_value, integer &ret_size)
 {
-	uinteger v = read_bit(1);
-	if (v == 1)
+	uinteger b;
+	integer count;
+	for (count = 0; count < sizeof(uinteger) * 8; count++)
 	{
-		ret_value = 0;
-		ret_size = 1;
-		return;
+		if (read_bits(1) == 1LL)
+			break;
 	}
 
-	uinteger count = 1;
-	for (;;)
+	if (count >= sizeof(uinteger) * 8)
 	{
-		v = read_bit(1);
-		if (v == 1)
-		{
-			v = read_bit(count);
-			ret_value = (v | (1ULL << count)) - 1;
-			ret_size = 2 * count + 1;
-			return;
-		}
-
-		++count;
+		ERR << "exp-golomb count=" << hex << count << OUTPUT_POS << endl;
+		throw std::runtime_error(FAIL_STR("exp-golomb range error."));
 	}
+
+	ret_value = (1ULL << count) + read_bits(count) - 1ULL;
+	ret_size = 2 * count + 1;
+	return;
 }
 
 // 文字列として読み込み
@@ -253,7 +248,7 @@ string Bitstream::read_string(integer size)
 }
 
 // ビット単位で先読み
-uinteger Bitstream::look_bit(integer size)
+uinteger Bitstream::look_bits(integer size)
 {
 	if (FAIL(0 <= size && size <= static_cast<integer>(sizeof(uinteger) * 8)))
 	{
@@ -267,13 +262,13 @@ uinteger Bitstream::look_bit(integer size)
 		throw std::runtime_error(FAIL_STR("range error."));
 	}
 
-	uinteger val = read_bit(size);
+	uinteger val = read_bits(size);
 	seekoff(0, -size);
 	return val;
 }
 
 // バイト単位で先読み
-uinteger Bitstream::look_byte(integer size)
+uinteger Bitstream::look_bytes(integer size)
 {
 	if (FAIL(0 <= size && size <= 4))
 	{
@@ -292,7 +287,7 @@ uinteger Bitstream::look_byte(integer size)
 		WARNING << "bit_pos_ is not aligned. bit_pos_=" << hex << bit_pos_ << " " << OUTPUT_POS << endl;
 	}
 
-	uinteger val = read_byte(size);
+	uinteger val = read_bytes(size);
 	seekoff(-size, 0);
 	return val;
 }

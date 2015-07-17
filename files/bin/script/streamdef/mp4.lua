@@ -2,10 +2,8 @@
 local cur_trak = nil
 local trak_no = 0
 local trak_data = {}
-local sps_offset = 0
-local sps_size = 0
-local pps_offset = 0
-local pps_size = 0
+local nal_offset = {}
+local nal_size = {}
 
 function BOXHEADER()
 	rbyte("boxsize",                     4)
@@ -52,7 +50,7 @@ function moov(size)
 	local total_size = 0;
 	while total_size < size do
 		local header, box_size, header_size = BOXHEADER()
-		
+
 		if header == "mvhd" then
 			mvhd(box_size-header_size)
 		elseif header == "trak" then
@@ -67,7 +65,7 @@ function moov(size)
 			print("# unknown box", header)
 			rbyte("payload", box_size-header_size)
 		end
-		
+
 		total_size = total_size + box_size
 	end
 end
@@ -75,7 +73,7 @@ end
 function mvhd(size)
 	rbyte("Version",                      1)
 	local x = get("Version")+1
-	
+
 	rbyte("Flags",                        3)
 	rbyte("CreationTime",                 4 * x)
 	rbyte("ModificationTime",             4 * x)
@@ -96,7 +94,7 @@ function trak(size, header)
 	local total_size = 0;
 	while total_size < size do
 		local header, box_size, header_size = BOXHEADER()
-		
+
 		if header == "mdia" then
 			mdia(box_size-header_size)
 		elseif header == "edts" then
@@ -105,10 +103,10 @@ function trak(size, header)
 			print("# unknown box", header)
 			rbyte("payload", box_size-header_size)
 		end
-		
+
 		total_size = total_size + box_size
 	end
-	
+
 	analyse_trak(cur_trak)
 end
 
@@ -126,14 +124,14 @@ function elst(size)
 	local x = get("Version")+1
 	rbyte("Flags",                            3)
 	rbyte("EntryCount",                       4)
-	
+
 	-- ELSTRECORD
 	for i=1, get("EntryCount") do
 		rbyte("SegmentDuration",              4 * x)
 		rbyte("#MediaTime",                   4 * x)
 		rbyte("MediaRateInteger",             2)
 		rbyte("MediaRateFraction",            2)
-		
+
 	end
 end
 
@@ -141,7 +139,7 @@ function mdia(size)
 	local total_size = 0;
 	while total_size < size do
 		local header, box_size, header_size = BOXHEADER()
-		
+
 		if header == "mdhd" then
 			mdhd(box_size-header_size)
 		elseif header == "minf" then
@@ -150,7 +148,7 @@ function mdia(size)
 			print("# unknown box", header)
 			rbyte("payload", box_size-header_size)
 		end
-		
+
 		total_size = total_size + box_size
 	end
 end
@@ -177,14 +175,14 @@ function minf(size)
 	local total_size = 0;
 	while total_size < size do
 		local header, box_size, header_size = BOXHEADER()
-		
+
 		if header == "stbl" then
 			stbl(box_size-header_size)
 		else
 			print("# unknown box", header)
 			rbyte("payload", box_size-header_size)
 		end
-		
+
 		total_size = total_size + box_size
 	end
 end
@@ -221,7 +219,7 @@ function stbl(size)
 	local total_size = 0;
 	while total_size < size do
 		local header, box_size, header_size = BOXHEADER()
-		
+
 		if header == "stsd" then
 			stsd(box_size-header_size)
 		elseif header == "stts" then
@@ -240,20 +238,76 @@ function stbl(size)
 			print("# unknown box", header)
 			rbyte("payload", box_size-header_size)
 		end
-		
+
 		total_size = total_size + box_size
 	end
 end
 
+function HEVCDecoderConfigurationRecord()
+	rbit("configurationVersion",              8, 1)
+	rbit("profile_space",                     2)
+	rbit("tier_flag",                         1)
+	rbit("profile_idc",                       5)
+	rbit("profile_compatibility_flags",       32)
+	rbit("constraint_indicator_flags",        48)
+	rbit("level_idc",                         8)
+	cbit("reserved",                          4, 0xf)
+	rbit("min_spatial_segmentation_idc",      12)
+	cbit("reserved",                          6, 0x3f)
+	rbit("parallelismType",                   2)
+	cbit("reserved",                          6, 0x3f)
+	rbit("chromaFormat",                      2)
+	cbit("reserved",                          5, 0x1f)
+	rbit("bitDepthLumaMinus8",                3)
+	cbit("reserved",                          5, 0x1f)
+	rbit("bitDepthChromaMinus8",              3)
+	rbit("avgFrameRate",                      16)
+	rbit("constantFrameRate",                 2)
+	rbit("numTemporalLayers",                 3)
+	rbit("temporalIdNested",                  1)
+	rbit("lengthSizeMinusOne",                2)
+	rbit("numOfArrays",                       8)
+	for j=0, get("numOfArrays")-1 do
+		rbit("array_completeness",            1)
+		rbit("reserved",                      1, 0)
+		local NAL_unit_type =
+		rbit("NAL_unit_type",                 6)
+		rbit("numNalus",                      16)
+		for i=0, get("numNalus")-1 do
+			local nalUnitLength =
+			rbit("nalUnitLength",             16)
+			table.insert(nal_offset, (cur()))
+			table.insert(nal_size, nalUnitLength)
+			rbit("nalUnit",                   8*get("nalUnitLength"))
+		end
+	end
+end
+
 function HEVCSampleEntry(size)
-	rbyte("some data", box_size)
-	--if header == "hev1" then
-	--	--HEVCSampleEntry()
-	--	rbyte("some data", box_size-header_size)
-	--elseif header == "hvcC" then
-	--	cur_trak.descriptor = header
-	--	--HEVCConfigurationBox()
-	--end
+	local begin = cur()
+	local hvcC_exists = false
+	VisualSampleEntryBox()
+
+	local total_size = cur() - begin;
+	while total_size < size do
+		local header, box_size, header_size = BOXHEADER()
+
+		if header == "m4ds" then
+			MPEG4ExtensionDescriptorsBox(box_size - header_size)
+		elseif header == "hvcC" then
+			HEVCDecoderConfigurationRecord()
+			hvcC_exists = true
+		elseif header == "btrt" then
+			MPEG4BitRateBox()
+		else
+			print("# unknown box", header)
+			rbyte("payload", box_size - header_size)
+		end
+
+		total_size = total_size + box_size
+	end
+
+	assert(hvcC_exists, "hvcC not exists")
 end
 
 function MPEG4BitRateBox()
@@ -285,7 +339,7 @@ function AVCSampleEntry(size)
 			print("# unknown box", header)
 			rbyte("payload", box_size - header_size)
 		end
-		
+
 		total_size = total_size + box_size
 	end
 end
@@ -322,27 +376,27 @@ function AVCDecoderConfigurationRecord()
 	cbit("reserved",                        3, 0x7)
 	rbit("numOfSequenceParameterSets",      5) -- unsigned int(5)
 	for i=0, get("numOfSequenceParameterSets") - 1 do
-		rbit("sequenceParameterSetLength",  16) -- unsigned int(16) 
-		sps_offset = cur()
-		sps_size = get("sequenceParameterSetLength")
+		rbit("sequenceParameterSetLength",  16) -- unsigned int(16)
+		table.insert(nal_offset, (cur()))
+		table.insert(nal_size, get("sequenceParameterSetLength"))
 		rbit("sequenceParameterSetNALUnit", 8*get("sequenceParameterSetLength"))
 	end
 	rbit("numOfPictureParameterSets",       8) -- unsigned int(8)
 	for i=0, get("numOfPictureParameterSets") - 1 do
-		rbit("pictureParameterSetLength",   16) -- unsigned int(16) 
-		pps_offset = cur()
-		pps_size = get("sequenceParameterSetLength")
+		rbit("pictureParameterSetLength",   16) -- unsigned int(16)
+		table.insert(nal_offset, (cur()))
+		table.insert(nal_size, get("sequenceParameterSetLength"))
 		rbit("pictureParameterSetNALUnit",  8*get("pictureParameterSetLength"))
 	end
 end
 
 function DESCRIPTIONRECORD()
 	local header, box_size, header_size = BOXHEADER()
-	
+
 	cur_trak.descriptor = header
-		
+
 	if header == "avc1" then
-		AVCSampleEntry(box_size-header_size)
+		AVCSampleEntry(box_size - header_size)
 	elseif header == "hvc1" then
 		HEVCSampleEntry(box_size - header_size)
 	elseif header == "mp4a" then
@@ -355,14 +409,14 @@ end
 
 function stsd(size)
 	local begin = cur()
-	
+
 	rbyte("Version",      1)
 	rbyte("Flags",        3)
 	rbyte("Count",        4)
 	for i=1, get("Count") do
 		DESCRIPTIONRECORD()
 	end
-	
+
 	rbyte("#unknown data", size - (cur() - begin))
 end
 
@@ -446,7 +500,7 @@ function stts(size)
 	rbyte("Version",                                        1)
 	rbyte("Flags",                                          3)
 	store_to_table(cur_trak, "Count", rbyte("Count",                 4))
-	
+
 	for i=1, get("Count") do
 		store_to_table(cur_trak, "SttsSampleCount", rbyte("SttsSampleCount",   4))
 		store_to_table(cur_trak, "SttsSampleDelta", rbyte("SttsSampleDelta",   4))
@@ -566,7 +620,7 @@ function moof(size)
 	local total_size = 0;
 	while total_size < size do
 		local header, box_size, header_size = BOXHEADER()
-		
+
 		if header == "mfhd" then
 			mfhd(box_size-header_size)
 		elseif header == "traf" then
@@ -575,7 +629,7 @@ function moof(size)
 			print("# unknown box", header)
 			rbyte("payload", box_size-header_size)
 		end
-		
+
 		total_size = total_size + box_size
 	end
 end
@@ -588,7 +642,7 @@ function traf(size)
 	local total_size = 0;
 	while total_size < size do
 		local header, box_size, header_size = BOXHEADER()
-		
+
 		if header == "mfhd" then
 			mfhd(box_size-header_size)
 		elseif header == "traf" then
@@ -597,7 +651,7 @@ function traf(size)
 			print("# unknown box", header)
 			rbyte("payload", box_size-header_size)
 		end
-		
+
 		total_size = total_size + box_size
 	end
 end
@@ -727,7 +781,7 @@ function mp4(size)
 			print("# unknown box", header)
 			rbyte("payload", box_size-header_size)
 		end
-		
+
 		total_size = total_size + box_size
 	end
 	return total_size
@@ -736,8 +790,7 @@ end
 ----------------------------------------
 -- 解析用util
 ----------------------------------------
-
-function analyse_trak(trak)	
+function analyse_trak(trak)
 	local result = {}
 
 	local time_scale = get("TimeScale")
@@ -755,7 +808,7 @@ function analyse_trak(trak)
 	local Chunk = {}
 	local Offset = {}
 	for sample_no = 1, get("SizeCount") do
-	
+
 		-- sample to chunk更新
 		if chunk_no == next_stsc then
 			samples_per_chunk = trak.SamplesPerChunk.tbl[stsc_no] or samples_per_chunk
@@ -765,17 +818,17 @@ function analyse_trak(trak)
 
 		-- サンプルサイズ
 		sample_size = trak.SizeTable.tbl[sample_no]
-		
+
 		-- 各種値を保存
 		table.insert(No, sample_no)
 		table.insert(Size, sample_size)
 		table.insert(Chunk, chunk_no)
 		table.insert(Offset, trak.StcoOffsets.tbl[chunk_no] + size_in_chunk)
-		
+
 		-- chunk or sampleのカウントアップ
 		if sample_in_chunk == samples_per_chunk then
 			sample_in_chunk = 1
-			chunk_no = chunk_no + 1 
+			chunk_no = chunk_no + 1
 			size_in_chunk = 0
 		else
 			sample_in_chunk = sample_in_chunk + 1
@@ -786,7 +839,7 @@ function analyse_trak(trak)
 	store(trak.descriptor.."Size", Size)
 	store(trak.descriptor.."Chunk", Chunk)
 	store(trak.descriptor.."Offset", Offset)
-	
+
 	-- DTS
 	local DTS = {}
 	local DTS_in_tick = {}
@@ -824,23 +877,20 @@ function analyse_trak(trak)
 	else
 		print("no PTS in ", cur_trak.descriptor)
 	end
-	
+
 	-- ES書き出し
 	-- Videoであれば解析
 	print(cur_trak.descriptor)
 	local prev = cur()
 	local out_file_name = __out_dir__..trak.descriptor..".es"
-	if trak.descriptor == "avc1" then
-		seek(sps_offset)
-		write(out_file_name, val2str(sps_size, 4))
-		tbyte("sps", sps_size, out_file_name)
-		seek(pps_offset)
-		write(out_file_name, val2str(pps_size, 4))
-		tbyte("pps", pps_size, out_file_name)
-	elseif trak.descriptor == "hvc1" then
+	if trak.descriptor == "avc1"
+	or trak.descriptor == "hvc1" then
+		for i, v in ipairs(nal_offset) do
+			seek(nal_offset[i])
+			write(out_file_name, val2str(nal_size[i], get("lengthSizeMinusOne")+1))
+			tbyte("nal", nal_size[i], out_file_name)
+		end
 	end
-	
-	local size = 0
 	for i = 1, #Offset do
 		seek(Offset[i])
 		tbyte("es", Size[i], out_file_name)
@@ -848,18 +898,16 @@ function analyse_trak(trak)
 	if trak.descriptor == "avc1" then
 		dofile(__streamdef_dir__.."h264.lua")
 		local stream, prev = open(out_file_name)
-		enable_print(__default_enable_print__)
-		length_stream()
+		length_stream(get("lengthSizeMinusOne")+1)
 		swap(prev)
 	elseif trak.descriptor == "hvc1" then
 		dofile(__streamdef_dir__.."h265.lua")
-		enable_print(__default_enable_print__)
 		local stream, prev = open(out_file_name)
-		length_stream()
+		length_stream(get("lengthSizeMinusOne")+1)
 		swap(prev)
 	end
 	seek(prev)
-	
+
 	-- タイムスタンプ書き出し用
 	trak_no = trak_no + 1
 	trak_data[trak_no] = {}
@@ -898,11 +946,11 @@ function analyse_mp4()
 			c:save(__out_dir__.."/timestamp.csv")
 			break
 		end
-		
+
 	    -- CSVに保存、offsetがまだのtrakはfalseを書き込みcsv上で空欄にする
 		c:insert("Offset", min_ofs)
 		for i, v in ipairs(trak_data) do
-			
+
 			if v.Offset[v.i] ~= false then
 				if min_i == i then
 					c:insert(v.descriptor.." DTS", v.DTS[v.i])
@@ -917,12 +965,14 @@ function analyse_mp4()
 	end
 end
 
+function init()
+	reset("lengthSizeMinusOne", 3)
+end
+
 open(__stream_path__)
 enable_print(__default_enable_print__)
+init()
 mp4(get_size())
-
-print_status()
 save_as_csv(__out_dir__.."mp4.csv")
-
 analyse_mp4()
 

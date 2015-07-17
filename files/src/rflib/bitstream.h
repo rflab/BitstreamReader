@@ -25,12 +25,12 @@ namespace rf
 		bool check_off(integer byte, integer bit) const;
 		void seekpos(integer byte, integer bit);
 		void seekoff(integer byte, integer bit);
-		uinteger read_bit(integer size);
-		uinteger read_byte(integer size);
+		uinteger read_bits(integer size);
+		uinteger read_bytes(integer size);
 		void read_expgolomb(uinteger &ret_value, integer &ret_size);
 		string read_string(integer size);
-		uinteger look_bit(integer size);
-		uinteger look_byte(integer size);
+		uinteger look_bits(integer size);
+		uinteger look_bytes(integer size);
 		void look_expgolomb(uinteger &ret_val, integer &ret_size);
 		void look_byte_string(char* address, integer size);
 		integer find_byte(char sc, bool advance, integer end_offset = integer_max);

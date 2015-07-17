@@ -127,7 +127,7 @@ namespace rf
 			{
 				stringstream ss;
 				ss << " >> " << file_name;
-				stream.read_byte(ss.str().c_str(), size);
+				stream.read_bytes(ss.str().c_str(), size);
 			}
 		}
 
@@ -139,13 +139,13 @@ namespace rf
 		enum { MAX_DUMP = 1024 };
 
 		// ちょっとどうだろう
-		uinteger read_bit_unsafe(const char* name, integer size) throw(...)
+		uinteger read_bits_unsafe(const char* name, integer size) throw(...)
 		{
 			uinteger v;
 			integer prev_byte = byte_pos();
 			integer prev_bit = bit_pos();
 
-			v = bs_.read_bit(size);
+			v = bs_.read_bits(size);
 
 			if (little_endian_)
 			{
@@ -172,7 +172,7 @@ namespace rf
 		}
 
 		// ちょっとどうだろう
-		uinteger read_byte_unsafe(const char* name, integer byte, integer bit) throw(...)
+		uinteger read_bytes_unsafe(const char* name, integer byte, integer bit) throw(...)
 		{
 			integer prev_byte = byte_pos();
 			integer prev_bit = bit_pos();
@@ -250,51 +250,53 @@ namespace rf
 		void seekpos(integer byte, integer bit) { bs_.seekpos(byte, bit); }
 
 		// ビット単位で読み込み
-		// 32/64bit以上はread_byteをコール
+		// 32/64bit以上はread_bytesをコール
 		// integerサイズ以上は0を返す
-		uinteger read_bit(const char* name, integer size) throw(...)
+		uinteger read_bits(const char* name, integer size) throw(...)
 		{
 			if (FAIL(size >= 0))
-				throw runtime_error((print_status(), string("size < 0, size=") + to_string(size)));
+				throw runtime_error((print_status(), string(name) + " size < 0, size = " + to_string(size)));
 
 			if (FAIL(bs_.check_off(0, size)))
-				throw runtime_error((print_status(), string("overflow, size=") + to_string(size)));
+				throw runtime_error((print_status(), string(name) + " overflow, size=" + to_string(size)));
 
 			if (size > static_cast<integer>(sizeof(uinteger)*8))
 			{
 				// byteで読み込むがbit単位でシークする必要がある
 				integer prev_byte = byte_pos();
 				integer prev_bit = bit_pos();
-				read_byte_unsafe(name, size / 8, size % 8);
+				read_bytes_unsafe(name, size / 8, size % 8);
 				seekpos(prev_byte + (size + prev_bit) / 8, (size + prev_bit) % 8);
 				return 0;
 			}
 			else
 			{
-				return read_bit_unsafe(name, size);
+				return read_bits_unsafe(name, size);
 			}
 		}
 
 		// バイト単位で読みとばし
-		// 32/64bit以下ははread_bitをコール
+		// 32/64bit以下ははread_bitsをコール
 		// integerサイズ以上は0を返す
-		uinteger read_byte(const char* name, integer size) throw(...)
+		uinteger read_bytes(const char* name, integer size) throw(...)
 		{
 			if (FAIL(bs_.check_off(size, 0)))
-				throw runtime_error((print_status(), string("overflow, size=") + to_string(size)));
+				throw runtime_error((print_status(), 
+					string(name) + " overflow, size=" + to_string(size)));
 
 			if (FAIL(bs_.bit_pos() == 0))
 			{
-				WARNING << "bit_pos_ is not aligned. bit_pos_=" << hex << bit_pos() << " " << OUTPUT_POS << endl;
+				WARNING << " \"" << name << "\" bit_pos_ is not aligned. bit_pos_="
+					<< hex << bit_pos() << " " << OUTPUT_POS << endl;
 			}
 
 			if (size > static_cast<integer>(sizeof(uinteger)))
 			{
-				return read_byte_unsafe(name, size, 0);
+				return read_bytes_unsafe(name, size, 0);
 			}
 			else
 			{
-				return read_bit_unsafe(name, 8 * size);
+				return read_bits_unsafe(name, 8 * size);
 			}
 		}
 
@@ -303,7 +305,7 @@ namespace rf
 		string read_string(const char* name, integer size) throw(...)
 		{
 			if (FAIL(bs_.check_off(size, 0)))
-				throw runtime_error((print_status(), string("overflow, size=") + to_string(size)));
+				throw runtime_error((print_status(), string(name) + " overflow, size = " + to_string(size)));
 
 			integer prev_byte = bs_.byte_pos();
 			string str = bs_.read_string(size);
@@ -348,21 +350,21 @@ namespace rf
 		}
 
 		// ビット単位で先読み
-		uinteger look_bit(integer size) throw(...)
+		uinteger look_bits(integer size) throw(...)
 		{
 			if (FAIL(bs_.check_off(size, 0)))
 				throw runtime_error((print_status(), string("overflow, size=") + to_string(size)));
 
-			return bs_.look_bit(size);
+			return bs_.look_bits(size);
 		}
 
 		// バイト単位で先読み
-		uinteger look_byte(integer size) throw(...)
+		uinteger look_bytes(integer size) throw(...)
 		{
 			if (FAIL(bs_.check_off(size, 0)))
 				throw runtime_error((print_status(), string("overflow, size=") + to_string(size)));
 
-			return bs_.look_byte(size);
+			return bs_.look_bytes(size);
 		}
 
 #if 1
@@ -393,12 +395,12 @@ namespace rf
 		}
 
 		// ビット単位で比較
-		bool compare_bit(const char* name, integer size, uinteger compvalue) throw(...)
+		bool compare_bits(const char* name, integer size, uinteger compvalue) throw(...)
 		{
 			if (FAIL(bs_.check_off(0, size)))
 				throw runtime_error((print_status(), string("overflow, size=") + to_string(size)));
 
-			uinteger value = read_bit(name, size);
+			uinteger value = read_bits(name, size);
 			if (value != compvalue)
 			{
 				printf("# compare value [%s] : 0x%010llx(%lld) != 0x%010llx(%lld)\n",
@@ -414,19 +416,19 @@ namespace rf
 		}
 
 		// バイト単位で比較
-		bool compare_byte(const char* name, integer size, uinteger compvalue) throw(...)
+		bool compare_bytes(const char* name, integer size, uinteger compvalue) throw(...)
 		{
 			if (FAIL(bs_.check_off(size, 0)))
-				throw runtime_error((print_status(), "overflow"));
+				throw runtime_error((print_status(), string(name) + " overflow"));
 
-			return compare_bit(name, 8 * size, compvalue);
+			return compare_bits(name, 8 * size, compvalue);
 		}
 
 		// バイト単位で文字列として比較
 		bool compare_string(const char* name, integer max_length, const char* comp_str) throw(...)
 		{
 			if (FAIL(bs_.check_off(max_length, 0)))
-				throw runtime_error((print_status(), string("overflow, size=") + to_string(max_length)));
+				throw runtime_error((print_status(), string(name) + " overflow, size=" + to_string(max_length)));
 
 			string str = read_string(name, max_length);
 			if (str != comp_str)
@@ -652,7 +654,7 @@ namespace rf
 			{
 				stringstream ss;
 				ss << " >> transfer: " << name;
-				read_byte(ss.str().c_str(), size);
+				read_bytes(ss.str().c_str(), size);
 			}
 		}
 
@@ -788,16 +790,16 @@ unique_ptr<LuaBinder> init_lua(int argc, char** argv)
 		def("seekoff",            &LuaGlueBitstream::seekoff).           // 現在位置からファイルポインタ移動
 		def("bit_pos",            &LuaGlueBitstream::bit_pos).           // 現在のビットオフセットを取得
 		def("byte_pos",           &LuaGlueBitstream::byte_pos).          // 現在のバイトオフセットを取得
-		def("read_bit",           &LuaGlueBitstream::read_bit).          // ビット単位で読み込み
-		def("read_byte",          &LuaGlueBitstream::read_byte).         // バイト単位で読み込み
+		def("read_bit",           &LuaGlueBitstream::read_bits).         // ビット単位で読み込み
+		def("read_byte",          &LuaGlueBitstream::read_bytes).        // バイト単位で読み込み
 		def("read_string",        &LuaGlueBitstream::read_string).       // 文字列を読み込み
 		def("read_expgolomb",     &LuaGlueBitstream::read_expgolomb).    // 指数ゴロムとしてビットを読む
-		def("comp_bit",           &LuaGlueBitstream::compare_bit).       // ビット単位で比較
-		def("comp_byte",          &LuaGlueBitstream::compare_byte).      // バイト単位で比較
+		def("comp_bit",           &LuaGlueBitstream::compare_bits).      // ビット単位で比較
+		def("comp_byte",          &LuaGlueBitstream::compare_bytes).     // バイト単位で比較
 		def("comp_string",        &LuaGlueBitstream::compare_string).    // 文字列を比較
 		def("comp_expgolomb",     &LuaGlueBitstream::compare_expgolomb). // 指数ゴロムを比較
-		def("look_bit",           &LuaGlueBitstream::look_bit).          // ポインタを進めないでビット値を取得、4byteまで
-		def("look_byte",          &LuaGlueBitstream::look_byte).         // ポインタを進めないでバイト値を取得、4byteまで
+		def("look_bit",           &LuaGlueBitstream::look_bits).         // ポインタを進めないでビット値を取得、4byteまで
+		def("look_byte",          &LuaGlueBitstream::look_bytes).        // ポインタを進めないでバイト値を取得、4byteまで
 		def("look_byte_string",   &LuaGlueBitstream::look_byte_string).  // ポインタを進めないで文字列を取得
 		def("look_expgolomb",     &LuaGlueBitstream::look_expgolomb).    // ポインタを進めないで指数ゴロムを取得、4byteまで
 		def("find_byte",          &LuaGlueBitstream::find_byte).         // １バイトの一致を検索

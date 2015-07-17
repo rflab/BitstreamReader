@@ -12,8 +12,10 @@ end
 
 function rbsp_trailing_bits()
 	local bit = select(2, cur())
-	cbit("rbsp_stop_one_bit",                          1,       1)
-	cbit("rbsp_alignment_zero_bit",                    8-1-bit, 0) 
+	if bit ~= 0 then
+		cbit("rbsp_stop_one_bit",                          1,       1)
+		cbit("rbsp_alignment_zero_bit",                    8-1-bit, 0)
+	end
 end
 
 function byte_aligned()
@@ -90,62 +92,23 @@ function scaling_list(scalingList, sizeOfScalingList, useDefaultScalingMatrixFla
 	end
 end
 
-function video_parameter_set_rbsp()
-print("video_parameter_set_rbsp")
-	rbit("vps_video_parameter_set_id",                                  4)  -- u(4)
-	rbit("vps_base_layer_internal_flag",                                1)  -- u(1)
-	rbit("vps_base_layer_available_flag",                               1)  -- u(1)
-	rbit("vps_max_layers_minus1",                                       6)  -- u(6)
-	rbit("vps_max_sub_layers_minus1",                                   3)  -- u(3)
-	rbit("vps_temporal_id_nesting_flag",                                1)  -- u(1)
-	rbit("vps_reserved_0xffff_16bits",                                  16) -- u(16)
-	profile_tier_level(1, get("vps_max_sub_layers_minus1"))
-	rbit("vps_sub_layer_ordering_info_present_flag",                    1)  -- u(1)
-
-	local i = get("vps_sub_layer_ordering_info_present_flag") and 0 or get("vps_max_sub_layers_minus1")
-	for i = i, get("vps_max_sub_layers_minus1") do
-		rexp("vps_max_dec_pic_buffering_minus1[i]"                    )   -- ue(v)
-		rexp("vps_max_num_reorder_pics[i]"                            )   -- ue(v)
-		rexp("vps_max_latency_increase_plus1[i]"                      )   -- ue(v)
+local bit_rate_value_minus1 = {}
+local cpb_size_value_minus1 = {}
+function hrd_parameters()
+print("hrd_parameters")
+	rexp("cpb_cnt_minus1")
+	rbit("bit_rate_scale", 4)
+	rbit("cpb_size_scale", 4)
+	local SchedSelIdx
+	for SchedSelIdx = 0, get("cpb_cnt_minus1") do
+		bit_rate_value_minus1[SchedSelIdx] = rexp("bit_rate_value_minus1[ SchedSelIdx ]")
+		cpb_size_value_minus1[SchedSelIdx] = rexp("cpb_size_value_minus1[ SchedSelIdx ]")
+		rbit("cbr_flag[ SchedSelIdx ]", 1)
 	end
-	rbit("vps_max_layer_id",                                            6)  -- u(6)
-	rexp("vps_num_layer_sets_minus1"                                    )   -- ue(v)
-	for i = 1, get("vps_num_layer_sets_minus1") do
-		for j = 1, get("vps_max_layer_id")+1 do
-			rbit("layer_id_included_flag[i][j]",                    1)  -- u(1)
-		end
-	end
-	rbit("vps_timing_info_present_flag",                        1)  -- u(1)
-	if get("vps_timing_info_present_flag") == 1 then
-		rbit("vps_num_units_in_tick",                           32) -- u(32)
-		rbit("vps_time_scale",                                  32) -- u(32)
-		rbit("vps_poc_proportional_to_timing_flag",             1)  -- u(1)
-		if get("vps_poc_proportional_to_timing_flag") == 1 then
-			rexp("vps_num_ticks_poc_diff_one_minus1"            )   -- ue(v)
-		end
-		rexp("vps_num_hrd_parameters"                           )   -- ue(v)
-		for i = 1, get("vps_num_hrd_parameters") do
-			rexp("hrd_layer_set_idx[i]"                       )   -- ue(v)
-			if i > 1 then
-				rbit("cprms_present_flag[i]",                 1)  -- u(1)
-			end
-			hrd_parameters( get("cprms_present_flag[i]"), get("vps_max_sub_layers_minus1") )
-		end
-	end
-	rbit("vps_extension_flag",                                          1)  -- u(1)
-	if get("vps_extension_flag") == true then
-		while byte_aligned() ~= true do
-			rbit("vps_extension_alignment_bit_equal_to_one",            1)  -- u(1)
-		end
-		vps_extension()
-		rbit("vps_extension2_flag",                                     1)  -- u(1)
-		if get("vps_extension2_flag") then
-			while more_rbsp_data() do
-				rbit("vps_extension_data_flag",                         1)  -- u(1)
-			end
-		end
-	end
-	rbsp_trailing_bits()
+	rbit("initial_cpb_removal_delay_length_minus1", 5)
+	rbit("cpb_removal_delay_length_minus1", 5)
+	rbit("dpb_output_delay_length_minus1", 5)
+	rbit("time_offset_length", 5)
 end
 
 function profile_tier_level(profilePresentFlag, maxNumSubLayersMinus1 )
@@ -291,7 +254,7 @@ print("seq_parameter_set_rbsp")
 		rbit("qpprime_y_zero_transform_bypass_flag",       1)
 		rbit("seq_scaling_matrix_present_flag",            1)
 		
-		if get("seq_scaling_matrix_present_flag") then
+		if get("seq_scaling_matrix_present_flag") == 1 then
 			local num
 			if get("chroma_format_idc") ~= 3 then
 				num = 8
@@ -300,7 +263,7 @@ print("seq_parameter_set_rbsp")
 			end
 			for i = 0, num - 1 do
 				rbit("seq_scaling_list_present_flag",          1)
-				if get("seq_scaling_list_present_flag") then
+				if get("seq_scaling_list_present_flag") == 1then
 					if i <= 6 then
 						ScalingList4x4[i] = ScalingList4x4[i] or {}
 						scaling_list(ScalingList4x4[i], 16, UseDefaultScalingMatrix4x4Flag[i])
@@ -347,7 +310,7 @@ print("seq_parameter_set_rbsp")
 		rexp("frame_crop_bottom_offset"                )
 	end
 	rbit("vui_parameters_present_flag",                1)
-	if get("vui_parameters_present_flag") then
+	if get("vui_parameters_present_flag") == 1 then
 		vui_parameters()
 	end
 	rbsp_trailing_bits()
@@ -401,7 +364,7 @@ print("vui_parameters")
 
 	rbit("vcl_hrd_parameters_present_flag",                   1)
 	if get("vcl_hrd_parameters_present_flag") == 1 then 
-		rbit("hrd_parameters",                                0)
+		hrd_parameters()
 	end
 	
 	if get("nal_hrd_parameters_present_flag") == 1
@@ -423,6 +386,12 @@ print("vui_parameters")
 	end
 end
 
+local pic_scaling_list_present_flag = {}
+local run_length_minus1 = {}
+local top_left = {}
+local bottom_right = {}
+local run_length_minus1 = {}
+local slice_group_id = {}
 function pic_parameter_set_rbsp()
 print("pic_parameter_set_rbsp")
 	rexp("pic_parameter_set_id"                                   )  -- ue(v)
@@ -433,13 +402,13 @@ print("pic_parameter_set_rbsp")
 	if get("num_slice_groups_minus1") > 0 then
 		rexp("slice_group_map_type"                               )  -- ue(v)
 		if get("slice_group_map_type") == 0 then
-			for iGroup = 1, num_slice_groups_minus1 do
-				rexp("run_length_minus1["..iGroup.."]"            )  -- ue(v)
+			for iGroup = 1, get("num_slice_groups_minus1") do
+				rexp("run_length_minus1[iGroup]"            )  -- ue(v)
 			end
 		elseif get("slice_group_map_type") == 2 then
-			for iGroup = 1, num_slice_groups_minus1 do
-				rexp("top_left["..iGroup.."]"                     )  -- ue(v)
-				rexp("bottom_right["..iGroup.."]"                 )  -- ue(v)
+			for iGroup = 1, get("num_slice_groups_minus1") do
+				top_left[iGroup] = rexp("top_left[iGroup]")
+				bottom_right[iGroup] = rexp("bottom_right[iGroup]")				
 			end
 		elseif get("slice_group_map_type") == 3
 		or     get("slice_group_map_type") == 4
@@ -448,8 +417,8 @@ print("pic_parameter_set_rbsp")
 			rexp("slice_group_change_rate_minus1"                 )  -- ue(v)
 		elseif get("slice_group_map_type") == 6 then
 			rexp("pic_size_in_map_units_minus1"                   )  -- ue(v)
-			for i = 1, pic_size_in_map_units_minus1 do
-				rbit("slice_group_id["..i.."]",                   1) -- u(v)
+			for i = 0, get("pic_size_in_map_units_minus1") do
+				slice_group_id[i] = rbit("slice_group_id[i]",                   1) -- u(v)
 			end
 		end
 	end
@@ -466,11 +435,11 @@ print("pic_parameter_set_rbsp")
 	if more_rbsp_data() then
 		rbit("transform_8x8_mode_flag",                           1) -- u(1)
 		rbit("pic_scaling_matrix_present_flag",                   1) -- u(1)
-		if get("pic_scaling_matrix_present_flag") then
+		if get("pic_scaling_matrix_present_flag") == 1 then
 			for i = 0, 6 - 1 + (get("chroma_format_idc") ~= 3 and 2 or 6) * get("transform_8x8_mode_flag") do
-				rbit("pic_scaling_list_present_flag["..i.."]",    1) -- u(1)
-				if get("pic_scaling_list_present_flag["..i.."]") then
-					if i <= 6 then
+				pic_scaling_list_present_flag[i] = rbit("pic_scaling_list_present_flag[i]", 1)
+				if pic_scaling_list_present_flag[i] == 1 then
+					if i < 6 then
 						ScalingList4x4[i] = ScalingList4x4[i] or {}
 						scaling_list(ScalingList4x4[i], 16, UseDefaultScalingMatrix4x4Flag[i])
 					else
@@ -480,7 +449,7 @@ print("pic_parameter_set_rbsp")
 				end
 			end
 		end
-		rexp("second_chroma_qp_index_offset"                       ) -- se(v)
+		rexp("second_chroma_qp_index_offset")
 	end
 	rbsp_trailing_bits()
 end
@@ -527,7 +496,7 @@ function sei_payload(payloadType, payloadSize)
 	local begin = cur()
 	
 	if payloadType == 0 then
-		buffering_period(payloadSize)
+		print("buffering_period()")
 	elseif payloadType == 1 then
 		print("pic_timing( payloadSize ) 5")
 	elseif payloadType == 2 then
@@ -646,41 +615,23 @@ function sei_payload(payloadType, payloadSize)
 end
 
 function buffering_period(payloadSize)
-	rexp("seq_parameter_set_id")-- ue(v)
---	if get("NalHrdBpPresentFlag") then
---	Rec. ITU-T H.264 (04/2013) 329
---	for( SchedSelIdx = 0; SchedSelIdx <= cpb_cnt_minus1; SchedSelIdx++ ) {
---	initial_cpb_removal_delay[ SchedSelIdx ] 5 u(v)
---	initial_cpb_removal_delay_offset[ SchedSelIdx ] 5 u(v)
---	}
---	if( VclHrdBpPresentFlag )
---	for( SchedSelIdx = 0; SchedSelIdx <= cpb_cnt_minus1; SchedSelIdx++ ) {
---	initial_cpb_removal_delay[ SchedSelIdx ] 5 u(v)
---	initial_cpb_removal_delay_offset[ SchedSelIdx ] 5 u(v)
---	end
-end
-
-function nal_unit_264(rbsp, NumBytesInNALunit)
-
-	local total = 1
-	local ofs
-	while true do
-		ofs = math.min(fstr("00 00 03", false), NumBytesInNALunit - total)
-		
-		if ofs >= NumBytesInNALunit - total then 
-			tbyte("rbsp end", ofs, rbsp)
-			break
-		else
-			tbyte("rbsp", ofs+2, rbsp)
-			rbyte("dummy", 1)
-			total = total + ofs + 2 + 1
-		end
-	end
+	-- rexp("seq_parameter_set_id")-- ue(v)
+	-- if get("NalHrdBpPresentFlag") == 1 then
+	-- Rec. ITU-T H.264 (04/2013) 329
+	-- for( SchedSelIdx = 0; SchedSelIdx <= cpb_cnt_minus1; SchedSelIdx++ ) {
+	-- initial_cpb_removal_delay[ SchedSelIdx ] 5 u(v)
+	-- initial_cpb_removal_delay_offset[ SchedSelIdx ] 5 u(v)
+	-- }
+	-- if( VclHrdBpPresentFlag )
+	-- for( SchedSelIdx = 0; SchedSelIdx <= cpb_cnt_minus1; SchedSelIdx++ ) {
+	-- initial_cpb_removal_delay[ SchedSelIdx ] 5 u(v)
+	-- initial_cpb_removal_delay_offset[ SchedSelIdx ] 5 u(v)
+	-- end
 end
 
 function nal_unit(rbsp, NumBytesInNALunit)
 
-	local i = nal_unit_header_h264()
+	local i = nal_unit_header()
 
 	local NumBytesInRbsp = 0
 	local ofs
@@ -705,7 +656,7 @@ function nal_unit(rbsp, NumBytesInNALunit)
 	swap(file)
 end
 
-function nal_unit_header_h264()
+function nal_unit_header()
 	local begin = cur()
 	cbit("forbidden_zero_bit", 1, 0)
 	rbit("nal_ref_idc",        2)
@@ -715,7 +666,7 @@ function nal_unit_header_h264()
 	or get("nal_unit_type") == 20
 	or get("nal_unit_type") == 21 then
 		rbit("svc_extension_flag",                      1)
-		if get("svc_extension_flag") then
+		if get("svc_extension_flag") == 1 then
 			nal_unit_header_svc_extension()
 		else
 			nal_unit_header_mvc_extension()
@@ -728,7 +679,7 @@ end
 function nal_unit_payload(rbsp, NumBytesInRbsp)
 	local begin = cur()
 	local nal_unit_type = get("nal_unit_type")
-	
+		
 	if nal_unit_type == 0 then
 		print("Unspecified RBSP")
 	elseif nal_unit_type == 1 
@@ -789,7 +740,7 @@ function byte_stream(max_length)
 end
 
 -- 5.2.3 of ISO 14496-15. とりあえずサイズを4byte固定
-function length_stream()
+function length_stream(lenght_size)
 	local rbsp, prev = open(1024*1024*3)
 	swap(prev)
 	rbsp:enable_print(__default_enable_print__)
@@ -797,11 +748,10 @@ function length_stream()
 
 	local total_size = 0;
 	local nal_size = 0
-	local nal_size_length = 4
 	while total_size < get_size() do
-		nal_size = rbyte("nal_size", nal_size_length)
+		nal_size = rbyte("nal_size", lenght_size)
 		nal_unit(rbsp, nal_size)
-		total_size = total_size + nal_size + nal_size_length
+		total_size = total_size + nal_size + lenght_size
 	end
 end
 

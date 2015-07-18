@@ -545,7 +545,7 @@ function analyze()
 	analyse_data_byte = true
 	seek(0)
 	enable_print(__default_enable_print__)
-	local analyse_size = math.min(1024*1024, get_size()/10)
+	local analyse_size = math.min(3*1024*1024, get_size())
 	ts(analyse_size, TYPE_PES)
 	print("short analyse size="..analyse_size)
 	

@@ -1,5 +1,5 @@
 -- H264解析
-local has_aud = false
+local has_slice_header = false
 
 function more_rbsp_data()
 	if cur() >= get_size() then
@@ -62,17 +62,19 @@ function access_unit_delimiter_rbsp()
 	rbit("primary_pic_type",                            3)
 	
 	local t = get("primary_pic_type")
-	local st = get_slice_type_str
 
-	if     t == 0 then io.write("I") sprint("AUD I")--st(2), st(7)) 
-	elseif t == 1 then io.write("P") sprint("AUD IP")--st(0), st(2), st(5), st(7)) 
-	elseif t == 2 then io.write("B") sprint("AUD IPB")--st(0), st(1), st(2), st(5), st(6), st(7))
-	elseif t == 3 then io.write("S_I") sprint("AUD SI")--st(4), st(9))
-	elseif t == 4 then io.write("S_P") sprint("AUD SIP")--st(3), st(4), st(8), st(9))
-	elseif t == 5 then io.write("I") sprint("AUD I & SI")--st(2), st(4), st(7), st(9))
-	elseif t == 6 then io.write("P") sprint("AUD IP & SIP")--st(0), st(2), st(3), st(4), st(5), st(7), st(8), st(9))
-	elseif t == 7 then io.write("B") sprint("AUD IPB & SIPB")--st(0), st(1), st(2), st(3), st(4), st(5), st(6), st(7), st(8), st(9))
-	else               io.write("?") sprint("AUD unknown")
+	if has_slice_header == false then
+		local st = get_slice_type_str
+		if     t == 0 then io.write("I") sprint("AUD I")--st(2), st(7)) 
+		elseif t == 1 then io.write("P") sprint("AUD IP")--st(0), st(2), st(5), st(7)) 
+		elseif t == 2 then io.write("B") sprint("AUD IPB")--st(0), st(1), st(2), st(5), st(6), st(7))
+		elseif t == 3 then io.write("S_I") sprint("AUD SI")--st(4), st(9))
+		elseif t == 4 then io.write("S_P") sprint("AUD SIP")--st(3), st(4), st(8), st(9))
+		elseif t == 5 then io.write("I") sprint("AUD I & SI")--st(2), st(4), st(7), st(9))
+		elseif t == 6 then io.write("P") sprint("AUD IP & SIP")--st(0), st(2), st(3), st(4), st(5), st(7), st(8), st(9))
+		elseif t == 7 then io.write("B") sprint("AUD IPB & SIPB")--st(0), st(1), st(2), st(3), st(4), st(5), st(6), st(7), st(8), st(9))
+		else               io.write("?") sprint("AUD unknown")
+		end
 	end
 	
 	rbsp_trailing_bits()
@@ -461,9 +463,7 @@ function slice_header()
 	rexp("slice_type"                    ) -- ue(v)
 	rexp("pic_parameter_set_id"          ) -- ue(v)
 
-	if has_aud == false then
-		io.write(get_slice_type_str(get("slice_type")))
-	end
+	io.write(get_slice_type_str(get("slice_type")))
 	
 	-----まだつづく
 end
@@ -691,6 +691,10 @@ function nal_unit_payload(rbsp, NumBytesInRbsp)
 	or     nal_unit_type == 3
 	or     nal_unit_type == 4
 	or     nal_unit_type == 5 then
+		if has_slice_header == false then
+			print(" -> slice_header_found")
+			has_slice_header = true
+		end
 		slice_header()
 	elseif nal_unit_type == 6 then
 		sei_rbsp()
@@ -699,7 +703,6 @@ function nal_unit_payload(rbsp, NumBytesInRbsp)
 	elseif nal_unit_type == 8 then
 		pic_parameter_set_rbsp()
 	elseif nal_unit_type == 9 then
-		has_aud = true
 		access_unit_delimiter_rbsp()
 	end
 	

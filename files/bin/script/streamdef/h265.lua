@@ -1,5 +1,5 @@
 -- H265解析
-local has_aud = false
+local has_slice_header = false
 
 local TRAIL_N        = 0 
 local TRAIL_R        = 1 
@@ -528,10 +528,12 @@ end
 function access_unit_delimiter_rbsp()
 	rbit("pic_type",                            3)
 
-	if     get("pic_type") == 0 then io.write("I") sprint("AUD I")  
-	elseif get("pic_type") == 1 then io.write("P") sprint("AUD IP") 
-	elseif get("pic_type") == 2 then io.write("B") sprint("AUD IPB")
-	else print("AUD unknown")
+	if has_slice_header == false then
+		if     get("pic_type") == 0 then io.write("I") sprint("AUD I")  
+		elseif get("pic_type") == 1 then io.write("P") sprint("AUD IP") 
+		elseif get("pic_type") == 2 then io.write("B") sprint("AUD IPB")
+		else print("AUD unknown")
+		end
 	end
 	
 	rbsp_trailing_bits()
@@ -772,12 +774,15 @@ function slice_segment_header(nal_unit_type)
 		end
 		
 		local slice_type = rexp("slice_type"                           ) -- ue(v))
-		if has_aud == false then
-			if     slice_type == 0 then io.write("B")
-			elseif slice_type == 1 then io.write("P")
-			elseif slice_type == 2 then io.write("I")
-			else print("slice unknown")
-			end
+
+		if has_slice_header == false then
+			print(" -> slice_header_found")
+			has_slice_header = true
+		end
+		if     slice_type == 0 then io.write("B")
+		elseif slice_type == 1 then io.write("P")
+		elseif slice_type == 2 then io.write("I")
+		else print("slice unknown")
 		end
 		
 
@@ -1970,7 +1975,6 @@ function nal_unit_payload(rbsp, NumBytesInRbsp)
 	elseif nal_unit_type == PPS_NUT then
 		pic_parameter_set_rbsp()
 	elseif nal_unit_type == AUD_NUT then
-		has_aud = true
 		access_unit_delimiter_rbsp()
 	elseif nal_unit_type == EOS_NUT then
 		end_of_seq_rbsp( )

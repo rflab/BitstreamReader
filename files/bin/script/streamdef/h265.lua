@@ -1,4 +1,5 @@
--- H264解析
+-- H265解析
+local has_aud = false
 
 local TRAIL_N        = 0 
 local TRAIL_R        = 1 
@@ -180,8 +181,8 @@ print("seq_parameter_set_rbsp")
 	rexp("pic_height_in_luma_samples"                      )
 	rbit("conformance_window_flag",                        1)
 	
-	print("width  = "..hexstr(get("pic_width_in_luma_samples")))
-	print("height = "..hexstr(get("pic_height_in_luma_samples")))
+	--print("width  = "..hexstr(get("pic_width_in_luma_samples")))
+	--print("height = "..hexstr(get("pic_height_in_luma_samples")))
 
 	if get("conformance_window_flag") == 1 then
 		rexp("conf_win_left_offset")      
@@ -527,9 +528,9 @@ end
 function access_unit_delimiter_rbsp()
 	rbit("pic_type",                            3)
 
-	if     get("pic_type") == 0 then print("AUD I")  
-	elseif get("pic_type") == 1 then print("AUD IP") 
-	elseif get("pic_type") == 2 then print("AUD IPB")
+	if     get("pic_type") == 0 then io.write("I") sprint("AUD I")  
+	elseif get("pic_type") == 1 then io.write("P") sprint("AUD IP") 
+	elseif get("pic_type") == 2 then io.write("B") sprint("AUD IPB")
 	else print("AUD unknown")
 	end
 	
@@ -770,7 +771,15 @@ function slice_segment_header(nal_unit_type)
 			slice_reserved_flag[i] = rbit("slice_reserved_flag[i]",    1) -- u(1))
 		end
 		
-		rexp("slice_type"                                              ) -- ue(v))
+		local slice_type = rexp("slice_type"                           ) -- ue(v))
+		if has_aud == false then
+			if     slice_type == 0 then io.write("B")
+			elseif slice_type == 1 then io.write("P")
+			elseif slice_type == 2 then io.write("I")
+			else print("slice unknown")
+			end
+		end
+		
 
 		if get("output_flag_present_flag") == 1 then
 			rbit("pic_output_flag",                                    1) -- u(1))
@@ -959,7 +968,7 @@ function slice_segment_header(nal_unit_type)
 end
 
 function st_ref_pic_set( stRpsIdx ) 
-print("st_ref_pic_set", stRpsIdx)
+sprint("st_ref_pic_set", stRpsIdx)
 
 	UsedByCurrPicS0[stRpsIdx] = {}
 	UsedByCurrPicS1[stRpsIdx] = {}
@@ -1932,28 +1941,28 @@ function nal_unit_payload(rbsp, NumBytesInRbsp)
 	local begin = cur()
 	local nal_unit_type = get("nal_unit_type")
 
-	if     nal_unit_type == TRAIL_N    then print("TRAIL_N")     slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == TRAIL_R    then print("TRAIL_R")     slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == TSA_N      then print("TSA_N")       slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == TSA_R      then print("TSA_R")       slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == STSA_N     then print("STSA_N")      slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == STSA_R     then print("STSA_R")      slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == RADL_N     then print("RADL_N")      slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == RADL_R     then print("RADL_R")      slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == RASL_N     then print("RASL_N")      slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == RASL_R     then print("RASL_R")      slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == RSV_VCL_N  then print("RSV_VCL_N10") slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == RSV_VCL_N  then print("RSV_VCL_N12") slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == RSV_VCL_N  then print("RSV_VCL_N14") slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == RSV_VCL_R  then print("RSV_VCL_R11") slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == RSV_VCL_R  then print("RSV_VCL_R13") slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == RSV_VCL_R  then print("RSV_VCL_R15") slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == BLA_W_LP   then print("BLA_W_LP")    slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == BLA_W_RADL then print("BLA_W_RADL")  slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == BLA_N_LP   then print("BLA_N_LP")    slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == IDR_W_RADL then print("IDR_W_RADL")  slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == IDR_N_LP   then print("IDR_N_LP")    slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == CRA_NUT    then print("CRA_NUT")     slice_segment_layer_rbsp(nal_unit_type)
+	if     nal_unit_type == TRAIL_N    then sprint("TRAIL_N")     slice_segment_layer_rbsp(nal_unit_type)
+    elseif nal_unit_type == TRAIL_R    then sprint("TRAIL_R")     slice_segment_layer_rbsp(nal_unit_type)
+    elseif nal_unit_type == TSA_N      then sprint("TSA_N")       slice_segment_layer_rbsp(nal_unit_type)
+    elseif nal_unit_type == TSA_R      then sprint("TSA_R")       slice_segment_layer_rbsp(nal_unit_type)
+    elseif nal_unit_type == STSA_N     then sprint("STSA_N")      slice_segment_layer_rbsp(nal_unit_type)
+    elseif nal_unit_type == STSA_R     then sprint("STSA_R")      slice_segment_layer_rbsp(nal_unit_type)
+    elseif nal_unit_type == RADL_N     then sprint("RADL_N")      slice_segment_layer_rbsp(nal_unit_type)
+    elseif nal_unit_type == RADL_R     then sprint("RADL_R")      slice_segment_layer_rbsp(nal_unit_type)
+    elseif nal_unit_type == RASL_N     then sprint("RASL_N")      slice_segment_layer_rbsp(nal_unit_type)
+    elseif nal_unit_type == RASL_R     then sprint("RASL_R")      slice_segment_layer_rbsp(nal_unit_type)
+    elseif nal_unit_type == RSV_VCL_N  then sprint("RSV_VCL_N10") slice_segment_layer_rbsp(nal_unit_type)
+    elseif nal_unit_type == RSV_VCL_N  then sprint("RSV_VCL_N12") slice_segment_layer_rbsp(nal_unit_type)
+    elseif nal_unit_type == RSV_VCL_N  then sprint("RSV_VCL_N14") slice_segment_layer_rbsp(nal_unit_type)
+    elseif nal_unit_type == RSV_VCL_R  then sprint("RSV_VCL_R11") slice_segment_layer_rbsp(nal_unit_type)
+    elseif nal_unit_type == RSV_VCL_R  then sprint("RSV_VCL_R13") slice_segment_layer_rbsp(nal_unit_type)
+    elseif nal_unit_type == RSV_VCL_R  then sprint("RSV_VCL_R15") slice_segment_layer_rbsp(nal_unit_type)
+    elseif nal_unit_type == BLA_W_LP   then sprint("BLA_W_LP")    slice_segment_layer_rbsp(nal_unit_type)
+    elseif nal_unit_type == BLA_W_RADL then sprint("BLA_W_RADL")  slice_segment_layer_rbsp(nal_unit_type)
+    elseif nal_unit_type == BLA_N_LP   then sprint("BLA_N_LP")    slice_segment_layer_rbsp(nal_unit_type)
+    elseif nal_unit_type == IDR_W_RADL then sprint("IDR_W_RADL")  slice_segment_layer_rbsp(nal_unit_type)
+    elseif nal_unit_type == IDR_N_LP   then sprint("IDR_N_LP")    slice_segment_layer_rbsp(nal_unit_type)
+    elseif nal_unit_type == CRA_NUT    then sprint("CRA_NUT")     slice_segment_layer_rbsp(nal_unit_type)
 	elseif nal_unit_type == VPS_NUT then
 		video_parameter_set_rbsp()
 	elseif nal_unit_type == SPS_NUT then
@@ -1961,6 +1970,7 @@ function nal_unit_payload(rbsp, NumBytesInRbsp)
 	elseif nal_unit_type == PPS_NUT then
 		pic_parameter_set_rbsp()
 	elseif nal_unit_type == AUD_NUT then
+		has_aud = true
 		access_unit_delimiter_rbsp()
 	elseif nal_unit_type == EOS_NUT then
 		end_of_seq_rbsp( )
@@ -1978,7 +1988,7 @@ function nal_unit_payload(rbsp, NumBytesInRbsp)
 end
 
 function byte_stream_nal_unit(rbsp, remain_size)
-print("------------"..hexstr(cur()).."------------")
+sprint("------------"..hexstr(cur()).."------------")
 
 	local begin = cur()
 

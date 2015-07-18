@@ -20,6 +20,19 @@ function BOXHEADER()
 	end
 end
 
+function unknown_data(size, begin)
+	local remain = size - (cur() - begin)
+	if remain ~= 0 then
+		print("#unknown data at"..hexstr(cur()), "size="..hexstr(remain))
+		rbyte("#unknown data", remain)
+	end
+end
+
+function unknown_box(header, box_size, header_size)
+	print("# unknown box", header)
+	rbyte("payload", box_size-header_size)
+end
+
 function ftyp(size)
 	rstr ("MajorBrand",                   4)
 	rbyte("MinorVersion",                 4)
@@ -62,8 +75,7 @@ function moov(size)
 		elseif header == "auth" then
 			auth(box_size-header_size)
 		else
-			print("# unknown box", header)
-			rbyte("payload", box_size-header_size)
+			unknown_box(header, box_size, header_size)
 		end
 
 		total_size = total_size + box_size
@@ -100,8 +112,7 @@ function trak(size, header)
 		elseif header == "edts" then
 			edts(box_size-header_size)
 		else
-			print("# unknown box", header)
-			rbyte("payload", box_size-header_size)
+			unknown_box(header, box_size, header_size)
 		end
 
 		total_size = total_size + box_size
@@ -120,17 +131,17 @@ function edts(size)
 end
 
 function elst(size)
-	rbyte("Version",                          1)
+	rbyte("Version",                 1)
 	local x = get("Version")+1
-	rbyte("Flags",                            3)
-	rbyte("EntryCount",                       4)
+	rbyte("Flags",                   3)
+	rbyte("EntryCount",              4)
 
 	-- ELSTRECORD
 	for i=1, get("EntryCount") do
-		rbyte("SegmentDuration",              4 * x)
-		rbyte("#MediaTime",                   4 * x)
-		rbyte("MediaRateInteger",             2)
-		rbyte("MediaRateFraction",            2)
+		rbyte("SegmentDuration",     4 * x)
+		rbyte("MediaTime",           4 * x)
+		rbyte("MediaRateInteger",    2)
+		rbyte("MediaRateFraction",   2)
 
 	end
 end
@@ -145,8 +156,7 @@ function mdia(size)
 		elseif header == "minf" then
 			minf(box_size-header_size)
 		else
-			print("# unknown box", header)
-			rbyte("payload", box_size-header_size)
+			unknown_box(header, box_size, header_size)
 		end
 
 		total_size = total_size + box_size
@@ -154,8 +164,8 @@ function mdia(size)
 end
 
 function mdhd(size)
-	rbyte("Version",                         1)
-	rbyte("Flags",                           3)
+	rbyte("Version",                   1)
+	rbyte("Flags",                     3)
 
 	local x = get("Version") + 1
 	rbyte("CreationTime",              4 * x)
@@ -179,8 +189,7 @@ function minf(size)
 		if header == "stbl" then
 			stbl(box_size-header_size)
 		else
-			print("# unknown box", header)
-			rbyte("payload", box_size-header_size)
+			unknown_box(header, box_size, header_size)
 		end
 
 		total_size = total_size + box_size
@@ -235,8 +244,7 @@ function stbl(size)
 		elseif header == "ctts" then
 			ctts(box_size-header_size)
 		else
-			print("# unknown box", header)
-			rbyte("payload", box_size-header_size)
+			unknown_box(header, box_size, header_size)
 		end
 
 		total_size = total_size + box_size
@@ -300,8 +308,7 @@ function HEVCSampleEntry(size)
 		elseif header == "btrt" then
 			MPEG4BitRateBox()
 		else
-			print("# unknown box", header)
-			rbyte("payload", box_size - header_size)
+			unknown_box(header, box_size, header_size)
 		end
 
 		total_size = total_size + box_size
@@ -327,6 +334,7 @@ function AVCSampleEntry(size)
 
 	local total_size = cur() - begin;
 	while total_size < size do
+		local begin = cur()
 		local header, box_size, header_size = BOXHEADER()
 
 		if header == "m4ds" then
@@ -336,9 +344,10 @@ function AVCSampleEntry(size)
 		elseif header == "btrt" then
 			MPEG4BitRateBox()
 		else
-			print("# unknown box", header)
-			rbyte("payload", box_size - header_size)
+			unknown_box(header, box_size, header_size)
 		end
+	
+		unknown_data(box_size, begin)
 
 		total_size = total_size + box_size
 	end
@@ -402,8 +411,7 @@ function DESCRIPTIONRECORD()
 	elseif header == "mp4a" then
 		rbyte("some data", box_size - header_size)
 	else
-		print("# unknown box", header)
-		rbyte("payload", box_size - header_size)
+		unknown_box(header, box_size, header_size)
 	end
 end
 
@@ -417,7 +425,7 @@ function stsd(size)
 		DESCRIPTIONRECORD()
 	end
 
-	rbyte("#unknown data", size - (cur() - begin))
+	unknown_data(size, begin)
 end
 
 function rtmp(size)
@@ -626,8 +634,7 @@ function moof(size)
 		elseif header == "traf" then
 			traf(box_size-header_size)
 		else
-			print("# unknown box", header)
-			rbyte("payload", box_size-header_size)
+			unknown_box(header, box_size, header_size)
 		end
 
 		total_size = total_size + box_size
@@ -648,8 +655,7 @@ function traf(size)
 		elseif header == "traf" then
 			traf(box_size-header_size)
 		else
-			print("# unknown box", header)
-			rbyte("payload", box_size-header_size)
+			unknown_box(header, box_size, header_size)
 		end
 
 		total_size = total_size + box_size
@@ -778,8 +784,7 @@ function mp4(size)
 		elseif header == "mdat" then
 			mdat(box_size-header_size)
 		else
-			print("# unknown box", header)
-			rbyte("payload", box_size-header_size)
+			unknown_box(header, box_size, header_size)
 		end
 
 		total_size = total_size + box_size

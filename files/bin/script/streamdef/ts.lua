@@ -545,13 +545,14 @@ function analyze()
 	analyse_data_byte = true
 	seek(0)
 	enable_print(__default_enable_print__)
-	print("short analyse 1/50 size.")
-	ts(get_size()/50, TYPE_PES)
+	local analyse_size = math.min(1024*1024, get_size()/10)
+	ts(analyse_size, TYPE_PES)
+	print("short analyse size="..analyse_size)
 	
 	print("analyze more? [y]")
-	--if io.read() == "y" then
-	if false then
-		ts(get_size()-(cur())-192, TYPE_PES)-- - cur() - 1000, TYPE_PES)
+	if io.read() == "y" then
+	--if false then
+		ts(get_size()-(cur())-192, TYPE_PES)
 	end
 	
 	print("analyze ES")
@@ -569,6 +570,7 @@ function analyze()
 			enable_print(__default_enable_print__)
 			byte_stream(get_size())
 		end
+		print("[EOS]")
 	end
 end
 

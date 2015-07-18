@@ -1,4 +1,6 @@
 -- H264解析
+local has_aud = false
+
 function more_rbsp_data()
 	if cur() >= get_size() then
 		return false
@@ -42,17 +44,17 @@ function nal_unit_header_mvc_extension()
 end
 
 function get_slice_type_str(t)
-	if     t == 0 then return "P "
-	elseif t == 1 then return "B "
-	elseif t == 2 then return "I "
-	elseif t == 3 then return "SP "
-	elseif t == 4 then return "SI "
-	elseif t == 5 then return "P "
-	elseif t == 6 then return "B "
-	elseif t == 7 then return "I "
-	elseif t == 8 then return "SP "
-	elseif t == 9 then return "SI "
-	else               return "? "     
+	if     t == 0 then return "P"
+	elseif t == 1 then return "B"
+	elseif t == 2 then return "I"
+	elseif t == 3 then return "SP"
+	elseif t == 4 then return "SI"
+	elseif t == 5 then return "P"
+	elseif t == 6 then return "B"
+	elseif t == 7 then return "I"
+	elseif t == 8 then return "SP"
+	elseif t == 9 then return "SI"
+	else               return "?"     
 	end
 end
 
@@ -62,15 +64,15 @@ function access_unit_delimiter_rbsp()
 	local t = get("primary_pic_type")
 	local st = get_slice_type_str
 
-	if     t == 0 then print("AUD I")--st(2), st(7)) 
-	elseif t == 1 then print("AUD IP")--st(0), st(2), st(5), st(7)) 
-	elseif t == 2 then print("AUD IPB")--st(0), st(1), st(2), st(5), st(6), st(7))
-	elseif t == 3 then print("AUD SI")--st(4), st(9))
-	elseif t == 4 then print("AUD SIP")--st(3), st(4), st(8), st(9))
-	elseif t == 5 then print("AUD I & SI")--st(2), st(4), st(7), st(9))
-	elseif t == 6 then print("AUD IP & SIP")--st(0), st(2), st(3), st(4), st(5), st(7), st(8), st(9))
-	elseif t == 7 then print("AUD IPB & SIPB")--st(0), st(1), st(2), st(3), st(4), st(5), st(6), st(7), st(8), st(9))
-	else               print("AUD unknown")
+	if     t == 0 then io.write("I") sprint("AUD I")--st(2), st(7)) 
+	elseif t == 1 then io.write("P") sprint("AUD IP")--st(0), st(2), st(5), st(7)) 
+	elseif t == 2 then io.write("B") sprint("AUD IPB")--st(0), st(1), st(2), st(5), st(6), st(7))
+	elseif t == 3 then io.write("S_I") sprint("AUD SI")--st(4), st(9))
+	elseif t == 4 then io.write("S_P") sprint("AUD SIP")--st(3), st(4), st(8), st(9))
+	elseif t == 5 then io.write("I") sprint("AUD I & SI")--st(2), st(4), st(7), st(9))
+	elseif t == 6 then io.write("P") sprint("AUD IP & SIP")--st(0), st(2), st(3), st(4), st(5), st(7), st(8), st(9))
+	elseif t == 7 then io.write("B") sprint("AUD IPB & SIPB")--st(0), st(1), st(2), st(3), st(4), st(5), st(6), st(7), st(8), st(9))
+	else               io.write("?") sprint("AUD unknown")
 	end
 	
 	rbsp_trailing_bits()
@@ -95,7 +97,7 @@ end
 local bit_rate_value_minus1 = {}
 local cpb_size_value_minus1 = {}
 function hrd_parameters()
-print("hrd_parameters")
+sprint("hrd_parameters")
 	rexp("cpb_cnt_minus1")
 	rbit("bit_rate_scale", 4)
 	rbit("cpb_size_scale", 4)
@@ -228,7 +230,7 @@ function profile_tier_level(profilePresentFlag, maxNumSubLayersMinus1 )
 end
 
 function seq_parameter_set_rbsp()
-print("seq_parameter_set_rbsp")
+sprint("seq_parameter_set_rbsp")
 	rbit("profile_idc",                                    8)
 	rbit("constraint_set0_flag",                           1)
 	rbit("constraint_set1_flag",                           1)
@@ -294,8 +296,8 @@ print("seq_parameter_set_rbsp")
 	rexp("pic_width_in_mbs_minus1"                     )
 	rexp("pic_height_in_map_units_minus1"              )
 
-	print("width :", (get("pic_width_in_mbs_minus1")+1)*16)
-	print("height:", (get("pic_height_in_map_units_minus1")+1)*16)
+	--print("width :", (get("pic_width_in_mbs_minus1")+1)*16)
+	--print("height:", (get("pic_height_in_map_units_minus1")+1)*16)
 
 	rbit("frame_mbs_only_flag",                        1)
 	if get("frame_mbs_only_flag") == 0 then
@@ -317,7 +319,7 @@ print("seq_parameter_set_rbsp")
 end
 
 function vui_parameters()
-print("vui_parameters")
+sprint("vui_parameters")
 	rbit("aspect_ratio_info_present_flag",                    1)
 	if get("aspect_ratio_info_present_flag") == 1 then     
 		rbit("aspect_ratio_idc",                              8)
@@ -393,7 +395,7 @@ local bottom_right = {}
 local run_length_minus1 = {}
 local slice_group_id = {}
 function pic_parameter_set_rbsp()
-print("pic_parameter_set_rbsp")
+sprint("pic_parameter_set_rbsp")
 	rexp("pic_parameter_set_id"                                   )  -- ue(v)
 	rexp("seq_parameter_set_id"                                   )  -- ue(v)
 	rbit("entropy_coding_mode_flag",                              1) -- u(1)
@@ -458,14 +460,16 @@ function slice_header()
 	rexp("first_mb_in_slice"             ) -- ue(v)
 	rexp("slice_type"                    ) -- ue(v)
 	rexp("pic_parameter_set_id"          ) -- ue(v)
-	
-	print("slice", get_slice_type_str(get("slice_type")))
+
+	if has_aud == false then
+		io.write(get_slice_type_str(get("slice_type")))
+	end
 	
 	-----まだつづく
 end
 
 function sei_rbsp()
-print("SEI")
+sprint("SEI")
 	repeat
 		sei_message()
 	until more_rbsp_data() == false
@@ -496,115 +500,115 @@ function sei_payload(payloadType, payloadSize)
 	local begin = cur()
 	
 	if payloadType == 0 then
-		print("buffering_period()")
+		sprint("buffering_period()")
 	elseif payloadType == 1 then
-		print("pic_timing( payloadSize ) 5")
+		sprint("pic_timing( payloadSize ) 5")
 	elseif payloadType == 2 then
-		print("pan_scan_rect( payloadSize ) 5")
+		sprint("pan_scan_rect( payloadSize ) 5")
 	elseif payloadType == 3 then
-		print("filler_payload( payloadSize ) 5")
+		sprint("filler_payload( payloadSize ) 5")
 	elseif payloadType == 4 then
-		print("user_data_registered_itu_t_t35( payloadSize ) 5")
+		sprint("user_data_registered_itu_t_t35( payloadSize ) 5")
 	elseif payloadType == 5 then
-		print("user_data_unregistered( payloadSize ) 5")
+		sprint("user_data_unregistered( payloadSize ) 5")
 	elseif payloadType == 6 then
-		print("recovery_point( payloadSize ) 5")
+		sprint("recovery_point( payloadSize ) 5")
 	elseif payloadType == 7 then
-		print("dec_ref_pic_marking_repetition( payloadSize ) 5")
+		sprint("dec_ref_pic_marking_repetition( payloadSize ) 5")
 	elseif payloadType == 8 then
-		print("spare_pic( payloadSize ) 5")
+		sprint("spare_pic( payloadSize ) 5")
 	elseif payloadType == 9 then
-		print("scene_info( payloadSize ) 5")
+		sprint("scene_info( payloadSize ) 5")
 	elseif payloadType == 10 then
-		print("sub_seq_info( payloadSize ) 5")
+		sprint("sub_seq_info( payloadSize ) 5")
 	elseif payloadType == 11 then
-		print("sub_seq_layer_characteristics( payloadSize ) 5")
+		sprint("sub_seq_layer_characteristics( payloadSize ) 5")
 	elseif payloadType == 12 then
-		print("sub_seq_characteristics( payloadSize ) 5")
+		sprint("sub_seq_characteristics( payloadSize ) 5")
 	elseif payloadType == 13 then
-		print("full_frame_freeze( payloadSize ) 5")
+		sprint("full_frame_freeze( payloadSize ) 5")
 	elseif payloadType == 14 then
-		print("full_frame_freeze_release( payloadSize ) 5")
+		sprint("full_frame_freeze_release( payloadSize ) 5")
 	elseif payloadType == 15 then
-		print("full_frame_snapshot( payloadSize ) 5")
+		sprint("full_frame_snapshot( payloadSize ) 5")
 	elseif payloadType == 16 then
-		print("progressive_refinement_segment_start( payloadSize ) 5")
+		sprint("progressive_refinement_segment_start( payloadSize ) 5")
 	elseif payloadType == 17 then
-		print("progressive_refinement_segment_end( payloadSize ) 5")
+		sprint("progressive_refinement_segment_end( payloadSize ) 5")
 	elseif payloadType == 18 then
-		print("motion_constrained_slice_group_set( payloadSize ) 5")
+		sprint("motion_constrained_slice_group_set( payloadSize ) 5")
 	elseif payloadType == 19 then
-		print("film_grain_characteristics( payloadSize ) 5")
+		sprint("film_grain_characteristics( payloadSize ) 5")
 	elseif payloadType == 20 then
-		print("deblocking_filter_display_preference( payloadSize ) 5")
+		sprint("deblocking_filter_display_preference( payloadSize ) 5")
 	elseif payloadType == 21 then
-		print("stereo_video_info( payloadSize ) 5")
+		sprint("stereo_video_info( payloadSize ) 5")
 	elseif payloadType == 22 then
-		print("post_filter_hint( payloadSize ) 5")
+		sprint("post_filter_hint( payloadSize ) 5")
 	elseif payloadType == 23 then
-		print("tone_mapping_info( payloadSize ) 5")
+		sprint("tone_mapping_info( payloadSize ) 5")
 	elseif payloadType == 24 then
-		print("scalability_info( payloadSize )  5")
+		sprint("scalability_info( payloadSize )  5")
 	elseif payloadType == 25 then
-		print("sub_pic_scalable_layer( payloadSize )  5")
+		sprint("sub_pic_scalable_layer( payloadSize )  5")
 	elseif payloadType == 26 then
-		print("non_required_layer_rep( payloadSize )  5")
+		sprint("non_required_layer_rep( payloadSize )  5")
 	elseif payloadType == 27 then
-		print("priority_layer_info( payloadSize )  5")
+		sprint("priority_layer_info( payloadSize )  5")
 	elseif payloadType == 28 then
-		print("layers_not_present( payloadSize )  5")
+		sprint("layers_not_present( payloadSize )  5")
 	elseif payloadType == 29 then
-		print("layer_dependency_change( payloadSize )  5")
+		sprint("layer_dependency_change( payloadSize )  5")
 	elseif payloadType == 30 then
-		print("scalable_nesting( payloadSize )  5")
+		sprint("scalable_nesting( payloadSize )  5")
 	elseif payloadType == 31 then
-		print("base_layer_temporal_hrd( payloadSize )  5")
+		sprint("base_layer_temporal_hrd( payloadSize )  5")
 	elseif payloadType == 32 then
-		print("quality_layer_integrity_check( payloadSize )  5")
+		sprint("quality_layer_integrity_check( payloadSize )  5")
 	elseif payloadType == 33 then
-		print("redundant_pic_property( payloadSize )  5")
+		sprint("redundant_pic_property( payloadSize )  5")
 	elseif payloadType == 34 then
-		print("tl0_dep_rep_index( payloadSize )  5")
+		sprint("tl0_dep_rep_index( payloadSize )  5")
 	elseif payloadType == 35 then
-		print("tl_switching_point( payloadSize )  5")
+		sprint("tl_switching_point( payloadSize )  5")
 	elseif payloadType == 36 then
-		print("parallel_decoding_info( payloadSize )  5")
+		sprint("parallel_decoding_info( payloadSize )  5")
 	elseif payloadType == 37 then
-		print("mvc_scalable_nesting( payloadSize )  5")
+		sprint("mvc_scalable_nesting( payloadSize )  5")
 	elseif payloadType == 38 then
-		print("view_scalability_info( payloadSize )  5")
+		sprint("view_scalability_info( payloadSize )  5")
 	elseif payloadType == 39 then
-		print("multiview_scene_info( payloadSize )  5")
+		sprint("multiview_scene_info( payloadSize )  5")
 	elseif payloadType == 40 then
-		print("multiview_acquisition_info( payloadSize )  5")
+		sprint("multiview_acquisition_info( payloadSize )  5")
 	elseif payloadType == 41 then
-		print("non_required_view_component( payloadSize )  5")
+		sprint("non_required_view_component( payloadSize )  5")
 	elseif payloadType == 42 then
-		print("view_dependency_change( payloadSize )  5")
+		sprint("view_dependency_change( payloadSize )  5")
 	elseif payloadType == 43 then
-		print("operation_points_not_present( payloadSize )  5")
+		sprint("operation_points_not_present( payloadSize )  5")
 	elseif payloadType == 44 then
-		print("base_view_temporal_hrd( payloadSize )  5")
+		sprint("base_view_temporal_hrd( payloadSize )  5")
 	elseif payloadType == 45 then
-		print("frame_packing_arrangement( payloadSize ) 5")
+		sprint("frame_packing_arrangement( payloadSize ) 5")
 	elseif payloadType == 46 then
-		print("multiview_view_position( payloadSize )  5")
+		sprint("multiview_view_position( payloadSize )  5")
 	elseif payloadType == 47 then
-		print("display_orientation( payloadSize ) 5")
+		sprint("display_orientation( payloadSize ) 5")
 	elseif payloadType == 48 then
-		print("mvcd_scalable_nesting( payloadSize )  5")
+		sprint("mvcd_scalable_nesting( payloadSize )  5")
 	elseif payloadType == 49 then
-		print("mvcd_view_scalability_info( payloadSize )  5")
+		sprint("mvcd_view_scalability_info( payloadSize )  5")
 	elseif payloadType == 50 then
-		print("depth_representation_info( payloadSize )  5")
+		sprint("depth_representation_info( payloadSize )  5")
 	elseif payloadType == 51 then
-		print("three_dimensional_reference_displays_info( payloadSize ) 5")
+		sprint("three_dimensional_reference_displays_info( payloadSize ) 5")
 	elseif payloadType == 52 then
-		print("depth_timing( payloadSize )  5")
+		sprint("depth_timing( payloadSize )  5")
 	elseif payloadType == 53 then
-		print("depth_sampling_info( payloadSize )  5")
+		sprint("depth_sampling_info( payloadSize )  5")
 	else
-		print("reserved_sei_message( payloadSize )")
+		sprint("reserved_sei_message( payloadSize )")
 	end
 	
 	rbyte("sei payload", payloadSize - (cur() - begin))
@@ -679,7 +683,7 @@ end
 function nal_unit_payload(rbsp, NumBytesInRbsp)
 	local begin = cur()
 	local nal_unit_type = get("nal_unit_type")
-		
+	
 	if nal_unit_type == 0 then
 		print("Unspecified RBSP")
 	elseif nal_unit_type == 1 
@@ -695,6 +699,7 @@ function nal_unit_payload(rbsp, NumBytesInRbsp)
 	elseif nal_unit_type == 8 then
 		pic_parameter_set_rbsp()
 	elseif nal_unit_type == 9 then
+		has_aud = true
 		access_unit_delimiter_rbsp()
 	end
 	
@@ -704,7 +709,7 @@ end
 
 
 function byte_stream_nal_unit(rbsp, NumBytesInNALunit)
-print("------------"..hexstr(cur()).."------------")
+sprint("------------"..hexstr(cur()).."------------")
 
 	local begin = cur()
 
@@ -753,6 +758,7 @@ function length_stream(lenght_size)
 		nal_unit(rbsp, nal_size)
 		total_size = total_size + nal_size + lenght_size
 	end
+	print("[EOS]")
 end
 
 if __stream_ext__ == ".h264" then

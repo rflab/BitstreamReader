@@ -184,7 +184,6 @@ uinteger Bitstream::read_bytes(integer size)
 // 指数ゴロムとしてビット単位で読み込み
 void  Bitstream::read_expgolomb(uinteger &ret_value, integer &ret_size)
 {
-	uinteger b;
 	integer count;
 	for (count = 0; count < sizeof(uinteger) * 8; count++)
 	{

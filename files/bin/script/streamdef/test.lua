@@ -144,8 +144,8 @@ end
 --test_fifo()
 --dofile(__streamdef_dir__.."bmp.lua")
 --dofile(__streamdef_dir__.."ts.lua")
-dofile(__streamdef_dir__.."mp4.lua")
---dofile(__streamdef_dir__.."jpg.lua")
+--dofile(__streamdef_dir__.."mp4.lua")
+dofile(__streamdef_dir__.."jpg.lua")
 --dofile(__streamdef_dir__.."ts.lua")
 --dofile(__streamdef_dir__.."h265.lua")
 

@@ -152,7 +152,8 @@ function _m:cbyte(name, size, comp)
 end
 
 function _m:cstr(name, size, comp)
- 	return self.stream:comp_string(name, size, comp)
+	local str = pat2str(comp)
+ 	return self.stream:comp_string(name, size, str)
 end
 
 function _m:cexp(name, size, comp)
@@ -239,7 +240,7 @@ function _m:tbyte(name, size, target, advance)
 	if type(target) == "string" then
 		return transfer_to_file(target, self.stream, size, advance)
 	else
-		self.stream:transfer_byte(name, target.stream, size, advance)
+		self.stream:transfer_bytes(name, target.stream, size, advance)
 	end
 end
 

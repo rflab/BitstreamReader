@@ -195,6 +195,14 @@ function cexp(name, comp)
 	return gs_stream:cexp(name, comp)
 end
 
+function skip(size, begin)
+	local remain = size - (cur() - begin)
+	if remain ~= 0 then
+		print("#skip from"..hexstr(cur()), "to="..hexstr(cur() + remain))
+		rbyte("#skip data", remain)
+	end
+end
+
 -- bit単位で読み込むがポインタは進めない
 function lbit(size)
 	return gs_stream:lbit(size)
@@ -337,6 +345,21 @@ function hexstr(value)
 		return value
 	end
 end
+
+-- 16進数を1001010な感じの文字列にする
+function binstr(value, size)
+	assert(size <= 32)
+	if type(value) == "number" then
+		local str = ""
+		for i=1, size do
+			str = str..((value>>size-i)&0x1)
+		end
+		return str
+	else
+		return value
+	end
+end
+
 
 -- 値をlengthでトリミングした文字列にする
 function trimstr(v, length)

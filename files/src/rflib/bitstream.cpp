@@ -225,7 +225,6 @@ string Bitstream::read_string(integer size)
 	for (; offset < size; ++offset)
 	{
 		c = buf_->sbumpc();
-		ss << static_cast<char>(c);
 		if (static_cast<char>(c) == '\0')
 		{
 			break;
@@ -234,6 +233,9 @@ string Bitstream::read_string(integer size)
 		{
 			break;
 		}
+		// 終端文字はコピーしない
+		// \0も文字列長に含まれる（よう）なので
+		ss << static_cast<char>(c);
 	}
 
 	seekoff(size, 0);

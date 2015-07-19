@@ -1,68 +1,427 @@
--- bmp解析
-local __stream_path__ = argv[1] or "test.jpg"
-local info = {}
+-- jpeg解析
+local JPEG = {}
+JPEG.width  = 0
+JPEG.height = 0
+JPEG.Q = {} -- 量子化テーブル
+JPEG.F = {} -- フレーム
+JPEG.H = {} -- ハフマンテーブル
+JPEG.S = {} -- スキャン
 
-function segment(maker)
-	rbyte("Length",              2)
-	rbyte("Payload",             get("Length")-2)	
+
+function segment()
+	local length = rbit("L", 16)
+	seekoff(length - 2)
 end
 
 function app0()
 	local begin = cur()
 	print("-------------------JFIF-------------------")
-	rbyte("Length",              2)
-	rstr ("JFIF",                get("Length")-2)
-	seek(get("Length") + begin)
+	rbyte("Lq",              2)
+
+	cstr ("identifier",          5, "4A 46 49 46 00")
+	rbyte("version",             2)
+	rbyte("units",               1)
+	rbyte("Xdensity",            2)
+	rbyte("Ydensity",            2)
+	rbyte("Xthumbnail",          1)
+	rbyte("Ythumbnail",          1)
+	rbyte("(RGB)",               3 * get("Xthumbnail")*get("Ythumbnail"))
+
+	seekoff(get("Lq") - (cur() - begin))
 end
 
 function app1()
 	local begin = cur()
-	rbyte("Length",              2)
+	rbyte("Lq",              2)
 	rstr ("Identifier",          4)
-	
+
 	if get("Identifier") == "Exif" then
 		print("-------------------Exif-------------------")
 		rbyte("0000",                2)
-		exif(get("Length") - 8)
+		exif(get("Lq") - 8)
 	elseif get("Identifier") == "http" then
 		print("-------------------Http-------------------")
 		rstr("http",             256)
-		seek(get("Length") + begin)
+		seek(get("Lq") + begin)
 	end
-		
-end
 
+end
 
 function dqt()
-	rbyte("Length",              2)
-	rbyte("Payload",             get("Length")-2)	
+print("quantization table")
+	local begin = cur()
+	rbit("Lq",        16)
+	rbit("Pq",        4)
+	rbit("Tq",        4)
+
+	local table_id = get("Tq")
+	JPEG.Q[table_id] = {}
+
+	local precision = get("Pq") == 0 and 8 or 16
+	local length = get("Lq") - (cur() - begin)
+
+	local Q = {}
+	print("dump quontization_table")
+	dump(length)
+	for i=1, length do
+		Q[i] = rbit("Qk", precision)
+	end
+
+	JPEG.Q[table_id].precision = precision
+	JPEG.Q[table_id].Q = Q
 end
 
-function dht()
-	rbyte("Length",              2)
-	rbyte("Payload",             get("Length")-2)	
+function get_component(ci)
+
 end
 
 function sof0()
-	rbyte("Length",              2)
-	rbyte("Payload",             get("Length")-2)	
+print("Frame header")
+
+	local begin = cur()
+	rbit("Lf",                     16)
+	rbit("P",                      8)
+	rbit("Y",                      16)
+	rbit("X",                      16)
+	rbit("Nf",                     8)
+
+	JPEG.width = get("X")
+	JPEG.height = get("Y")
+	print("width="..JPEG.width .." height="..JPEG.height)
+
+	for i=1, get("Nf") do
+		local ci =
+		rbit("Ci",                 8) -- Component(Y, Cb, Cr or etc)
+		rbit("Hi",                 4) -- factor h
+		rbit("Vi",                 4) -- factor v
+		rbit("Tqi",                8) -- table
+
+		local component_str
+		local ci = get("Ci")
+		if     ci == 1 then component_str = "Y"
+		elseif ci == 2 then component_str = "Cb"
+		elseif ci == 3 then component_str = "Cr"
+		elseif ci == 4 then component_str = "I"
+		elseif ci == 5 then component_str = "Q"
+		else assert(false, "unknown Ci") end
+
+		JPEG.F[i] = {}
+		JPEG.F[i].component = component_str
+		JPEG.F[i].Qid = get("Tqi")
+		JPEG.F[i].H = get("Hi")
+		JPEG.F[i].V = get("Vi")
+	end
+
+	skip(get("Lf"), begin)
 end
 
+function dht()
+print("Huffman table")
+
+	local begin = cur()
+	rbit("Lh",                     16)
+	rbit("Tc",                     4)
+	rbit("Th",                     4)
+
+	local class = get("Tc") == 0 and "DC" or "AC"
+	print(class)
+
+	local table_id = get("Th")
+	JPEG.H[table_id] = JPEG.H[table_id] or {}
+	JPEG.H[table_id][class] = {}
+
+	local BITS = {}
+	local V = {}
+	for i=1, 16 do
+		BITS[i] = rbit("Li",        8)
+	end
+	local k = 0
+	for i=1, 16 do
+		for j=1, BITS[i] do
+			V[k] = rbit("Vij",      8)
+			k = k + 1
+		end
+	end
+	JPEG.H[table_id][class].V = V
+
+	-- huffsize
+	local k = 0
+	local huffsize = {}
+	for i=1, 16 do
+		for j = 1, BITS[i] do
+			huffsize[k] = i
+			k = k + 1
+		end
+	end
+	huffsize[k] = 0
+	JPEG.H[table_id][class].BITS     = BITS
+	JPEG.H[table_id][class].huffsize = huffsize
+	JPEG.H[table_id][class].lastk    = k
+
+	-- huffcode
+	-- 000
+	-- 010
+	-- 011
+	-- 100
+	-- 101
+	-- 110 -- サイズが3からの場合はここまでビット数固定
+	-- 1110
+	-- 11110
+	-- 11111 -> 0
+	print("huffman")
+	k = 0
+	local code = 0
+	local si = huffsize[0]
+	local huffcode = {}
+	while true do
+		while huffsize[k] == si do
+			huffcode[k] = code
+			printf("%10s, %16s, %32s, ", k, "val="..V[k], "haff=="..binstr(code, si))
+			code = code + 1
+			k = k + 1
+		end
+
+		if huffsize[k] == 0 then
+			break
+		end
+
+		while huffsize[k] ~= si do
+			code = code << 1 -- 11111 の状態から左シフト
+			si = si + 1
+		end
+	end
+	JPEG.H[table_id][class].huffcode = huffcode
+
+	-- max min valptr
+	local maxcode = {} -- 同じbit数のハフマンコードの最大値
+	local mincode = {} -- 同じbit数のハフマンコードの最大値
+	local valptr = {}  -- mincodeのindex
+	local j = 0
+	for i = 1, 16 do
+		if BITS[i] == 0 then
+			maxcode[i] = -1
+		else
+			valptr[i] = j
+			mincode[i] = huffcode[j]
+			j = j + BITS[i] - 1
+			maxcode[i] = huffcode[j]
+			j = j + 1
+		end
+	end
+	JPEG.H[table_id][class].mincode = mincode
+	JPEG.H[table_id][class].maxcode = maxcode
+	JPEG.H[table_id][class].valptr = valptr
+
+	skip(get("Lh"), begin)
+end
+
+local zigzag = {
+  0,  1,  8, 16,  9,  2,  3, 10,
+ 17, 24, 32, 25, 18, 11,  4,  5,
+ 12, 19, 26, 33, 40, 48, 41, 34,
+ 27, 20, 13,  6,  7, 14, 21, 28,
+ 35, 42, 49, 56, 57, 50, 43, 36,
+ 29, 22, 15, 23, 30, 37, 44, 51,
+ 58, 59, 52, 45, 38, 31, 39, 46,
+ 53, 60, 61, 54, 47, 55, 62, 63
+}
+
 function sos()
-	rbyte("Length",              2) -- SOSの場合これはあてにならない
-	rbyte("Ns",                  1)
+print("Scan header")
+	local begin = cur()
+	rbit("Ls",                  16) -- SOSの場合これはあてにならない
+	rbit("Ns",                  8)
+
+	local n = get("Ns")
+	JPEG.S.dc_table_id = {}
+	JPEG.S.ac_table_id = {}
+	for i=1, n do
+		 rbit("Csj",                   8) -- 成分ID
+		 JPEG.S.dc_table_id[i] = rbit("Tdj",  4) -- ＤＣ成分ハフマンテーブル番号
+		 JPEG.S.ac_table_id[i] = rbit("Taj",  4) -- ＡＣ成分ハフマンテーブル番号
+	end
+
+	rbit("Ss",                 8)
+	rbit("Se",                 8)
+	rbit("Ah",                 4)
+	rbit("AL",                 4)
+
+	skip(get("Ls"), begin)
 	
-	for i=1, get("Ns") do
-		rbyte("Cs_id",           1) -- 成分ID
-		rbit ("DC_DHT",          4) -- ＤＣ成分ハフマンテーブル番号
-		rbit ("AC_DHT",          4) -- ＡＣ成分ハフマンテーブル番号
+	scan()
+end
+
+
+function scan()
+	-- データを転送
+	local scan, prev = open()
+	enable_print(false)
+	swap(prev)
+	while true do
+		local ofs = fbyte(0xff, false)
+		tbyte("scan", ofs+1, scan, true)
+		if lbyte(1) ~= 0 then
+			break
+		else
+			rbyte("dummy", 1)
+			print("continue scan")
+		end
+	end
+	swap(scan)
+	
+	-- デコード用関数
+	local function RECEIVE(SSSS)
+		local V = 0
+		for I = 1, SSSS do
+			V =  (V<<1) + rbit("b", 1)
+		end
+		return V
+	end
+	local function EXTEND(V, T)
+		local Vt = 2^(T-1)
+		if V < Vt then
+			Vt = ((-1)<<T) + 1
+			V = V+Vt
+		end
+		return V
 	end
 	
-	rbyte("Ss",                  1)
-	rbyte("Se",                  1)
-	rbit ("Ah",                  4)
-	rbit ("AL",                  4)
+	local function init8x8()
+		-- 8x8データ
+		local ZZ = {}
+		for i=0, 63 do
+			ZZ[i] = 0
+		end
+		return ZZ
+	end
+
+	local prev_ZZ0 = 0
+	local function dcdiff8x8(dc_table, ZZ)
+		-- DC成分	
+		-- print("DC")
+		local T = read_huffman(dc_table)
+		local DIFF = RECEIVE(T)
+		DIFF = EXTEND(DIFF, T)
+		ZZ[0] = prev_ZZ0 + DIFF
+		prev_ZZ0 = ZZ[0]
+		-- print("ZZ[0]="..ZZ[0])
+		return ZZ
+	end
+	
+	local function ac8x8(ac_table, ZZ)
+		-- AC成分
+		-- print("AC")
+		local K = 1
+		while true do	
+			local RS = read_huffman(ac_table)
+			local RRRR = RS >> 4 -- 上位4bit
+			local SSSS = RS % 16 -- 下位4bit
+			local R = RRRR
+			
+			-- 0成分
+			-- or 値
+			if SSSS == 0 then
+				if R == 15 then
+					-- ZRL
+					K = K + 15
+				else
+					-- EOB 通常 00000
+					-- print("BREAK")
+					break
+				end
+			else
+				K = K + R
+				ZZ[K] = RECEIVE(SSSS)
+				ZZ[K] = EXTEND(ZZ[K], SSSS)
+				-- print("ZZ["..K.."]="..ZZ[K])
+				if K == 63 then
+					-- print("BREAK")
+					break
+				else
+					K=K+1
+				end
+			end
+		end
+	end
+
+	
+
+	local function decode16x16()
+		local dc_table1 = JPEG.H[JPEG.S.dc_table_id[1]]["DC"]
+		local ac_table1 = JPEG.H[JPEG.S.ac_table_id[1]]["AC"]
+		local dc_table2 = JPEG.H[JPEG.S.dc_table_id[2]]["DC"]
+		local ac_table2 = JPEG.H[JPEG.S.ac_table_id[2]]["AC"]
+		local dc_table3 = JPEG.H[JPEG.S.dc_table_id[3]]["DC"]
+		local ac_table3 = JPEG.H[JPEG.S.ac_table_id[3]]["AC"]
+		local yh = JPEG.F[1].H
+		local yv = JPEG.F[1].V
+		local cbh = JPEG.F[2].H
+		local cbv = JPEG.F[2].V
+		local crh = JPEG.F[3].H
+		local crv = JPEG.F[3].V
+
+		print("--------------------------------")
+		for i = 1, yh * yv do
+			local ZZ1 = init8x8()
+			dcdiff8x8(dc_table1, ZZ1)
+			ac8x8(ac_table1, ZZ1)
+			print("Y["..i.."]")
+			dump8x8(ZZ1)
+		end
+
+		for i = 1, cbh * cbv do
+			local ZZ2 = init8x8()
+			dcdiff8x8(dc_table2, ZZ2)	
+			ac8x8(ac_table2, ZZ2)	
+			print("Cb["..i.."]")
+			dump8x8(ZZ2)
+		end
+
+		for i = 1, crh * crv do
+			local ZZ3 = init8x8()
+			dcdiff8x8(dc_table3, ZZ3)	
+			ac8x8(ac_table3, ZZ3)
+			print("Cb["..i.."]")
+			dump8x8(ZZ3)
+		end
+	end
+	
+	local num16x16 = math.ceil(JPEG.width / 16) * math.ceil(JPEG.height / 16)
+	for i = 1, num16x16 do
+		print("block16x16 "..i.."/"..num16x16)
+		decode16x16()
+	end
+	
+	swap(prev)
 end
+
+function dump8x8(t)
+	for i = 1, 8 do
+		for j = 1, 8  do
+			io.write(string.format("%5d", t[i*j-1]))
+		end
+		io.write("\n")
+	end
+end
+
+function read_huffman(huff_table)
+	local i=1
+	local code = rbit("huff", 1) 
+	while true do
+		if code > huff_table.maxcode[i] then
+			i = i + 1
+			code = (code << 1) + rbit("huff", 1)
+		else
+			break
+		end
+	end
+	local j = huff_table.valptr[i]
+	j = j + code - huff_table.mincode[i]
+	
+	-- print("huffman no=", j, "val=", huff_table.V[j])
+	return huff_table.V[j]
+end
+
 
 function get_type(t)
 	if     t == 1   then return 1, "byte"
@@ -561,7 +920,7 @@ function get_tag(t)
 	elseif t == 4604865 then return "FJFocusWarning"              ,"オートフォーカスの状態                :"
 	elseif t == 4604866 then return "FJAEWarning"                 ,"自動露出の状態                        :"
 	elseif t == 9900001 then return "KCMode"                      ,"撮影モード                            :"
-    
+
     -- バージョン 2.2 以降
 	elseif t == 27	    then return ""                            ,"測位方式の名称                        :"
 	elseif t == 28	    then return ""                            ,"測位地点の名称                        :"
@@ -591,8 +950,8 @@ function get_tag(t)
 	elseif t == 18246   then return "Rating"                      ,"Rating                                :"
 	elseif t == 18249   then return "RatingPercent"               ,"RatingPercent                         :"
 	elseif t == 40093   then return "XPAuthor"                    ,"XPAuthor                              :"
-	
-	
+
+
 --	elseif t == 0       then return "GPSVersionID"                ,"GPSタグのバージョン                   :"
 --	elseif t == 1       then return "GPSLatitudeRef"              ,"緯度の南北                            :"
 --	elseif t == 2       then return "GPSLatitude"                 ,"緯度（度、分、秒）                    :"
@@ -694,27 +1053,27 @@ function get_tag(t)
 --	elseif t == 41728   then return "FileSource"                  ,"画像入力機器の種類                    :"
 --	elseif t == 41729   then return "SceneType"                   ,"シーンタイプ                          :"
 --	elseif t == 41730   then return "CFAPattern"                  ,"CFAパターン                           :"
---	elseif t == 40965   then return "InteroperabilityIFDPointer"  ,"互換性IFDへのポインタ                 :"   
+--	elseif t == 40965   then return "InteroperabilityIFDPointer"  ,"互換性IFDへのポインタ                 :"
 
-	else                   return "UNDEFINED"                   ,"不明なタグ ("..t.."):"   
+	else                   return "UNDEFINED"                   ,"不明なタグ ("..t.."):"
 
 	end
 end
 
 function exif(size)
 	local begin = cur()
-	
+
 	rstr ("ByteCode",            2)
 	if get("ByteCode") == "MM" then
 		little_endian(false)
 	else
 		little_endian(true)
 	end
-	
+
 	cbyte("002A"  ,              2, 0x002A)
 	rbyte("ifd_ofs",             4)
 	ifd(begin, get("ifd_ofs"))
-	
+
 	seek(begin + size)
 end
 
@@ -725,7 +1084,7 @@ function ifd(origin, offset, indent)
 	seek(origin + offset)
 	rbyte("FieldCount",                                                     2)
 	print(tab.."---------------IFD count:"..hexstr(get("FieldCount")).."-----------------")
-	
+
 	local count = get("FieldCount") -- 先決するためにlocalに保存する
 	for i=1, count do
 		local begin = cur()
@@ -733,14 +1092,14 @@ function ifd(origin, offset, indent)
 		rbyte("Type",                                                       2)
 		rbyte("Count",                                                      4)
 		rbyte("ValueOffset",                                                4)
-		
+
 		local sz, ty = get_type(get("Type"))
 		if get("Count") * sz > 4 then
 			seek(get("ValueOffset")+origin)
 		else
 			seek(cur() - 4)
 		end
-		
+
 		if ty == "byte" then
 			for j=1, get("Count") do
 				local val = rbyte("Byte",                     1)
@@ -758,7 +1117,7 @@ function ifd(origin, offset, indent)
 			for j=1, get("Count") do
 				local val = rbyte("Long",                           4)
 				print(tab..(select(2, get_tag(get("Tag")))), val)
-				
+
 				-- 次の階層
 				if get_tag(get("Tag")) == "ExifIFDPointer"
 				or get_tag(get("Tag")) == "GPSInfoIFDPointer"
@@ -792,7 +1151,7 @@ function ifd(origin, offset, indent)
 
 		seek(begin + 12)
 	end
-	
+
 	rbyte("NextIFD",                                                        4)
 	if get("NextIFD") == 0 then
 		return
@@ -805,42 +1164,44 @@ end
 
 function jpg()
 	cbyte("SOI",           2, 0xffd8)
-	
-	while true do
-		rbyte("Markar",        2)
-		if get("Markar") == 0xffd9 then -- EOI
+
+	while cur() + 4 < get_size() do
+		local maker = rbyte("Markar",        2)
+		if maker == 0xffd9 then -- EOI
 			break;
-		elseif get("Markar") == 0xffe0 then
+		elseif maker == 0xffe0 then
 			app0()
-		elseif get("Markar") == 0xffe1 then
+		elseif maker == 0xffe1 then
 			app1()
-		elseif get("Markar") == 0xffdb then
+		elseif maker == 0xffdb then
 			dqt()
-		elseif get("Markar") == 0xffc4 then
+		elseif maker == 0xffc4 then
 			dht()
-		elseif get("Markar") == 0xffc0 then
+		elseif maker == 0xffc0 then
+			-- ベースライン
 			sof0()
-		elseif get("Markar") == 0xffda then
+		elseif maker == 0xffda then
 			sos()
-			fstr("ff d9", true)
-		elseif get("Markar") == 0xffd0
-		or     get("Markar") == 0xffd1
-		or     get("Markar") == 0xffd2
-		or     get("Markar") == 0xffd3
-		or     get("Markar") == 0xffd4
-		or     get("Markar") == 0xffd5
-		or     get("Markar") == 0xffd6
-		or     get("Markar") == 0xffd7 then
+			--fstr("ff d9", true)
+		elseif maker == 0xffd0
+		or     maker == 0xffd1
+		or     maker == 0xffd2
+		or     maker == 0xffd3
+		or     maker == 0xffd4
+		or     maker == 0xffd5
+		or     maker == 0xffd6
+		or     maker == 0xffd7 then
 			-- restart
 		else
-			segment(get("Markar"))
-		end 
+			print("#unknown maker=", hexstr(maker))
+			segment()
+		end
 	end
 end
 
 open(__stream_path__)
 little_endian(false)
-enable_print(__default_enable_print__)
+enable_print(true)--__default_enable_print__)
+stdout_to_file(false)
 jpg()
-print_table(info)
-print_status()
+

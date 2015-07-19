@@ -431,7 +431,7 @@ namespace rf
 				throw runtime_error((print_status(), string(name) + " overflow, size=" + to_string(max_length)));
 
 			string str = read_string(name, max_length);
-			if (str != comp_str)
+			if (str.compare(comp_str) != 0)
 			{
 				printf("# compare string [%s]: \"%s\" != \"%s\"\n", name, str.c_str(), comp_str);
 				return false;
@@ -638,7 +638,7 @@ namespace rf
 
 		// 別のストリームに転送
 		// 現状オーバーヘッド多め
-		void transfer_byte(const char* name, LuaGlueBitstream &stream, integer size, bool advance)
+		void transfer_bytes(const char* name, LuaGlueBitstream &stream, integer size, bool advance)
 		{
 			if (FAIL(bs_.check_off(size, 0)))
 			{
@@ -806,7 +806,7 @@ unique_ptr<LuaBinder> init_lua(int argc, char** argv)
 		def("find_byte_string",   &LuaGlueBitstream::find_byte_string).  // 数バイト分の一致を検索
 		def("rfind_byte",         &LuaGlueBitstream::rfind_byte).        // １バイトの一致を終端から逆検索
 		def("rfind_byte_string",  &LuaGlueBitstream::rfind_byte_string). // 数バイト分の一致を終端から逆検索
-		def("transfer_byte",      &LuaGlueBitstream::transfer_byte).     // 部分ストリーム(Bitstream)を作成
+		def("transfer_bytes",     &LuaGlueBitstream::transfer_bytes).     // 部分ストリーム(Bitstream)を作成
 		def("write",              &LuaGlueBitstream::write).             // ビットストリームの現在位置に書き込む
 		def("put_char",           &LuaGlueBitstream::put_char).          // ビットストリームの現在位置に書き込む
 		def("append",             &LuaGlueBitstream::append).            // ビットストリームの終端に書き込む

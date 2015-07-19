@@ -235,14 +235,14 @@ function exec_cmd(c)
 				local data = get_data()
 				local vs, ts, bytes, sizs, streams = data.values, data.tables, data.bytes, data.sizes, data.streams
 				local dump_all = nil
-				if c[3] == nil then
-					print("no index. dump for all data? [y/n]")
-					if io.read() == "y" then
+				--if c[3] == nil then
+				--	print("no index. dump for all data? [y/n]")
+				--	if io.read() == "y" then
 						dump_all = true
-					else
-						dump_all = false
-					end
-				end
+				--	else
+				--		dump_all = false
+				--	end
+				--end
 				if dump_all == nil then
 					for k, v in pairs(vs) do
 						if string.find(k, c[2]) ~= nil then
@@ -284,7 +284,7 @@ function exec_cmd(c)
 								local count = 0
 								for i, v in ipairs(bytes[k]) do
 									count = count + 1
-									if count % 1000 == 0 then
+									if count % 100 == 0 then
 										print("n:next")
 										if io.read() ~= "n" then
 											break

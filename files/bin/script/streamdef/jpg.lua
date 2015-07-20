@@ -7,6 +7,19 @@ JPEG.F = {} -- フレーム
 JPEG.H = {} -- ハフマンテーブル
 JPEG.S = {} -- スキャン
 
+function dump8x8(t)
+	--for i = 1, 64 do
+	--	io.write(string.format("%7.2f ", t[i-1]))
+	--end
+	--io.write("\n")
+	for i = 1, 8 do
+		for j = 1, 8  do
+			io.write(string.format("%7.2f ", t[8*(i-1) + (j-1)]))
+		end
+		io.write("\n")
+	end
+end
+
 
 function segment()
 	local length = rbit("L", 16)
@@ -63,10 +76,12 @@ print("quantization table")
 	local Q = {}
 	print("dump quontization_table")
 	dump(length)
-	for i=1, length do
+	for i=0, length-1 do
 		Q[i] = rbit("Qk", precision)
 	end
 
+	print("Q["..table_id.."]")
+	
 	JPEG.Q[table_id].precision = precision
 	JPEG.Q[table_id].Q = Q
 end
@@ -215,16 +230,7 @@ print("Huffman table")
 	skip(get("Lh"), begin)
 end
 
-local zigzag = {
-  0,  1,  8, 16,  9,  2,  3, 10,
- 17, 24, 32, 25, 18, 11,  4,  5,
- 12, 19, 26, 33, 40, 48, 41, 34,
- 27, 20, 13,  6,  7, 14, 21, 28,
- 35, 42, 49, 56, 57, 50, 43, 36,
- 29, 22, 15, 23, 30, 37, 44, 51,
- 58, 59, 52, 45, 38, 31, 39, 46,
- 53, 60, 61, 54, 47, 55, 62, 63
-}
+
 
 function sos()
 print("Scan header")
@@ -286,6 +292,25 @@ function scan()
 		return V
 	end
 	
+	local function read_huffman(huff_table)
+		local i=1
+		local code = rbit("huff", 1) 
+		while true do
+			if code > huff_table.maxcode[i] then
+				i = i + 1
+				code = (code << 1) + rbit("huff", 1)
+			else
+				break
+			end
+		end
+		local j = huff_table.valptr[i]
+		j = j + code - huff_table.mincode[i]
+		
+		-- print("huffman no=", j, "val=", huff_table.V[j])
+		return huff_table.V[j]
+	end
+
+	
 	local function init8x8()
 		-- 8x8データ
 		local ZZ = {}
@@ -304,7 +329,7 @@ function scan()
 		DIFF = EXTEND(DIFF, T)
 		ZZ[0] = prev_ZZ0 + DIFF
 		prev_ZZ0 = ZZ[0]
-		-- print("ZZ[0]="..ZZ[0])
+		print("ZZ[0]="..ZZ[0])
 		return ZZ
 	end
 	
@@ -333,7 +358,7 @@ function scan()
 				K = K + R
 				ZZ[K] = RECEIVE(SSSS)
 				ZZ[K] = EXTEND(ZZ[K], SSSS)
-				-- print("ZZ["..K.."]="..ZZ[K])
+				--print("ZZ["..K.."]="..ZZ[K])
 				if K == 63 then
 					-- print("BREAK")
 					break
@@ -344,15 +369,93 @@ function scan()
 		end
 	end
 
+	local zigzag = {
+		 0,  1,  8, 16,  9,  2,  3, 10,
+		17, 24, 32, 25, 18, 11,  4,  5,
+		12, 19, 26, 33, 40, 48, 41, 34,
+		27, 20, 13,  6,  7, 14, 21, 28,
+		35, 42, 49, 56, 57, 50, 43, 36,
+		29, 22, 15, 23, 30, 37, 44, 51,
+		58, 59, 52, 45, 38, 31, 39, 46,
+		53, 60, 61, 54, 47, 55, 62, 63
+	}
+	local function zigzag8x8(ZZ)
+		local tbl = {}
+		for i=0, 63 do
+			tbl[zigzag[i+1]] = ZZ[i]
+		end
+		-- 冗長
+		for i=0, 63 do
+			ZZ[i] = tbl[i]
+		end
+	end
+
+	local function iquontization8x8(Q, ZZ)
+		for i=0, 63 do
+			ZZ[i] = ZZ[i] * Q[i]
+		end
+	end
 	
+	local dct_matrix = {}
+	local dct_matrix_t = {}
+	for i=0, 7 do
+		dct_matrix[i] = 1/(2*(2^0.5))
+		dct_matrix_t[i*8] = 1/(2*(2^0.5))
+	end
+	for i=1, 7 do
+		for j=0, 7 do
+			local v = 0.5 * math.cos(( i*(j+0.5) / 8) * math.pi)
+			dct_matrix  [(i*8)+j] = v
+			dct_matrix_t[(j*8)+i] = v
+		end
+	end
+	
+	dump8x8(dct_matrix)
+	dump8x8(dct_matrix_t)
+	
+	local function mul8x8(a, b)
+		local ret = {}
+		local ix
+		for i=0, 7 do
+			for j=0, 7 do
+				ix = (i*8)+j 
+				ret[ix] = 0
+				for k=0, 7 do
+					ret[ix] = ret[ix] + a[(i*8)+k] * b[(k*8)+j]
+				end
+			end
+		end
+		return ret
+	end
+
+	-- 高速化なし
+	local function idct8x8(ZZ)
+		local tmp
+		tmp = mul8x8(dct_matrix_t, ZZ)
+		tmp = mul8x8(tmp, dct_matrix)
+		-- 冗長
+		for i=0, 63 do
+			local v = math.ceil(tmp[i] + 128)
+			if v < 0 then
+				ZZ[i] = 0
+			elseif v > 255 then
+				ZZ[i] = 255
+			else
+				ZZ[i] = v
+			end
+		end
+	end
 
 	local function decode16x16()
 		local dc_table1 = JPEG.H[JPEG.S.dc_table_id[1]]["DC"]
-		local ac_table1 = JPEG.H[JPEG.S.ac_table_id[1]]["AC"]
 		local dc_table2 = JPEG.H[JPEG.S.dc_table_id[2]]["DC"]
-		local ac_table2 = JPEG.H[JPEG.S.ac_table_id[2]]["AC"]
 		local dc_table3 = JPEG.H[JPEG.S.dc_table_id[3]]["DC"]
+		local ac_table1 = JPEG.H[JPEG.S.ac_table_id[1]]["AC"]
+		local ac_table2 = JPEG.H[JPEG.S.ac_table_id[2]]["AC"]
 		local ac_table3 = JPEG.H[JPEG.S.ac_table_id[3]]["AC"]
+		local q1 = JPEG.Q[JPEG.F[1].Qid].Q
+		local q2 = JPEG.Q[JPEG.F[2].Qid].Q
+		local q3 = JPEG.Q[JPEG.F[3].Qid].Q
 		local yh = JPEG.F[1].H
 		local yv = JPEG.F[1].V
 		local cbh = JPEG.F[2].H
@@ -362,27 +465,57 @@ function scan()
 
 		print("--------------------------------")
 		for i = 1, yh * yv do
+			print("Y["..i.."]")
 			local ZZ1 = init8x8()
+
+			print("huff")
 			dcdiff8x8(dc_table1, ZZ1)
 			ac8x8(ac_table1, ZZ1)
-			print("Y["..i.."]")
 			dump8x8(ZZ1)
+
+			print("iquontization")
+			iquontization8x8(q1, ZZ1)
+			dump8x8(ZZ1)
+			
+			print("zigzag")
+			zigzag8x8(ZZ1)
+			dump8x8(ZZ1)
+						
+			print("idct")
+			idct8x8(ZZ1)
+			dump8x8(ZZ1)
+			
+			if i == 1 then
+				dofile(__streamdef_dir__.."bmpconv.lua")
+				local dip = init_dip(8, 8)
+				for x = 0, 7 do
+					for y = 0, 7 do
+						local ix = (y)*8+x
+						putcolor(dip, x, y, ZZ1[ix], ZZ1[ix], ZZ1[ix])			
+					end
+				end
+				create_bmp(__out_dir__.."out.bmp", dip)
+			end
 		end
 
 		for i = 1, cbh * cbv do
+			print("Cb["..i.."]")
 			local ZZ2 = init8x8()
 			dcdiff8x8(dc_table2, ZZ2)	
 			ac8x8(ac_table2, ZZ2)	
-			print("Cb["..i.."]")
 			dump8x8(ZZ2)
+			--zigzag8x8(ZZ2)
+			--dump8x8(ZZ2)
 		end
 
 		for i = 1, crh * crv do
+			print("Cb["..i.."]")
 			local ZZ3 = init8x8()
 			dcdiff8x8(dc_table3, ZZ3)	
 			ac8x8(ac_table3, ZZ3)
-			print("Cb["..i.."]")
 			dump8x8(ZZ3)
+			--zigzag8x8(ZZ3)
+			--dump8x8(ZZ3)
 		end
 	end
 	
@@ -393,33 +526,6 @@ function scan()
 	end
 	
 	swap(prev)
-end
-
-function dump8x8(t)
-	for i = 1, 8 do
-		for j = 1, 8  do
-			io.write(string.format("%5d", t[i*j-1]))
-		end
-		io.write("\n")
-	end
-end
-
-function read_huffman(huff_table)
-	local i=1
-	local code = rbit("huff", 1) 
-	while true do
-		if code > huff_table.maxcode[i] then
-			i = i + 1
-			code = (code << 1) + rbit("huff", 1)
-		else
-			break
-		end
-	end
-	local j = huff_table.valptr[i]
-	j = j + code - huff_table.mincode[i]
-	
-	-- print("huffman no=", j, "val=", huff_table.V[j])
-	return huff_table.V[j]
 end
 
 

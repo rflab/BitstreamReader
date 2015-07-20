@@ -632,7 +632,7 @@ namespace rf
 
 			bs_.seekpos(size(), 0);
 			bs_.put_char(c);
-			seekpos(prev_byte, prev_bit);
+			seekpos(prev_byte+1, prev_bit);
 		}
 
 

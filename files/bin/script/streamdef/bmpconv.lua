@@ -20,7 +20,7 @@ function create_bmp(filename, dip)
 	write(filename, "00 00 00 00")                               -- "biClrUsed",        4)
 	write(filename, "00 00 00 00")                               -- "biClrImporant",    4)
 	dip.buf:seek(0)
-	dip.buf:tbyte("dip", dip.buf:size(), true, filename)
+	dip.buf:tbyte("dip", dip.buf:get_size(), filename, true)
 end
 
 function init_dip(pitch, hight)
@@ -32,11 +32,13 @@ function init_dip(pitch, hight)
 	for i=1, pitch*hight do
 		dip.buf:write("00 00 ff")
 	end
+	print("hoge", dip.buf:get_size(), dip.buf:cur())
 	return dip
 end
 
 function putcolor(dip, x, y, r, g, b)
-	local pos = (dip.pitch*y + x) * 3
+	local pos = (dip.pitch*(dip.hight-1-y) + x) * 3
+	
 	dip.buf:seek(pos)
 	dip.buf:write(string.char(r)..string.char(g)..string.char(b))
 end

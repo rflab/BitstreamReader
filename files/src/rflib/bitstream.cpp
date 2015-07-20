@@ -528,6 +528,8 @@ void  Bitstream::write(const char *buf, integer size)
 	size_ = std::max(byte_pos_ + size, size_);
 	if (FAIL(buf_->sputn(buf, size) == size))
 		throw std::runtime_error(FAIL_STR("file write(sputn) error."));
+	
+	seekpos(byte_pos_+size, bit_pos_);
 }
 
 // ストリームに１バイト追記する
@@ -536,6 +538,8 @@ void  Bitstream::put_char(char c)
 	size_ = std::max(byte_pos_ + 1, size_);
 	if (FAIL(buf_->sputc(c) == c))
 		throw std::runtime_error(FAIL_STR("file write(sputc) error."));
+
+	seekpos(byte_pos_+1, bit_pos_);
 }
 
 int RingBuf::overflow(int c)

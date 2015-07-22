@@ -1,17 +1,164 @@
 -- jpeg解析
-local JPEG = {}
-JPEG.width  = 0
-JPEG.height = 0
-JPEG.Q = {} -- 量子化テーブル
-JPEG.F = {} -- フレーム
-JPEG.H = {} -- ハフマンテーブル
-JPEG.S = {} -- スキャン
+local jpeg = {q = {}, huffman = {}, frame = {}, scan  = {}}
+local dct_matrix = {}
+local dct_matrix_t = {}
+local zigzag = {
+	 0,  1,  8, 16,  9,  2,  3, 10,
+	17, 24, 32, 25, 18, 11,  4,  5,
+	12, 19, 26, 33, 40, 48, 41, 34,
+	27, 20, 13,  6,  7, 14, 21, 28,
+	35, 42, 49, 56, 57, 50, 43, 36,
+	29, 22, 15, 23, 30, 37, 44, 51,
+	58, 59, 52, 45, 38, 31, 39, 46,
+	53, 60, 61, 54, 47, 55, 62, 63
+}
+-- テーブルの値を作っておく	
+for i=0, 7 do
+	dct_matrix[i] = 1/(2*(2^0.5))
+	dct_matrix_t[i*8] = 1/(2*(2^0.5))
+end
+for i=1, 7 do
+	for j=0, 7 do
+		local v = 0.5 * math.cos(( i*(j+0.5) / 8) * math.pi)
+		dct_matrix  [(i*8)+j] = v
+		dct_matrix_t[(j*8)+i] = v
+	end
+end
+
+-- デコード用関数
+function RECEIVE(SSSS)
+	local V = 0
+	for I = 1, SSSS do
+		V =  (V<<1) + rbit("b", 1)
+	end
+	return V
+end
+
+function EXTEND(V, T)
+	local Vt = 2^(T-1)
+	if V < Vt then
+		Vt = ((-1)<<T) + 1
+		V = V+Vt
+	end
+	return V
+end
+
+function read_huffman(huffval, maxcode, mincode, valptr)
+	local i=1
+	local code = rbit("huff", 1) 
+	while true do
+		if code > maxcode[i] then
+			i = i + 1
+			code = (code << 1) + rbit("huff", 1)
+		else
+			break
+		end
+	end
+	local j = valptr[i]
+	j = j + code - mincode[i]
+	if huffval[j] == nil then
+		assert(false)
+	end
+	return huffval[j]
+end
+
+function init8x8(frame)
+	for i=0, 63 do
+		frame.data8x8[i] = 0
+	end
+end
+
+function dcdiff8x8(frame)
+	local T = read_huffman(
+		frame.dc_huffval, frame.dc_maxcode, frame.dc_mincode, frame.dc_valptr)
+	local DIFF = EXTEND(RECEIVE(T), T)
+	local val = frame.dc_prev_diff + DIFF
+	frame.data8x8[0] = val
+	frame.dc_prev_diff = val
+end
+
+function ac8x8(frame)
+	-- AC成分
+	local K = 1
+	while true do	
+		local RS = read_huffman(
+			frame.ac_huffval, frame.ac_maxcode, frame.ac_mincode, frame.ac_valptr)
+		local RRRR = RS >> 4 -- 上位4bit
+		local SSSS = RS % 16 -- 下位4bit
+		local R = RRRR
+		
+		-- 0成分
+		-- or 値
+		if SSSS == 0 then
+			if R == 15 then
+				-- ZRL
+				K = K + 15
+			else
+				-- EOB 通常 00000
+				-- print("BREAK")
+				break
+			end
+		else
+			K = K + R
+			frame.data8x8[K] = RECEIVE(SSSS)
+			frame.data8x8[K] = EXTEND(frame.data8x8[K], SSSS)
+			--print("frame.data8x8["..K.."]="..frame.data8x8[K])
+			if K == 63 then
+				-- print("BREAK")
+				break
+			else
+				K=K+1
+			end
+		end
+	end
+end
+
+function zigzag8x8(frame)
+	local ZZ = frame.data8x8
+	frame.data8x8 = {}
+	for i=0, 63 do
+		frame.data8x8[zigzag[i+1]] = ZZ[i]
+	end
+end
+
+local function iquontization8x8(frame)
+	for i=0, 63 do
+		frame.data8x8[i] = frame.data8x8[i] * frame.q[i]
+	end
+end
+
+function mul8x8(a, b)
+	local ret = {}
+	local ix
+	for i=0, 7 do
+		for j=0, 7 do
+			ix = (i*8)+j 
+			ret[ix] = 0
+			for k=0, 7 do
+				ret[ix] = ret[ix] + a[(i*8)+k] * b[(k*8)+j]
+			end
+		end
+	end
+	return ret
+end
+
+-- 高速化なしDCT
+function idct8x8(frame)
+	frame.data8x8 = mul8x8(dct_matrix_t, frame.data8x8)
+	frame.data8x8 = mul8x8(frame.data8x8, dct_matrix)
+	for i=0, 63 do
+		local v = math.ceil(frame.data8x8[i] + 128)
+		if v < 0 then
+			frame.data8x8[i] = 0
+		elseif v > 255 then
+			frame.data8x8[i] = 255
+		else
+			frame.data8x8[i] = v
+		end
+	end
+end
 
 function dump8x8(t)
-	--for i = 1, 64 do
-	--	io.write(string.format("%7.2f ", t[i-1]))
-	--end
-	--io.write("\n")
 	for i = 1, 8 do
 		for j = 1, 8  do
 			io.write(string.format("%7.2f ", t[8*(i-1) + (j-1)]))
@@ -20,6 +167,149 @@ function dump8x8(t)
 	end
 end
 
+function start_scan()
+	-- データを転送
+	local scan, prev = open()
+	enable_print(false)
+	swap(prev)
+	while true do
+		local ofs = fbyte(0xff, false)
+		tbyte("scan", ofs+1, scan, true)
+		if lbyte(1) ~= 0 then
+			break
+		else
+			rbyte("dummy", 1)
+			-- print("continue scan")
+		end
+	end
+	swap(scan)
+	
+	-- スキャン用のテーブルを用意
+	for i=1, jpeg.num_frame do
+		-- jpeg.frame[i].component_str = component_str
+		-- jpeg.frame[i].Qi = get("Tqi")
+		-- jpeg.frame[i].Hi = get("Hi")
+		-- jpeg.frame[i].Vi = get("Vi")
+		-- jpeg.frame[i].Ci = get("Ci")
+		jpeg.frame[i].q = jpeg.q[jpeg.frame[i].Qi]
+		jpeg.frame[i].dc_prev_diff = 0
+		jpeg.frame[i].dc_huffval   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].huffval
+		jpeg.frame[i].dc_huffcode  = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].huffcode
+		jpeg.frame[i].dc_mincode   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].mincode 
+		jpeg.frame[i].dc_maxcode   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].maxcode 
+		jpeg.frame[i].dc_valptr    = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].valptr  
+	
+		jpeg.frame[i].ac_huffval   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][1].huffval
+		jpeg.frame[i].ac_huffcode  = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].huffcode
+		jpeg.frame[i].ac_mincode   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].mincode 
+		jpeg.frame[i].ac_maxcode   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].maxcode 
+		jpeg.frame[i].ac_valptr    = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].valptr
+		jpeg.frame[i].data8x8 = {} -- 中間バッファ
+		jpeg.frame[i].decoded_picture = {}   -- デコード済みデータ
+	end
+	
+	-- デコード
+	local x = 0
+	local y = 0
+	
+	-- とりあえず4:2:0
+	-- ネスト深すぎorz
+	local factor420 = true
+	local blocksize_x = 8*jpeg.frame[1].Hi
+	local blocksize_y = 8*jpeg.frame[1].Vi
+	local buf_width  = math.ceil(jpeg.width / blocksize_x) * blocksize_x
+	local buf_height = math.ceil(jpeg.height / blocksize_y) * blocksize_y
+	
+	while y < buf_height do
+		print(y)
+		while x < buf_width do
+			for ci, v in ipairs(jpeg.frame) do
+				-- ファクターの分だけ最大で16x16をデコード
+				for i = 0, v.Vi-1 do
+					for j = 0, v.Hi-1 do
+						-- 8x8をデコード
+						init8x8(v)
+						dcdiff8x8(v)
+						ac8x8(v)
+						iquontization8x8(v)
+						zigzag8x8(v)
+						idct8x8(v)
+						
+						
+				--		local offset = (y+i*8)*buf_width + (x+j*8)
+				--		for k=0, 7 do
+				--			for l=0, 7 do
+				--				v.decoded_picture[offset + k*buf_width + l]
+				--					= v.data8x8[k*8 + l]
+				--			end
+				--		end
+				
+						-- バッファに書き出し
+						if factor420 == true then
+							if ci == 1 then
+								local offset = (y+i*8)*buf_width + (x+j*8)
+								for k=0, 7 do
+									for l=0, 7 do
+										v.decoded_picture[offset + k*buf_width + l]
+											= v.data8x8[k*8 + l]
+									end
+								end
+							else
+								local offset = y*buf_width + x
+								local count = 0
+								for k=0, 15, 2 do
+									for l=0, 15, 2 do
+										local d = offset + k*buf_width + l
+										local c = v.data8x8[count]
+										v.decoded_picture[d]   = c
+										v.decoded_picture[d+1] = c
+										v.decoded_picture[d+buf_width]   = c
+										v.decoded_picture[d+buf_width+1] = c
+										count = count+1 
+									end
+								end
+							end
+						else
+							-- とりあえず輝度だけ
+							if ci == 1 then
+								local offset = (y+i*8)*buf_width + (x+j*8)
+								for k=0, 7 do
+									for l=0, 7 do
+										v.decoded_picture[offset + k*buf_width + l]
+											= v.data8x8[k*8 + l]
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+			
+			x = x + blocksize_x
+		end
+		x = 0
+		y = y + blocksize_y
+	end
+		
+	local bmp = bitmap:new(jpeg.width, jpeg.height, buf_width, buf_height)
+	local Y  = jpeg.frame[1].decoded_picture
+	local cr = jpeg.frame[2].decoded_picture
+	local cb = jpeg.frame[3].decoded_picture
+	local offset = 0
+	local ix
+	print(jpeg.width, jpeg.height, buf_height, buf_width)
+	for y=0, buf_height-1 do
+		for x=0, buf_width-1 do
+			ix = offset + x
+			bmp:putyuv(x, y, Y[ix], cb[ix], cr[ix])
+		end
+		offset = offset + buf_width
+	end
+	bmp:write(__stream_dir__.."out.bmp")
+	bmp:ascii(70, 70)
+
+	swap(prev)
+end
 
 function segment()
 	local length = rbit("L", 16)
@@ -29,121 +319,59 @@ end
 function app0()
 	local begin = cur()
 	print("-------------------JFIF-------------------")
-	rbyte("Lq",              2)
+	rbyte("L" ,         2)
+	cstr ("identifier", 5, "4A 46 49 46 00")
+	rbyte("version",    2)
+	rbyte("units",      1)
+	rbyte("Xdensity",   2)
+	rbyte("Ydensity",   2)
+	rbyte("Xthumbnail", 1)
+	rbyte("Ythumbnail", 1)
+	rbyte("(RGB)",      3 * get("Xthumbnail")*get("Ythumbnail"))
 
-	cstr ("identifier",          5, "4A 46 49 46 00")
-	rbyte("version",             2)
-	rbyte("units",               1)
-	rbyte("Xdensity",            2)
-	rbyte("Ydensity",            2)
-	rbyte("Xthumbnail",          1)
-	rbyte("Ythumbnail",          1)
-	rbyte("(RGB)",               3 * get("Xthumbnail")*get("Ythumbnail"))
-
-	seekoff(get("Lq") - (cur() - begin))
+	seekoff(get("L") - (cur() - begin))
 end
 
 function app1()
 	local begin = cur()
-	rbyte("Lq",              2)
-	rstr ("Identifier",          4)
+	rbyte("L",               2)
+	rstr ("Identifier",      4)
 
 	if get("Identifier") == "Exif" then
 		print("-------------------Exif-------------------")
 		rbyte("0000",                2)
-		exif(get("Lq") - 8)
+		exif(get("L") - 8)
 	elseif get("Identifier") == "http" then
 		print("-------------------Http-------------------")
 		rstr("http",             256)
-		seek(get("Lq") + begin)
+		seek(get("L") + begin)
 	end
-
 end
 
 function dqt()
 print("quantization table")
 	local begin = cur()
-	rbit("Lq",        16)
-	rbit("Pq",        4)
-	rbit("Tq",        4)
-
-	local table_id = get("Tq")
-	JPEG.Q[table_id] = {}
+	rbit("Lq", 16)
+	rbit("Pq", 4)
+	rbit("Tq", 4)
 
 	local precision = get("Pq") == 0 and 8 or 16
 	local length = get("Lq") - (cur() - begin)
-
 	local Q = {}
-	print("dump quontization_table")
-	dump(length)
 	for i=0, length-1 do
 		Q[i] = rbit("Qk", precision)
 	end
-
-	print("Q["..table_id.."]")
 	
-	JPEG.Q[table_id].precision = precision
-	JPEG.Q[table_id].Q = Q
-end
-
-function get_component(ci)
-
-end
-
-function sof0()
-print("Frame header")
-
-	local begin = cur()
-	rbit("Lf",                     16)
-	rbit("P",                      8)
-	rbit("Y",                      16)
-	rbit("X",                      16)
-	rbit("Nf",                     8)
-
-	JPEG.width = get("X")
-	JPEG.height = get("Y")
-	print("width="..JPEG.width .." height="..JPEG.height)
-
-	for i=1, get("Nf") do
-		local ci =
-		rbit("Ci",                 8) -- Component(Y, Cb, Cr or etc)
-		rbit("Hi",                 4) -- factor h
-		rbit("Vi",                 4) -- factor v
-		rbit("Tqi",                8) -- table
-
-		local component_str
-		local ci = get("Ci")
-		if     ci == 1 then component_str = "Y"
-		elseif ci == 2 then component_str = "Cb"
-		elseif ci == 3 then component_str = "Cr"
-		elseif ci == 4 then component_str = "I"
-		elseif ci == 5 then component_str = "Q"
-		else assert(false, "unknown Ci") end
-
-		JPEG.F[i] = {}
-		JPEG.F[i].component = component_str
-		JPEG.F[i].Qid = get("Tqi")
-		JPEG.F[i].H = get("Hi")
-		JPEG.F[i].V = get("Vi")
-	end
-
-	skip(get("Lf"), begin)
+	jpeg.q[get("Tq")] = Q
 end
 
 function dht()
 print("Huffman table")
 
 	local begin = cur()
-	rbit("Lh",                     16)
-	rbit("Tc",                     4)
-	rbit("Th",                     4)
-
-	local class = get("Tc") == 0 and "DC" or "AC"
-	print(class)
-
-	local table_id = get("Th")
-	JPEG.H[table_id] = JPEG.H[table_id] or {}
-	JPEG.H[table_id][class] = {}
+	rbit("Lh", 16)
+	rbit("Tc", 4) -- このテーブルを使うのがDCかACか
+	rbit("Th", 4) -- このテーブルのID
 
 	local BITS = {}
 	local V = {}
@@ -157,7 +385,6 @@ print("Huffman table")
 			k = k + 1
 		end
 	end
-	JPEG.H[table_id][class].V = V
 
 	-- huffsize
 	local k = 0
@@ -169,21 +396,8 @@ print("Huffman table")
 		end
 	end
 	huffsize[k] = 0
-	JPEG.H[table_id][class].BITS     = BITS
-	JPEG.H[table_id][class].huffsize = huffsize
-	JPEG.H[table_id][class].lastk    = k
-
+	
 	-- huffcode
-	-- 000
-	-- 010
-	-- 011
-	-- 100
-	-- 101
-	-- 110 -- サイズが3からの場合はここまでビット数固定
-	-- 1110
-	-- 11110
-	-- 11111 -> 0
-	print("huffman")
 	k = 0
 	local code = 0
 	local si = huffsize[0]
@@ -191,7 +405,7 @@ print("Huffman table")
 	while true do
 		while huffsize[k] == si do
 			huffcode[k] = code
-			printf("%10s, %16s, %32s, ", k, "val="..V[k], "haff=="..binstr(code, si))
+			printf("%10s, %16s, %32s, ", k, "val="..V[k], "huff=="..binstr(code, si))
 			code = code + 1
 			k = k + 1
 		end
@@ -205,8 +419,7 @@ print("Huffman table")
 			si = si + 1
 		end
 	end
-	JPEG.H[table_id][class].huffcode = huffcode
-
+	
 	-- max min valptr
 	local maxcode = {} -- 同じbit数のハフマンコードの最大値
 	local mincode = {} -- 同じbit数のハフマンコードの最大値
@@ -223,311 +436,86 @@ print("Huffman table")
 			j = j + 1
 		end
 	end
-	JPEG.H[table_id][class].mincode = mincode
-	JPEG.H[table_id][class].maxcode = maxcode
-	JPEG.H[table_id][class].valptr = valptr
+	
+	jpeg.huffman[get("Th")] = jpeg.huffman[get("Th")] or {}
+	jpeg.huffman[get("Th")][get("Tc")] = {}
+	jpeg.huffman[get("Th")][get("Tc")].huffval  = V
+	jpeg.huffman[get("Th")][get("Tc")].huffcode = huffcode
+	jpeg.huffman[get("Th")][get("Tc")].mincode  = mincode
+	jpeg.huffman[get("Th")][get("Tc")].maxcode  = maxcode
+	jpeg.huffman[get("Th")][get("Tc")].valptr   = valptr
 
 	skip(get("Lh"), begin)
 end
 
+function sof0()
+print("Frame header")
 
+	local begin = cur()
+	rbit("Lf", 16)
+	rbit("P",  8)
+	rbit("Y",  16)
+	rbit("X",  16)
+	rbit("Nf", 8)
+	
+	jpeg.width = get("X")
+	jpeg.height = get("Y")
+	jpeg.num_frame = get("Nf")
+
+	for i=1, get("Nf") do
+		local ci =
+		rbit("Ci",  8) -- Component(Y, Cb, Cr or etc)
+		rbit("Hi",  4) -- factor h
+		rbit("Vi",  4) -- factor v
+		rbit("Tqi", 8) -- table
+
+		local component_str
+		local ci = get("Ci")
+		if     ci == 1 then component_str = "Y"
+		elseif ci == 2 then component_str = "Cb"
+		elseif ci == 3 then component_str = "Cr"
+		elseif ci == 4 then component_str = "I"
+		elseif ci == 5 then component_str = "Q"
+		else assert(false, "unknown Ci") end
+
+		jpeg.frame[i] = {}
+		jpeg.frame[i].component_str = component_str
+		jpeg.frame[i].Qi = get("Tqi")
+		jpeg.frame[i].Hi = get("Hi")
+		jpeg.frame[i].Vi = get("Vi")
+		jpeg.frame[i].Ci = get("Ci")
+	end
+
+	skip(get("Lf"), begin)
+end
 
 function sos()
 print("Scan header")
 	local begin = cur()
-	rbit("Ls",                  16) -- SOSの場合これはあてにならない
-	rbit("Ns",                  8)
+	
+	rbit("Ls", 16)
+	rbit("Ns", 8)
 
-	local n = get("Ns")
-	JPEG.S.dc_table_id = {}
-	JPEG.S.ac_table_id = {}
-	for i=1, n do
-		 rbit("Csj",                   8) -- 成分ID
-		 JPEG.S.dc_table_id[i] = rbit("Tdj",  4) -- ＤＣ成分ハフマンテーブル番号
-		 JPEG.S.ac_table_id[i] = rbit("Taj",  4) -- ＡＣ成分ハフマンテーブル番号
+	for i=1, get("Ns") do
+		rbit("Csj", 8) -- 成分ID
+		rbit("Tdj", 4) -- ＤＣ成分ハフマンテーブル番号
+		rbit("Taj", 4) -- ＡＣ成分ハフマンテーブル番号
+
+		jpeg.scan[get("Csj")] = {}
+		jpeg.scan[get("Csj")].dc_huffman = get("Tdj") 
+		jpeg.scan[get("Csj")].ac_huffman = get("Taj") 
 	end
 
-	rbit("Ss",                 8)
-	rbit("Se",                 8)
-	rbit("Ah",                 4)
-	rbit("AL",                 4)
+	rbit("Ss", 8)
+	rbit("Se", 8)
+	rbit("Ah", 4)
+	rbit("AL", 4)
 
 	skip(get("Ls"), begin)
 	
-	scan()
+	--スキャン開始
+	start_scan()
 end
-
-
-function scan()
-	-- データを転送
-	local scan, prev = open()
-	enable_print(false)
-	swap(prev)
-	while true do
-		local ofs = fbyte(0xff, false)
-		tbyte("scan", ofs+1, scan, true)
-		if lbyte(1) ~= 0 then
-			break
-		else
-			rbyte("dummy", 1)
-			print("continue scan")
-		end
-	end
-	swap(scan)
-	
-	-- デコード用関数
-	local function RECEIVE(SSSS)
-		local V = 0
-		for I = 1, SSSS do
-			V =  (V<<1) + rbit("b", 1)
-		end
-		return V
-	end
-	local function EXTEND(V, T)
-		local Vt = 2^(T-1)
-		if V < Vt then
-			Vt = ((-1)<<T) + 1
-			V = V+Vt
-		end
-		return V
-	end
-	
-	local function read_huffman(huff_table)
-		local i=1
-		local code = rbit("huff", 1) 
-		while true do
-			if code > huff_table.maxcode[i] then
-				i = i + 1
-				code = (code << 1) + rbit("huff", 1)
-			else
-				break
-			end
-		end
-		local j = huff_table.valptr[i]
-		j = j + code - huff_table.mincode[i]
-		
-		-- print("huffman no=", j, "val=", huff_table.V[j])
-		return huff_table.V[j]
-	end
-
-	
-	local function init8x8()
-		-- 8x8データ
-		local ZZ = {}
-		for i=0, 63 do
-			ZZ[i] = 0
-		end
-		return ZZ
-	end
-
-	local prev_ZZ0 = 0
-	local function dcdiff8x8(dc_table, ZZ)
-		-- DC成分	
-		-- print("DC")
-		local T = read_huffman(dc_table)
-		local DIFF = RECEIVE(T)
-		DIFF = EXTEND(DIFF, T)
-		ZZ[0] = prev_ZZ0 + DIFF
-		prev_ZZ0 = ZZ[0]
-		print("ZZ[0]="..ZZ[0])
-		return ZZ
-	end
-	
-	local function ac8x8(ac_table, ZZ)
-		-- AC成分
-		-- print("AC")
-		local K = 1
-		while true do	
-			local RS = read_huffman(ac_table)
-			local RRRR = RS >> 4 -- 上位4bit
-			local SSSS = RS % 16 -- 下位4bit
-			local R = RRRR
-			
-			-- 0成分
-			-- or 値
-			if SSSS == 0 then
-				if R == 15 then
-					-- ZRL
-					K = K + 15
-				else
-					-- EOB 通常 00000
-					-- print("BREAK")
-					break
-				end
-			else
-				K = K + R
-				ZZ[K] = RECEIVE(SSSS)
-				ZZ[K] = EXTEND(ZZ[K], SSSS)
-				--print("ZZ["..K.."]="..ZZ[K])
-				if K == 63 then
-					-- print("BREAK")
-					break
-				else
-					K=K+1
-				end
-			end
-		end
-	end
-
-	local zigzag = {
-		 0,  1,  8, 16,  9,  2,  3, 10,
-		17, 24, 32, 25, 18, 11,  4,  5,
-		12, 19, 26, 33, 40, 48, 41, 34,
-		27, 20, 13,  6,  7, 14, 21, 28,
-		35, 42, 49, 56, 57, 50, 43, 36,
-		29, 22, 15, 23, 30, 37, 44, 51,
-		58, 59, 52, 45, 38, 31, 39, 46,
-		53, 60, 61, 54, 47, 55, 62, 63
-	}
-	local function zigzag8x8(ZZ)
-		local tbl = {}
-		for i=0, 63 do
-			tbl[zigzag[i+1]] = ZZ[i]
-		end
-		-- 冗長
-		for i=0, 63 do
-			ZZ[i] = tbl[i]
-		end
-	end
-
-	local function iquontization8x8(Q, ZZ)
-		for i=0, 63 do
-			ZZ[i] = ZZ[i] * Q[i]
-		end
-	end
-	
-	local dct_matrix = {}
-	local dct_matrix_t = {}
-	for i=0, 7 do
-		dct_matrix[i] = 1/(2*(2^0.5))
-		dct_matrix_t[i*8] = 1/(2*(2^0.5))
-	end
-	for i=1, 7 do
-		for j=0, 7 do
-			local v = 0.5 * math.cos(( i*(j+0.5) / 8) * math.pi)
-			dct_matrix  [(i*8)+j] = v
-			dct_matrix_t[(j*8)+i] = v
-		end
-	end
-	
-	dump8x8(dct_matrix)
-	dump8x8(dct_matrix_t)
-	
-	local function mul8x8(a, b)
-		local ret = {}
-		local ix
-		for i=0, 7 do
-			for j=0, 7 do
-				ix = (i*8)+j 
-				ret[ix] = 0
-				for k=0, 7 do
-					ret[ix] = ret[ix] + a[(i*8)+k] * b[(k*8)+j]
-				end
-			end
-		end
-		return ret
-	end
-
-	-- 高速化なし
-	local function idct8x8(ZZ)
-		local tmp
-		tmp = mul8x8(dct_matrix_t, ZZ)
-		tmp = mul8x8(tmp, dct_matrix)
-		-- 冗長
-		for i=0, 63 do
-			local v = math.ceil(tmp[i] + 128)
-			if v < 0 then
-				ZZ[i] = 0
-			elseif v > 255 then
-				ZZ[i] = 255
-			else
-				ZZ[i] = v
-			end
-		end
-	end
-
-	local function decode16x16()
-		local dc_table1 = JPEG.H[JPEG.S.dc_table_id[1]]["DC"]
-		local dc_table2 = JPEG.H[JPEG.S.dc_table_id[2]]["DC"]
-		local dc_table3 = JPEG.H[JPEG.S.dc_table_id[3]]["DC"]
-		local ac_table1 = JPEG.H[JPEG.S.ac_table_id[1]]["AC"]
-		local ac_table2 = JPEG.H[JPEG.S.ac_table_id[2]]["AC"]
-		local ac_table3 = JPEG.H[JPEG.S.ac_table_id[3]]["AC"]
-		local q1 = JPEG.Q[JPEG.F[1].Qid].Q
-		local q2 = JPEG.Q[JPEG.F[2].Qid].Q
-		local q3 = JPEG.Q[JPEG.F[3].Qid].Q
-		local yh = JPEG.F[1].H
-		local yv = JPEG.F[1].V
-		local cbh = JPEG.F[2].H
-		local cbv = JPEG.F[2].V
-		local crh = JPEG.F[3].H
-		local crv = JPEG.F[3].V
-
-		print("--------------------------------")
-		for i = 1, yh * yv do
-			print("Y["..i.."]")
-			local ZZ1 = init8x8()
-
-			print("huff")
-			dcdiff8x8(dc_table1, ZZ1)
-			ac8x8(ac_table1, ZZ1)
-			dump8x8(ZZ1)
-
-			print("iquontization")
-			iquontization8x8(q1, ZZ1)
-			dump8x8(ZZ1)
-			
-			print("zigzag")
-			zigzag8x8(ZZ1)
-			dump8x8(ZZ1)
-						
-			print("idct")
-			idct8x8(ZZ1)
-			dump8x8(ZZ1)
-			
-			if i == 1 then
-				dofile(__streamdef_dir__.."bmpconv.lua")
-				local dip = init_dip(8, 8)
-				for x = 0, 7 do
-					for y = 0, 7 do
-						local ix = (y)*8+x
-						putcolor(dip, x, y, ZZ1[ix], ZZ1[ix], ZZ1[ix])			
-					end
-				end
-				create_bmp(__out_dir__.."out.bmp", dip)
-			end
-		end
-
-		for i = 1, cbh * cbv do
-			print("Cb["..i.."]")
-			local ZZ2 = init8x8()
-			dcdiff8x8(dc_table2, ZZ2)	
-			ac8x8(ac_table2, ZZ2)	
-			dump8x8(ZZ2)
-			--zigzag8x8(ZZ2)
-			--dump8x8(ZZ2)
-		end
-
-		for i = 1, crh * crv do
-			print("Cb["..i.."]")
-			local ZZ3 = init8x8()
-			dcdiff8x8(dc_table3, ZZ3)	
-			ac8x8(ac_table3, ZZ3)
-			dump8x8(ZZ3)
-			--zigzag8x8(ZZ3)
-			--dump8x8(ZZ3)
-		end
-	end
-	
-	local num16x16 = math.ceil(JPEG.width / 16) * math.ceil(JPEG.height / 16)
-	for i = 1, num16x16 do
-		print("block16x16 "..i.."/"..num16x16)
-		decode16x16()
-	end
-	
-	swap(prev)
-end
-
 
 function get_type(t)
 	if     t == 1   then return 1, "byte"
@@ -1281,6 +1269,9 @@ function jpg()
 			app1()
 		elseif maker == 0xffdb then
 			dqt()
+		elseif maker == 0xffdd then
+			assert(false)
+			dri()
 		elseif maker == 0xffc4 then
 			dht()
 		elseif maker == 0xffc0 then
@@ -1307,7 +1298,7 @@ end
 
 open(__stream_path__)
 little_endian(false)
-enable_print(true)--__default_enable_print__)
+enable_print(true)
 stdout_to_file(false)
 jpg()
 

@@ -27,6 +27,8 @@ function BITMAPCOREHEADER()
 	elseif get("biCompression") == 2 then assert(false, "unsupported RunLength4")
 	elseif get("biCompression") == 3 then assert(false, "unsupported Bitfields")
 	end
+	
+	rbyte("data", get("bcWidth")*get("bcHeight")*get("bcBitCount"))
 end
 
 -- Windows Bitmap
@@ -50,6 +52,8 @@ function BITMAPINFOHEADER()
 	elseif get("biCompression") == 2 then assert(false, "unsupported RunLength4")
 	elseif get("biCompression") == 3 then assert(false, "unsupported Bitfields")
 	end
+	
+	rbyte("data", get("biSizeImage"))
 end
 
 function bmp()
@@ -67,7 +71,7 @@ end
 
 open(__stream_path__)
 little_endian(true)
-enable_print(__default_enable_print__)
+enable_print(true)
 bmp()
-print_table(info)
+--print_table(info)
 

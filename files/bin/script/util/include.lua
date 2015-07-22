@@ -2,6 +2,7 @@
 package.path = __exec_dir__.."script/util/?.lua"
 require("profiler")
 require("stream")
+require("bitmap")
 require("csv")
 require("explicit_globals")
 require("util")

@@ -263,8 +263,8 @@ function write(target, pattern)
 	end
 end
 
-function putchar(filename, char)
-	return write_to_file(filename, tostring(cahr), 1)
+function putchar(filename, c)
+	return write_to_file(filename, string.char(c), 1)
 end
 
 -- 現在位置からストリームを抜き出す
@@ -615,7 +615,7 @@ function sql_begin()
 	if __exec_dir__:match("[^ %g]") ~= nil then
 		print("###################################")
 		print("# can not create .db in exe dir!! #")
-		print("#      create in memory db.       #")
+		print("#      create in-memory db.       #")
 		print("###################################")
 	 	-- sql = SQLite:new(__stream_name__..".db")
 	 	sql = SQLite:new(":memory:")

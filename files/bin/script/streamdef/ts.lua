@@ -343,10 +343,12 @@ function pmt()
 		local buf, prev = open(
 			__out_dir__..hexstr(get("elementary_PID"))..".pes", "wb+")
 		enable_print(__default_enable_print__)
-	    buf.es_type = es_type
-	    buf.es_file_name = __out_dir__.."pid"..hexstr(get("elementary_PID"))..".es"
-		pes_array[get("elementary_PID")] = buf
-	    swap(prev)
+		local pid = get("elementary_PID")
+	    pes_array[pid] = {}
+		pes_array[pid].buf = buf
+	    pes_array[pid].es_type = es_type
+	    pes_array[pid].es_file_name = __out_dir__.."pid"..hexstr(get("elementary_PID"))..".es"
+		swap(prev)
 		
 		print("", type_str.." = "..hexstr(get("elementary_PID")))
 
@@ -376,14 +378,13 @@ function ts(size, target)
 			total = total + 4
 			-- printf("  ATS = %x(%fsec)", get("ATS"), get("ATS")/90000)
 		end
-				
-		-- ATSのつぎからが本番
-		begin = cur()
-
+		
 		local ofs = fbyte(0x47, true, 188+4)
 		if ofs ~= 0 then
 			print("# discontinuous syncbyte")
 		end
+		
+		begin = cur()
 		
 		rbit("syncbyte",                     8)
 		rbit("transport_error_indicator",    1)
@@ -399,7 +400,13 @@ function ts(size, target)
 		
 		
 		if  start_indicator == 1 and scrambl == 0 and analyse_data_byte then
-			analyze_payload(pid)
+			if pes_array[pid] then
+				if pes_array[pid].has_start_indicator == true then
+					analyze_payload(pid)
+				else
+					pes_array[pid].has_start_indicator = true
+				end
+			end
 		end
 		
 		if get("adaptation_field_control") & 2 == 2 then
@@ -425,14 +432,14 @@ end
 function data_byte(target, pid, size)
 	if target == TYPE_PES then
 		if analyse_data_byte == false then
-			rbyte("data data_byte", size)
+			rbyte("any data_byte", size)
 			return true
-		elseif pes_array[pid] ~= nil then
+		elseif pes_array[pid] ~= nil and pes_array[pid].has_start_indicator then
 			-- バッファにデータ転送
-			tbyte("data_byte", size, pes_array[pid])
+			tbyte("pes data_byte", size, pes_array[pid].buf)
 			return true
 		else
-			rbyte("unknown data", size)
+			rbyte("unregistered databyte", size)
 			return false
 		end
 	elseif target == TYPE_PAT then
@@ -501,11 +508,10 @@ function get_pid_string(pid)
 end
 
 function analyze_payload(pid)
-	local pes_buf = pes_array[pid]
-	if  pes_buf ~= nil then
-		local ts_file = swap(pes_buf)
+	if  pes_array[pid] ~= nil then
+		local ts_file = swap(pes_array[pid].buf)
 		if get_size() ~= cur() then
-			local size, PTS, DTS = pes(pid, get_size() - cur(), pes_buf.es_file_name)
+			local size, PTS, DTS = pes(pid, get_size() - cur(), pes_array[pid].es_file_name)
 			store_recode(pid, cur(), size, false, PTS, DTS)
 			if get_size() ~= cur() then
 				rbyte("#unknown remain data", get_size() - cur())
@@ -574,10 +580,8 @@ function analyze()
 	end
 end
 
-print_status()
 analyze()
 save_as_csv(__out_dir__.."ts.csv")
-print_status()
 
 
 

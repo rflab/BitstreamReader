@@ -67,8 +67,14 @@ function dump(size)
 end
 
 -- 解析結果表示のON/OFF
+local ee = nil
 function enable_print(b)
+	ee = b
 	return gs_stream:enable_print(b)
+end
+
+function eee()
+	return ee 
 end
 
 -- 解析結果表示のON/OFFに応じてprint
@@ -300,21 +306,26 @@ end
 gs_perf = profiler:new()
 gs_progress = {
 	prev = 10,
-	check = function (self)
+	check = function (self, detail)
 		local cur = math.modf(cur()/get_size() * 100)
-		if math.abs(self.prev - cur) >= 9.99 then
+		if math.abs(self.prev - cur) >= 10 then
 			self.prev = cur
-			print("--------------------------")
-			print(cur.."%", os.clock().."sec.\n")
-			print_status()
-			gs_perf:print()
-			print("--------------------------")
+			if detail == true then
+				print("--------------------------")
+				print(cur.."%", os.clock().."sec.\n")
+				print_status()
+				gs_perf:print()
+				print("--------------------------")
+			else
+				print(cur.."%", os.clock().."sec.")
+			end
 		end
 	end
 }
 
-function check_progress()
-	gs_progress:check()
+function check_progress(detail)
+	if detail == nil then detail = true end
+	gs_progress:check(detail)
 end
 	
 
@@ -348,7 +359,8 @@ end
 
 -- 16進数を1001010な感じの文字列にする
 function binstr(value, size)
-	assert(size <= 32)
+	-- assert(size <= 32)
+	size = size or 32
 	if type(value) == "number" then
 		local str = ""
 		for i=1, size do

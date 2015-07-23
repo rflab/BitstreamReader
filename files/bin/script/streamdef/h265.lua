@@ -518,7 +518,7 @@ function pps_range_extension()
 end
 
 function sei_rbsp()
-print("SEI")
+--print("SEI")
 	repeat
 		sei_message()
 	until more_rbsp_data() == false
@@ -1591,9 +1591,9 @@ function sei_payload(payloadType, payloadSize)
 	
 	if get("nal_unit_type") == PREFIX_SEI_NUT then
 		if payloadType == 0 then
-			print("buffering_period")--buffering_period(payloadSize)
+			--print("buffering_period")--buffering_period(payloadSize)
 		elseif payloadType == 1 then
-			print("pic_timing( payloadSize ) 5")
+			--print("pic_timing( payloadSize ) 5")
 		elseif payloadType == 2 then
 			print("pan_scan_rect( payloadSize ) 5")
 		elseif payloadType == 3 then

@@ -47,6 +47,10 @@ function read_huffman(huffval, maxcode, mincode, valptr)
 	local i=1
 	local code = rbit("huff", 1) 
 	while true do
+		if maxcode[i] == nil then 
+			print_table(maxcode)
+			print(i, binstr(code))
+		end
 		if code > maxcode[i] then
 			i = i + 1
 			code = (code << 1) + rbit("huff", 1)
@@ -71,6 +75,7 @@ end
 function dcdiff8x8(frame)
 	local T = read_huffman(
 		frame.dc_huffval, frame.dc_maxcode, frame.dc_mincode, frame.dc_valptr)
+	sprint("d", T)
 	local DIFF = EXTEND(RECEIVE(T), T)
 	local val = frame.dc_prev_diff + DIFF
 	frame.data8x8[0] = val
@@ -81,21 +86,22 @@ function ac8x8(frame)
 	-- AC成分
 	local K = 1
 	while true do	
+			sprint("a")
 		local RS = read_huffman(
 			frame.ac_huffval, frame.ac_maxcode, frame.ac_mincode, frame.ac_valptr)
-		local RRRR = RS >> 4 -- 上位4bit
-		local SSSS = RS % 16 -- 下位4bit
+		local RRRR = RS >> 4 -- 上位4bitは値の前のZeroRunLength SSSSRRRR=0はEOB
+		local SSSS = RS % 16 -- 下位4bitは値のサイズ, 0の場合はRRRRによってZRL or EOB or 終端まで0
 		local R = RRRR
-		
+		sprint("K=", K, "RRRR=", RRRR, "SSSS", SSSS)
 		-- 0成分
 		-- or 値
 		if SSSS == 0 then
 			if R == 15 then
 				-- ZRL
-				K = K + 15
+				K = K + 16
+				sprint("ZRL")
 			else
-				-- EOB 通常 00000
-				-- print("BREAK")
+				sprint("EOB")
 				break
 			end
 		else
@@ -103,8 +109,8 @@ function ac8x8(frame)
 			frame.data8x8[K] = RECEIVE(SSSS)
 			frame.data8x8[K] = EXTEND(frame.data8x8[K], SSSS)
 			--print("frame.data8x8["..K.."]="..frame.data8x8[K])
-			if K == 63 then
-				-- print("BREAK")
+			if K >= 63 then
+				sprint("BREAK")
 				break
 			else
 				K=K+1
@@ -175,78 +181,120 @@ function start_scan()
 	while true do
 		local ofs = fbyte(0xff, false)
 		tbyte("scan", ofs+1, scan, true)
-		if lbyte(1) ~= 0 then
+		local segment = lbyte(1)
+		if segment == 0xd0
+		or segment == 0xd1
+		or segment == 0xd2
+		or segment == 0xd3
+		or segment == 0xd4
+		or segment == 0xd5
+		or segment == 0xd6
+		or segment == 0xd7 then
+			-- reset
+			tbyte("RST", 1, scan, true)
+		elseif segment ~= 0 then
 			break
 		else
-			rbyte("dummy", 1)
+			cbyte("dummy", 1, 0)
 			-- print("continue scan")
 		end
 	end
 	swap(scan)
 	
-	-- スキャン用のテーブルを用意
-	for i=1, jpeg.num_frame do
-		-- jpeg.frame[i].component_str = component_str
-		-- jpeg.frame[i].Qi = get("Tqi")
-		-- jpeg.frame[i].Hi = get("Hi")
-		-- jpeg.frame[i].Vi = get("Vi")
-		-- jpeg.frame[i].Ci = get("Ci")
-		jpeg.frame[i].q = jpeg.q[jpeg.frame[i].Qi]
-		jpeg.frame[i].dc_prev_diff = 0
-		jpeg.frame[i].dc_huffval   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].huffval
-		jpeg.frame[i].dc_huffcode  = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].huffcode
-		jpeg.frame[i].dc_mincode   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].mincode 
-		jpeg.frame[i].dc_maxcode   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].maxcode 
-		jpeg.frame[i].dc_valptr    = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].valptr  
-	
-		jpeg.frame[i].ac_huffval   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][1].huffval
-		jpeg.frame[i].ac_huffcode  = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].huffcode
-		jpeg.frame[i].ac_mincode   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].mincode 
-		jpeg.frame[i].ac_maxcode   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].maxcode 
-		jpeg.frame[i].ac_valptr    = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].valptr
-		jpeg.frame[i].data8x8 = {} -- 中間バッファ
-		jpeg.frame[i].decoded_picture = {}   -- デコード済みデータ
-	end
-	
-	-- デコード
-	local x = 0
-	local y = 0
-	
-	-- とりあえず4:2:0
-	-- ネスト深すぎorz
-	local factor420 = true
-	local blocksize_x = 8*jpeg.frame[1].Hi
-	local blocksize_y = 8*jpeg.frame[1].Vi
-	local buf_width  = math.ceil(jpeg.width / blocksize_x) * blocksize_x
-	local buf_height = math.ceil(jpeg.height / blocksize_y) * blocksize_y
-	
-	while y < buf_height do
-		print(y)
-		while x < buf_width do
-			for ci, v in ipairs(jpeg.frame) do
-				-- ファクターの分だけ最大で16x16をデコード
-				for i = 0, v.Vi-1 do
-					for j = 0, v.Hi-1 do
-						-- 8x8をデコード
-						init8x8(v)
-						dcdiff8x8(v)
-						ac8x8(v)
-						iquontization8x8(v)
-						zigzag8x8(v)
-						idct8x8(v)
-						
-						
-				--		local offset = (y+i*8)*buf_width + (x+j*8)
-				--		for k=0, 7 do
-				--			for l=0, 7 do
-				--				v.decoded_picture[offset + k*buf_width + l]
-				--					= v.data8x8[k*8 + l]
-				--			end
-				--		end
+	repeat
+		-- 3Gとか食うのでやめ
+		if jpeg.width * jpeg.height > 2073600 then
+			print("########################################")
+			print("# need too much memory in current impl.#")
+			print("# force cancel decode.                 #")
+			print("########################################")
+			break;
+		end
+		
+		-- スキャン用のテーブルを用意
+		for i=1, jpeg.num_frame do
+			-- jpeg.frame[i].component_str = component_str
+			-- jpeg.frame[i].Qi = get("Tqi")
+			-- jpeg.frame[i].Hi = get("Hi")
+			-- jpeg.frame[i].Vi = get("Vi")
+			-- jpeg.frame[i].Ci = get("Ci")
+			jpeg.frame[i].q = jpeg.q[jpeg.frame[i].Qi]
+			jpeg.frame[i].dc_prev_diff = 0
+			jpeg.frame[i].dc_huffval   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].huffval
+			jpeg.frame[i].dc_huffcode  = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].huffcode
+			jpeg.frame[i].dc_mincode   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].mincode 
+			jpeg.frame[i].dc_maxcode   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].maxcode 
+			jpeg.frame[i].dc_valptr    = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].valptr  
+		
+			jpeg.frame[i].ac_huffval   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][1].huffval
+			jpeg.frame[i].ac_huffcode  = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].huffcode
+			jpeg.frame[i].ac_mincode   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].mincode 
+			jpeg.frame[i].ac_maxcode   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].maxcode 
+			jpeg.frame[i].ac_valptr    = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].valptr
+			jpeg.frame[i].data8x8 = {} -- 中間バッファ
+			jpeg.frame[i].decoded_picture = {}   -- デコード済みデータ
+		end
+		
+		-- デコード
+		local x = 0
+		local y = 0
+		local hi = jpeg.frame[1].Hi
+		local vi = jpeg.frame[1].Vi
+		local blocksize_x = 8*hi
+		local blocksize_y = 8*vi 
+		local buf_width  = math.ceil(jpeg.width / blocksize_x) * blocksize_x
+		local buf_height = math.ceil(jpeg.height / blocksize_y) * blocksize_y
+		local reset_count = 0
+		local RST
+		print("W  = "..jpeg.width)
+		print("H = "..jpeg.height)
+		print("Start Decode ..")
+		while y < buf_height do
+			while x < buf_width do
+				check_progress(false)
 				
-						-- バッファに書き出し
-						if factor420 == true then
-							if ci == 1 then
+				-- リセット処理
+				if jpeg.restert_interval and reset_count >= jpeg.restert_interval then
+					if select(2, cur()) ~= 0 then
+						rbit("stuffing_bit", 8 - select(2, cur()))
+					end
+					RST = rbyte("RST", 2)
+					if  RST ~= 0xffd0
+					and RST ~= 0xffd1
+					and RST ~= 0xffd2
+					and RST ~= 0xffd3
+					and RST ~= 0xffd4
+					and RST ~= 0xffd5
+					and RST ~= 0xffd6
+					and RST ~= 0xffd7 then
+						assert(false, "failed reset.")	
+					else
+						print("reset marker", hexstr(RST))
+					end
+					reset_count = 1
+				else
+					reset_count = reset_count + 1
+				end
+				
+				-- マクロブロックデコード
+				for ci, v in ipairs(jpeg.frame) do
+					--if cur() >= 0x6090 then
+					--	enable_print(true)
+					--end
+
+					-- ファクターの分だけ最大で16x16をデコード
+					for i = 0, v.Vi-1 do
+						for j = 0, v.Hi-1 do
+							-- 8x8をデコード
+							sprint("8x8", ci, i, j)
+							init8x8(v)
+							dcdiff8x8(v)
+							ac8x8(v)
+							iquontization8x8(v)
+							zigzag8x8(v)
+							idct8x8(v)
+							-- バッファに書き出し
+							if v.Hi == 2 and v.Vi == 2 then
 								local offset = (y+i*8)*buf_width + (x+j*8)
 								for k=0, 7 do
 									for l=0, 7 do
@@ -254,7 +302,8 @@ function start_scan()
 											= v.data8x8[k*8 + l]
 									end
 								end
-							else
+							elseif v.Hi == 1 and v.Vi == 1 then
+								-- 4:1 固定、2:1はいまのところ
 								local offset = y*buf_width + x
 								local count = 0
 								for k=0, 15, 2 do
@@ -268,45 +317,38 @@ function start_scan()
 										count = count+1 
 									end
 								end
-							end
-						else
-							-- とりあえず輝度だけ
-							if ci == 1 then
-								local offset = (y+i*8)*buf_width + (x+j*8)
-								for k=0, 7 do
-									for l=0, 7 do
-										v.decoded_picture[offset + k*buf_width + l]
-											= v.data8x8[k*8 + l]
-									end
-								end
+							else
+								assert(false, "unsupported chroma format.")
 							end
 						end
 					end
 				end
+				
+				x = x + blocksize_x
 			end
-			
-			x = x + blocksize_x
+			x = 0
+			y = y + blocksize_y
 		end
-		x = 0
-		y = y + blocksize_y
-	end
+		print("Done")
 		
-	local bmp = bitmap:new(jpeg.width, jpeg.height, buf_width, buf_height)
-	local Y  = jpeg.frame[1].decoded_picture
-	local cr = jpeg.frame[2].decoded_picture
-	local cb = jpeg.frame[3].decoded_picture
-	local offset = 0
-	local ix
-	print(jpeg.width, jpeg.height, buf_height, buf_width)
-	for y=0, buf_height-1 do
-		for x=0, buf_width-1 do
-			ix = offset + x
-			bmp:putyuv(x, y, Y[ix], cb[ix], cr[ix])
+		-- ファイル・コンソール出力
+		local bmp = bitmap:new(jpeg.width, jpeg.height, buf_width, buf_height)
+		local Y  = jpeg.frame[1].decoded_picture
+		local cr = jpeg.frame[2].decoded_picture
+		local cb = jpeg.frame[3].decoded_picture
+		local offset = 0
+		local ix
+		for y=0, buf_height-1 do
+			for x=0, buf_width-1 do
+				ix = offset + x
+				bmp:putyuv(x, y, Y[ix], cb[ix], cr[ix])
+			end
+			offset = offset + buf_width
 		end
-		offset = offset + buf_width
-	end
-	bmp:write(__stream_dir__.."out.bmp")
-	bmp:ascii(70, 70)
+		bmp:write(__stream_dir__.."out.bmp")
+		local sb = bmp:create_scaled_bmp(120, nil)
+		sb:print_ascii(120, nil)
+	until true
 
 	swap(prev)
 end
@@ -349,7 +391,7 @@ function app1()
 end
 
 function dqt()
-print("quantization table")
+print("Quantization table")
 	local begin = cur()
 	rbit("Lq", 16)
 	rbit("Pq", 4)
@@ -363,6 +405,17 @@ print("quantization table")
 	end
 	
 	jpeg.q[get("Tq")] = Q
+end
+
+function dri()
+print("Define restert interbal ")
+	local begin = cur()
+	rbit("Lr", 16)
+	rbit("Ri", 16) -- リスタートインターバル
+
+	jpeg.restert_interval = get("Ri")  
+
+	skip(get("Lr"), begin)
 end
 
 function dht()
@@ -405,7 +458,7 @@ print("Huffman table")
 	while true do
 		while huffsize[k] == si do
 			huffcode[k] = code
-			printf("%10s, %16s, %32s, ", k, "val="..V[k], "huff=="..binstr(code, si))
+			-- printf("%10s, %-16s %-32s", k, "val="..V[k], "huff=="..binstr(code, si))
 			code = code + 1
 			k = k + 1
 		end
@@ -1270,7 +1323,6 @@ function jpg()
 		elseif maker == 0xffdb then
 			dqt()
 		elseif maker == 0xffdd then
-			assert(false)
 			dri()
 		elseif maker == 0xffc4 then
 			dht()
@@ -1280,15 +1332,15 @@ function jpg()
 		elseif maker == 0xffda then
 			sos()
 			--fstr("ff d9", true)
-		elseif maker == 0xffd0
-		or     maker == 0xffd1
-		or     maker == 0xffd2
-		or     maker == 0xffd3
-		or     maker == 0xffd4
-		or     maker == 0xffd5
-		or     maker == 0xffd6
-		or     maker == 0xffd7 then
-			-- restart
+		--elseif maker == 0xffd0
+		--or     maker == 0xffd1
+		--or     maker == 0xffd2
+		--or     maker == 0xffd3
+		--or     maker == 0xffd4
+		--or     maker == 0xffd5
+		--or     maker == 0xffd6
+		--or     maker == 0xffd7 then
+		--	 restart
 		else
 			print("#unknown maker=", hexstr(maker))
 			segment()
@@ -1298,7 +1350,7 @@ end
 
 open(__stream_path__)
 little_endian(false)
-enable_print(true)
+enable_print(false)
 stdout_to_file(false)
 jpg()
 

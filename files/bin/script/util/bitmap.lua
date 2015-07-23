@@ -73,15 +73,16 @@ function _m:write(filename)
 	local pos
 	local numi=dip.height-1 
 	local numj=dip.pitch-1
+	local has_empty
 	for i=0, numi do
 		for j=0, numj do
 			pos = (dip.buf_pitch*(numi-i)) + j
-			if dip.r[i] ~= nil then
+			if dip.r[pos] ~= nil then
 				putchar(filename, clamp(0, 0xff, math.ceil(dip.r[pos])))
 				putchar(filename, clamp(0, 0xff, math.ceil(dip.g[pos])))
 				putchar(filename, clamp(0, 0xff, math.ceil(dip.b[pos])))
 			else
-				print("erro")
+				has_empty = true
 				write(filename, val2str(self.default_color, 3, true))
 			end
 		end
@@ -90,28 +91,78 @@ function _m:write(filename)
 			putchar(filename, 0xff)
 		end
 	end
+	if has_empty then
+		print("#############################")
+		print("# some empty pixels in bmp! #")
+		print("#############################")
+	end
 	close_file(filename)
 end
 
-function _m:ascii(x, y)
-	local pos
+function _m:create_scaled_bmp(w, h)
+	local sp = self.dip.buf_pitch
+	local sh = self.dip.buf_height
+	h = h or w / sp * sh
+	local dest = bitmap:new(w, h)
+	for y = 0, h do
+		for x = 0, w do
+			dest:putrgb(x, y, self:getrgb(math.ceil((sp - 1)*x/w), math.ceil((sh - 1)*y/h)))	
+		end
+	end
+	return dest
+end
+
+function _m:print_ascii(w, h, aspect)
 	local dip = self.dip
-	local numi=math.min(dip.height-1, x-1)
-	local numj=math.min(dip.pitch-1, y-1)
-	local c = {"  ", "..", "--", "++", "**", "##"}
+	local sp = dip.buf_pitch
+	local sh = dip.buf_height
+	aspect = aspect or 2.3
+	h = h or w / sp * sh
+	local c = {" ", "-", "+", "*", "#"}
+	for i=1, #c do
+		c[i] = string.rep(c[i], 1)
+	end
+	local ignore = string.rep("X", 1)
+
 	local cix
-	for i=0, numi do
-		for j=0, numj do
-			pos = dip.buf_pitch*i + j
-			cix = math.ceil(clamp(0, 255*3, (dip.r[pos] + dip.g[pos] +dip.b[pos])) / (255*3) * (#c-1)) + 1
-			if dip.r[i] ~= nil then
+	local rgb_sum
+	local pos
+	local numx=math.min(sp-1, w-1)
+	local numy=math.min(sh-1, h-1)
+	local has_empty
+	for y=0, numy, aspect do
+		for x=0, numx do
+			pos = dip.buf_pitch*math.ceil(y) + x
+			if dip.r[pos] ~= nil then
+				rgb_sum = dip.r[pos] + dip.g[pos] +dip.b[pos]
+				cix = math.floor(clamp(0, 255*3, rgb_sum) / (255*3+1) * #c + 1)
 				io.write(c[cix])
 			else
-				io.write(" ")
+				has_empty = true
+				io.write(ignore)
 			end
 		end
 		io.write("\n")
 	end
+	if has_empty then
+		print("#############################")
+		print("# some empty pixels in bmp! #")
+		print("#############################")
+	end
+end
+
+function _m:getrgb(x, y)
+	if x > self.dip.buf_pitch
+	or y > self.dip.buf_height then
+		print("dip over")
+		return
+	end
+	
+	local pos = self.dip.buf_pitch * y + x
+	return 
+		self.dip.r[pos],
+		self.dip.g[pos],
+		self.dip.b[pos]
 end
 
 function _m:putrgb(x, y, r, g, b)
@@ -134,13 +185,13 @@ function _m:putyuv(x, y, Y, cb, cr)
 		return
 	end
 		local pos = self.dip.buf_pitch * y + x	
-	--	print("ITU-R BT.601 / ITU-R BT.709 (1250/50/2:1)")
+	--print("ITU-R BT.601 / ITU-R BT.709 (1250/50/2:1)")
 	self.dip.r[pos] = Y                     + 1.402*(cr-128)
 	self.dip.g[pos] = Y - 0.344136*(cb-128) - 0.714136*(cr-128)
 	self.dip.b[pos] = Y + 1.772*(cb-128)
 	--	print("ITU-R BT.709 (1125/60/2:1)")
-	--	dip.r[pos] = Y              +  1.5748*(cr-128)
-	--	dip.g[pos] = Y - 0.187324*(cb-128) - 0.468124 *(cr-128)
-	--	dip.b[pos] = Y + 1.8556*(cb-128)
-end
+	--	self.dip.r[pos] = Y              +  1.5748*(cr-128)
+	--	self.dip.g[pos] = Y - 0.187324*(cb-128) - 0.468124 *(cr-128)
+	--	self.dip.b[pos] = Y + 1.8556*(cb-128)
+end 	
 

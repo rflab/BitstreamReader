@@ -27,11 +27,7 @@ end
 
 -- デコード用関数
 function RECEIVE(SSSS)
-	local V = 0
-	for I = 1, SSSS do
-		V =  (V<<1) + rbit("b", 1)
-	end
-	return V
+	return gbit(SSSS)
 end
 
 function EXTEND(V, T)
@@ -45,7 +41,7 @@ end
 
 function read_huffman(huffval, maxcode, mincode, valptr)
 	local i=1
-	local code = rbit("huff", 1) 
+	local code = gbit(1) 
 	while true do
 		if maxcode[i] == nil then 
 			print_table(maxcode)
@@ -53,7 +49,7 @@ function read_huffman(huffval, maxcode, mincode, valptr)
 		end
 		if code > maxcode[i] then
 			i = i + 1
-			code = (code << 1) + rbit("huff", 1)
+			code = (code << 1) + gbit(1)
 		else
 			break
 		end
@@ -66,23 +62,23 @@ function read_huffman(huffval, maxcode, mincode, valptr)
 	return huffval[j]
 end
 
-function init8x8(frame)
+function init8x8(frame, block)
 	for i=0, 63 do
-		frame.data8x8[i] = 0
+		frame.macroblock[block][i] = 0
 	end
 end
 
-function dcdiff8x8(frame)
+function dcdiff8x8(frame, block)
 	local T = read_huffman(
 		frame.dc_huffval, frame.dc_maxcode, frame.dc_mincode, frame.dc_valptr)
 	sprint("d", T)
 	local DIFF = EXTEND(RECEIVE(T), T)
 	local val = frame.dc_prev_diff + DIFF
-	frame.data8x8[0] = val
+	frame.macroblock[block][0] = val
 	frame.dc_prev_diff = val
 end
 
-function ac8x8(frame)
+function ac8x8(frame, block)
 	-- AC成分
 	local K = 1
 	while true do	
@@ -106,9 +102,8 @@ function ac8x8(frame)
 			end
 		else
 			K = K + R
-			frame.data8x8[K] = RECEIVE(SSSS)
-			frame.data8x8[K] = EXTEND(frame.data8x8[K], SSSS)
-			--print("frame.data8x8["..K.."]="..frame.data8x8[K])
+			frame.macroblock[block][K] = RECEIVE(SSSS)
+			frame.macroblock[block][K] = EXTEND(frame.macroblock[block][K], SSSS)
 			if K >= 63 then
 				sprint("BREAK")
 				break
@@ -119,17 +114,17 @@ function ac8x8(frame)
 	end
 end
 
-function zigzag8x8(frame)
-	local ZZ = frame.data8x8
-	frame.data8x8 = {}
+function zigzag8x8(frame, block)
+	local ZZ = frame.macroblock[block]
+	frame.macroblock[block] = {}
 	for i=0, 63 do
-		frame.data8x8[zigzag[i+1]] = ZZ[i]
+		frame.macroblock[block][zigzag[i+1]] = ZZ[i]
 	end
 end
 
-local function iquontization8x8(frame)
+local function iquontization8x8(frame, block)
 	for i=0, 63 do
-		frame.data8x8[i] = frame.data8x8[i] * frame.q[i]
+		frame.macroblock[block][i] = frame.macroblock[block][i] * frame.q[i]
 	end
 end
 
@@ -149,17 +144,17 @@ function mul8x8(a, b)
 end
 
 -- 高速化なしDCT
-function idct8x8(frame)
-	frame.data8x8 = mul8x8(dct_matrix_t, frame.data8x8)
-	frame.data8x8 = mul8x8(frame.data8x8, dct_matrix)
+function idct8x8(frame, block)
+	frame.macroblock[block] = mul8x8(dct_matrix_t, frame.macroblock[block])
+	frame.macroblock[block] = mul8x8(frame.macroblock[block], dct_matrix)
 	for i=0, 63 do
-		local v = math.ceil(frame.data8x8[i] + 128)
+		local v = math.ceil(frame.macroblock[block][i] + 128)
 		if v < 0 then
-			frame.data8x8[i] = 0
+			frame.macroblock[block][i] = 0
 		elseif v > 255 then
-			frame.data8x8[i] = 255
+			frame.macroblock[block][i] = 255
 		else
-			frame.data8x8[i] = v
+			frame.macroblock[block][i] = v
 		end
 	end
 end
@@ -170,6 +165,86 @@ function dump8x8(t)
 			io.write(string.format("%7.2f ", t[8*(i-1) + (j-1)]))
 		end
 		io.write("\n")
+	end
+end
+
+-- Y16x16で4:2:0
+local c420_indices = 
+{
+	 0, 0, 1, 1, 2, 2, 3, 3,
+	 0, 0, 1, 1, 2, 2, 3, 3,
+	 8, 8, 9, 9,10,10,11,11,
+	 8, 8, 9, 9,10,10,11,11,
+	16,16,17,17,18,18,19,19,
+	16,16,17,17,18,18,19,19,
+	24,24,25,25,26,26,27,27,
+	24,24,25,25,26,26,27,27
+}
+function fill_block_420(bmp, x, y, Y, Cb, Cr)	
+	local yix = 0
+	local block = 1
+	local cix = 0
+	local coff = 0
+	for bi = 0, 8, 8 do
+		for bj = 0, 8, 8 do
+			yix = 0
+			for i=0, 7 do
+				for j=0, 7 do
+					bmp:putyuv(x+bj+j, y+bi+i,
+						Y[block][yix],
+						Cb[c420_indices[yix+1]+coff],
+						Cr[c420_indices[yix+1]+coff])
+					yix = yix + 1 
+				end
+			end
+			block = block + 1
+			coff = coff + 4
+		end
+		coff = coff + 24
+	end
+end
+
+-- Y16x8で4:2:0
+local c422_indices = 
+{
+	 0, 0, 1, 1, 2, 2, 3, 3,
+	 8, 8, 9, 9,10,10,11,11,
+	16,16,17,17,18,18,19,19,
+	24,24,25,25,26,26,27,27,
+	32,32,33,33,34,34,35,35,
+	40,40,41,41,42,42,43,43,
+	48,48,49,49,50,50,51,51,
+	56,56,57,57,58,58,59,59
+}
+function fill_block_422(bmp, x, y, Y, Cb, Cr)	
+	local yix = 0
+	local block = 1
+	local cix = 0
+	local coff = 0
+	for bj = 0, 8, 8 do
+		yix = 0
+		for i=0, 7 do
+			for j=0, 7 do
+				bmp:putyuv(x+bj+j, y+i,
+					Y[block][yix],
+					Cb[c422_indices[yix+1]+coff],
+					Cr[c422_indices[yix+1]+coff])
+				yix = yix + 1 
+			end
+		end
+		block = block + 1
+		coff = coff + 4
+	end
+end
+
+-- Y8x8の4:4:4
+function fill_block_444(bmp, x, y, Y, Cb, Cr)
+	local yix = 0
+	for bi=0, 7 do
+		for bj=0, 7 do
+			bmp:putyuv(x+bj, y+bi, Y[yix], Cb[yix], Cr[yix])
+			yix = yix + 1 
+		end
 	end
 end
 
@@ -203,7 +278,7 @@ function start_scan()
 	
 	repeat
 		-- 3Gとか食うのでやめ
-		if jpeg.width * jpeg.height > 2073600 then
+		if false then -- jpeg.width * jpeg.height > 2073600 then
 			print("########################################")
 			print("# need too much memory in current impl.#")
 			print("# force cancel decode.                 #")
@@ -212,14 +287,14 @@ function start_scan()
 		end
 		
 		-- スキャン用のテーブルを用意
+		local hi
+		local vi
 		for i=1, jpeg.num_frame do
-			-- jpeg.frame[i].component_str = component_str
 			-- jpeg.frame[i].Qi = get("Tqi")
 			-- jpeg.frame[i].Hi = get("Hi")
 			-- jpeg.frame[i].Vi = get("Vi")
 			-- jpeg.frame[i].Ci = get("Ci")
 			jpeg.frame[i].q = jpeg.q[jpeg.frame[i].Qi]
-			jpeg.frame[i].dc_prev_diff = 0
 			jpeg.frame[i].dc_huffval   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].huffval
 			jpeg.frame[i].dc_huffcode  = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].huffcode
 			jpeg.frame[i].dc_mincode   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].mincode 
@@ -231,21 +306,37 @@ function start_scan()
 			jpeg.frame[i].ac_mincode   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].mincode 
 			jpeg.frame[i].ac_maxcode   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].maxcode 
 			jpeg.frame[i].ac_valptr    = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].valptr
-			jpeg.frame[i].data8x8 = {} -- 中間バッファ
-			jpeg.frame[i].decoded_picture = {}   -- デコード済みデータ
+
+			jpeg.frame[i].dc_prev_diff = 0
+			jpeg.frame[i].macroblock = {{}, {}, {}, {}}
+			
+			if jpeg.frame[i].Ci == 1 then
+				hi = jpeg.frame[i].Hi
+				vi = jpeg.frame[i].Vi
+			end
+		end
+		
+		
+		
+		if hi == 2 and vi == 2 then
+		elseif hi == 2 and vi == 1 then
+		elseif hi == 1 and vi == 1 then
+			-- supported
+		else
+			print("unsupported color format")
+			break
 		end
 		
 		-- デコード
 		local x = 0
 		local y = 0
-		local hi = jpeg.frame[1].Hi
-		local vi = jpeg.frame[1].Vi
-		local blocksize_x = 8*hi
-		local blocksize_y = 8*vi 
-		local buf_width  = math.ceil(jpeg.width / blocksize_x) * blocksize_x
-		local buf_height = math.ceil(jpeg.height / blocksize_y) * blocksize_y
+		local macroblocksize_x = hi*8
+		local macroblocksize_y = vi*8 
+		local buf_width  = math.ceil(jpeg.width / macroblocksize_x) * macroblocksize_x
+		local buf_height = math.ceil(jpeg.height / macroblocksize_y) * macroblocksize_y
 		local reset_count = 0
 		local RST
+		local bmp = bitmap:new(jpeg.width, jpeg.height, buf_width, buf_height)
 		print("W  = "..jpeg.width)
 		print("H = "..jpeg.height)
 		print("Start Decode ..")
@@ -267,9 +358,12 @@ function start_scan()
 					and RST ~= 0xffd5
 					and RST ~= 0xffd6
 					and RST ~= 0xffd7 then
-						assert(false, "failed reset.")	
+						assert(false, "failed reset.")
 					else
 						print("reset marker", hexstr(RST))
+						for i, v in ipairs(jpeg.frame) do
+							v.dc_prev_diff = 0
+						end
 					end
 					reset_count = 1
 				else
@@ -278,73 +372,47 @@ function start_scan()
 				
 				-- マクロブロックデコード
 				for ci, v in ipairs(jpeg.frame) do
-					--if cur() >= 0x6090 then
-					--	enable_print(true)
-					--end
-
-					-- ファクターの分だけ最大で16x16をデコード
+					local block = 1
 					for i = 0, v.Vi-1 do
 						for j = 0, v.Hi-1 do
 							-- 8x8をデコード
 							sprint("8x8", ci, i, j)
-							init8x8(v)
-							dcdiff8x8(v)
-							ac8x8(v)
-							iquontization8x8(v)
-							zigzag8x8(v)
-							idct8x8(v)
-							-- バッファに書き出し
-							if v.Hi == 2 and v.Vi == 2 then
-								local offset = (y+i*8)*buf_width + (x+j*8)
-								for k=0, 7 do
-									for l=0, 7 do
-										v.decoded_picture[offset + k*buf_width + l]
-											= v.data8x8[k*8 + l]
-									end
-								end
-							elseif v.Hi == 1 and v.Vi == 1 then
-								-- 4:1 固定、2:1はいまのところ
-								local offset = y*buf_width + x
-								local count = 0
-								for k=0, 15, 2 do
-									for l=0, 15, 2 do
-										local d = offset + k*buf_width + l
-										local c = v.data8x8[count]
-										v.decoded_picture[d]   = c
-										v.decoded_picture[d+1] = c
-										v.decoded_picture[d+buf_width]   = c
-										v.decoded_picture[d+buf_width+1] = c
-										count = count+1 
-									end
-								end
-							else
-								assert(false, "unsupported chroma format.")
-							end
+							init8x8(v, block)
+							dcdiff8x8(v, block)
+							ac8x8(v, block)
+							iquontization8x8(v, block)
+							zigzag8x8(v, block)
+							idct8x8(v, block)
+							block = block + 1
 						end
 					end
 				end
 				
-				x = x + blocksize_x
+				-- bitmapに書き込み
+				if hi == 2 and vi == 2 then
+					fill_block_420(bmp, x, y,
+						jpeg.frame[1].macroblock,
+						jpeg.frame[2].macroblock[1],
+						jpeg.frame[3].macroblock[1])	
+				elseif hi == 2 and vi == 1 then
+					fill_block_422(bmp, x, y,
+						jpeg.frame[1].macroblock,
+						jpeg.frame[2].macroblock[1],
+						jpeg.frame[3].macroblock[1])
+				else
+					fill_block_444(bmp, x, y,
+						jpeg.frame[1].macroblock[1],
+						jpeg.frame[2].macroblock[1],
+						jpeg.frame[3].macroblock[1])
+				end				
+				x = x + macroblocksize_x
 			end
 			x = 0
-			y = y + blocksize_y
+			y = y + macroblocksize_y
 		end
 		print("Done")
 		
 		-- ファイル・コンソール出力
-		local bmp = bitmap:new(jpeg.width, jpeg.height, buf_width, buf_height)
-		local Y  = jpeg.frame[1].decoded_picture
-		local cr = jpeg.frame[2].decoded_picture
-		local cb = jpeg.frame[3].decoded_picture
-		local offset = 0
-		local ix
-		for y=0, buf_height-1 do
-			for x=0, buf_width-1 do
-				ix = offset + x
-				bmp:putyuv(x, y, Y[ix], cb[ix], cr[ix])
-			end
-			offset = offset + buf_width
-		end
 		bmp:write(__stream_dir__.."out.bmp")
 		local sb = bmp:create_scaled_bmp(120, nil)
 		sb:print_ascii(120, nil)
@@ -511,6 +579,7 @@ print("Frame header")
 	rbit("X",  16)
 	rbit("Nf", 8)
 	
+	printf("w=%d h=%d", get("X"), get("Y"))
 	jpeg.width = get("X")
 	jpeg.height = get("Y")
 	jpeg.num_frame = get("Nf")
@@ -522,17 +591,15 @@ print("Frame header")
 		rbit("Vi",  4) -- factor v
 		rbit("Tqi", 8) -- table
 
-		local component_str
 		local ci = get("Ci")
-		if     ci == 1 then component_str = "Y"
-		elseif ci == 2 then component_str = "Cb"
-		elseif ci == 3 then component_str = "Cr"
-		elseif ci == 4 then component_str = "I"
-		elseif ci == 5 then component_str = "Q"
+		if     ci == 1 then printf("# Y  h=%d v=%d", get("Hi"), get("Vi"))
+		elseif ci == 2 then printf("# Cb h=%d v=%d", get("Hi"), get("Vi"))
+		elseif ci == 3 then printf("# Cr h=%d v=%d", get("Hi"), get("Vi"))
+		elseif ci == 4 then printf("# I  h=%d v=%d", get("Hi"), get("Vi"))
+		elseif ci == 5 then printf("# Q  h=%d v=%d", get("Hi"), get("Vi"))
 		else assert(false, "unknown Ci") end
 
 		jpeg.frame[i] = {}
-		jpeg.frame[i].component_str = component_str
 		jpeg.frame[i].Qi = get("Tqi")
 		jpeg.frame[i].Hi = get("Hi")
 		jpeg.frame[i].Vi = get("Vi")

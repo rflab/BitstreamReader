@@ -1,10 +1,13 @@
 ﻿#include "rflib/bighead.h"
-#include "rflib/bitstream.h"
-#include "rflib/sqlwrapper.h"
-#include "rflib/luabinder.hpp"
+#include "rflib/data/bitstream.h"
+#include "rflib/wrapper/sqlwrapper.h"
+#include "rflib/wrapper/luabinder.hpp"
 
 namespace rf
 {
+	using namespace wrapper;
+	using namespace data;
+
 	class FileManager final
 	{
 	private:

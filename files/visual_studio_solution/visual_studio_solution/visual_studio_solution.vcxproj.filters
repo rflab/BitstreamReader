@@ -22,6 +22,12 @@
     <Filter Include="ソース ファイル\rflib">
       <UniqueIdentifier>{88f65f57-4d1c-475b-b19a-d2c6783025ae}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ソース ファイル\rflib\wrapper">
+      <UniqueIdentifier>{f9da62c8-5e00-4b51-8bcf-dfb78043e673}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\rflib\data">
+      <UniqueIdentifier>{cbec0a98-a11e-4981-9cca-a13c40dc4f68}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\streamreader.cpp">
@@ -132,13 +138,13 @@
     <ClCompile Include="..\..\src\sqlite\sqlite3.c">
       <Filter>ソース ファイル\sqlite</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\rflib\bitstream.cpp">
-      <Filter>ソース ファイル\rflib</Filter>
+    <ClCompile Include="..\..\src\rflib\data\bitstream.cpp">
+      <Filter>ソース ファイル\rflib\data</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\rflib\wrapper\sqlwrapper.cpp">
+      <Filter>ソース ファイル\rflib\wrapper</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\rflib\bighead.cpp">
-      <Filter>ソース ファイル\rflib</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\rflib\sqlwrapper.cpp">
       <Filter>ソース ファイル\rflib</Filter>
     </ClCompile>
   </ItemGroup>
@@ -227,16 +233,16 @@
     <ClInclude Include="..\..\src\sqlite\sqlite3.h">
       <Filter>ソース ファイル\sqlite</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\rflib\bitstream.h">
-      <Filter>ソース ファイル\rflib</Filter>
+    <ClInclude Include="..\..\src\rflib\data\bitstream.h">
+      <Filter>ソース ファイル\rflib\data</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\rflib\luabinder.hpp">
-      <Filter>ソース ファイル\rflib</Filter>
+    <ClInclude Include="..\..\src\rflib\wrapper\luabinder.hpp">
+      <Filter>ソース ファイル\rflib\wrapper</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\rflib\wrapper\sqlwrapper.h">
+      <Filter>ソース ファイル\rflib\wrapper</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\rflib\bighead.h">
-      <Filter>ソース ファイル\rflib</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\rflib\sqlwrapper.h">
       <Filter>ソース ファイル\rflib</Filter>
     </ClInclude>
   </ItemGroup>

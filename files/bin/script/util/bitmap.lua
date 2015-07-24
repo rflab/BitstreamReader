@@ -78,9 +78,10 @@ function _m:write(filename)
 		for j=0, numj do
 			pos = (dip.buf_pitch*(numi-i)) + j
 			if dip.r[pos] ~= nil then
-				putchar(filename, clamp(0, 0xff, math.ceil(dip.r[pos])))
-				putchar(filename, clamp(0, 0xff, math.ceil(dip.g[pos])))
+				-- bitmapはBGR順に並んでる
 				putchar(filename, clamp(0, 0xff, math.ceil(dip.b[pos])))
+				putchar(filename, clamp(0, 0xff, math.ceil(dip.g[pos])))
+				putchar(filename, clamp(0, 0xff, math.ceil(dip.r[pos])))
 			else
 				has_empty = true
 				write(filename, val2str(self.default_color, 3, true))
@@ -154,7 +155,6 @@ end
 function _m:getrgb(x, y)
 	if x > self.dip.buf_pitch
 	or y > self.dip.buf_height then
-		print("dip over")
 		return
 	end
 	
@@ -178,20 +178,21 @@ function _m:putrgb(x, y, r, g, b)
 	self.dip.b[pos] = b
 end
 
-function _m:putyuv(x, y, Y, cb, cr)
+function _m:putyuv(x, y, Y, Cb, Cr)
 	if x > self.dip.buf_pitch
 	or y > self.dip.buf_height then
 		print("dip over")
 		return
 	end
-		local pos = self.dip.buf_pitch * y + x	
+
+	local pos = self.dip.buf_pitch * y + x	
 	--print("ITU-R BT.601 / ITU-R BT.709 (1250/50/2:1)")
-	self.dip.r[pos] = Y                     + 1.402*(cr-128)
-	self.dip.g[pos] = Y - 0.344136*(cb-128) - 0.714136*(cr-128)
-	self.dip.b[pos] = Y + 1.772*(cb-128)
-	--	print("ITU-R BT.709 (1125/60/2:1)")
-	--	self.dip.r[pos] = Y              +  1.5748*(cr-128)
-	--	self.dip.g[pos] = Y - 0.187324*(cb-128) - 0.468124 *(cr-128)
-	--	self.dip.b[pos] = Y + 1.8556*(cb-128)
+	self.dip.r[pos] = Y                     + 1.402*(Cr-128)
+	self.dip.g[pos] = Y - 0.344136*(Cb-128) - 0.714136*(Cr-128)
+	self.dip.b[pos] = Y + 1.772*(Cb-128)
+	-- print("ITU-R BT.709 (1125/60/2:1)")
+	-- self.dip.r[pos] = Y              +  1.5748*(Cr-128)
+	-- self.dip.g[pos] = Y - 0.187324*(Cb-128) - 0.468124 *(Cr-128)
+	-- self.dip.b[pos] = Y + 1.8556*(Cb-128)
 end 	
 

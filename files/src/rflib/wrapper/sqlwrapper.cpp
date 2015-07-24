@@ -1,6 +1,7 @@
 #include "sqlwrapper.h"
 
 using namespace rf;
+using namespace rf::wrapper;
 
 void SqliteWrapper::close()
 {

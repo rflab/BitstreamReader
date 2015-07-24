@@ -149,6 +149,26 @@ function set_exit(address)
 	return gs_stream:set_exit(address)
 end
 
+-- ビット単位読む
+function gbit(size)
+	return gs_stream:gbit(size)
+end
+
+-- バイト単位読む
+function gbyte(size)
+	return gs_stream:gbyte(size)
+end
+
+-- 文字列として読む
+function gstr(size)
+	return gs_stream:gstr(size)
+end
+
+-- 指数ゴロムとして読む
+function gexp()
+	return gs_stream:gexp()
+end
+
 -- ビット単位読み込み
 function rbit(name, size)
 	local byte, bit = cur()

@@ -115,6 +115,22 @@ function _m:reset(name, value)
 	self.tbl[name] = value
 end
 
+function _m:gbit(size)
+	return self.stream:read_bit("", size)
+end
+
+function _m:gbyte(size)
+	return self.stream:read_byte("", size)
+end
+
+function _m:gstr(size)	
+ 	return self.stream:read_string("", size)
+end
+
+function _m:gexp()
+	return self.stream:read_expgolomb("")
+end
+
 function _m:rbit(name, size)
 	local val = self.stream:read_bit(name, size)
 	check(self, val, "rbit:"..name)

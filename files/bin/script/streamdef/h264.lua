@@ -641,14 +641,14 @@ function nal_unit(rbsp, NumBytesInNALunit)
 	local ofs
 	while true do
 		ofs = fstr("00 00 03", false, NumBytesInNALunit-i)
-		if i + ofs < NumBytesInNALunit then 
+		if ofs+2 < NumBytesInNALunit-i then
 			tbyte("rbsp", ofs+2, rbsp)
 			cbyte("emulation_prevention_three_byte", 1, 3) -- equal to 0x03
 			NumBytesInRbsp = NumBytesInRbsp + ofs + 2
 			i = i + ofs + 2
 		else
-			tbyte("rbsp end", ofs, rbsp)
-			NumBytesInRbsp = NumBytesInRbsp + ofs
+			tbyte("rbsp end", NumBytesInNALunit-i, rbsp)
+			NumBytesInRbsp = NumBytesInRbsp + NumBytesInNALunit-i
 			break
 		end
 		i=i+1

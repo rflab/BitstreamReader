@@ -2,6 +2,7 @@
 #include "bitstream.h"
 
 using namespace rf;
+using namespace rf::data;
 
 void Bitstream::sync()
 {

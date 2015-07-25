@@ -293,17 +293,17 @@ function start_scan()
 		local vi
 		for i=1, jpeg.num_frame do
 			jpeg.frame[i].q = jpeg.q[jpeg.frame[i].Qi]
-			jpeg.frame[i].dc_huffval   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].huffval
-			jpeg.frame[i].dc_huffcode  = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].huffcode
-			jpeg.frame[i].dc_mincode   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].mincode 
-			jpeg.frame[i].dc_maxcode   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].maxcode 
-			jpeg.frame[i].dc_valptr    = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].valptr  
+			jpeg.frame[i].dc_huffval  = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].huffval
+			jpeg.frame[i].dc_huffcode = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].huffcode
+			jpeg.frame[i].dc_mincode  = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].mincode 
+			jpeg.frame[i].dc_maxcode  = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].maxcode 
+			jpeg.frame[i].dc_valptr   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].valptr  
 		
-			jpeg.frame[i].ac_huffval   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][1].huffval
-			jpeg.frame[i].ac_huffcode  = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].huffcode
-			jpeg.frame[i].ac_mincode   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].mincode 
-			jpeg.frame[i].ac_maxcode   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].maxcode 
-			jpeg.frame[i].ac_valptr    = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].valptr
+			jpeg.frame[i].ac_huffval  = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][1].huffval
+			jpeg.frame[i].ac_huffcode = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].huffcode
+			jpeg.frame[i].ac_mincode  = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].mincode 
+			jpeg.frame[i].ac_maxcode  = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].maxcode 
+			jpeg.frame[i].ac_valptr   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].ac_huffman][1].valptr
 
 			jpeg.frame[i].dc_prev_diff = 0
 			jpeg.frame[i].macroblock = {{}, {}, {}, {}}

@@ -56,10 +56,11 @@ function BITMAPINFOHEADER()
 	enable_print(false)
 	local begin = cur()
 	local aligned_x = info.width + info.width%4
-	local ascii_w = 120
-	local ascii_h = math.floor(ascii_w*info.height/info.width)
-	local intervalx = math.floor(aligned_x / ascii_w)
-	local intervaly = math.floor(info.height / ascii_h)
+	local ascii_w = math.min(120, info.width)
+	local ascii_h = math.floor(ascii_w*info.height/info.width + 0.5)
+	print(ascii_w, ascii_h)
+	local intervalx = math.floor(aligned_x / ascii_w + 0.5)
+	local intervaly = math.floor(info.height / ascii_h + 0.5)
 	local bmp = bitmap:new(ascii_w, ascii_h)
 	local r,g,b
 	for y=0, ascii_h-1 do
@@ -72,7 +73,7 @@ function BITMAPINFOHEADER()
 			seekoff(3*(intervalx)-3)
 		end
 		
-		seek(begin+3*aligned_x*y*intervaly)
+		seek(begin+3*aligned_x*math.min(y*intervaly, info.height-2))
 	end
 	local sb = bmp:create_scaled_bmp(120, nil)
 	sb:print_ascii(120, nil)

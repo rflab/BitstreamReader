@@ -105,9 +105,10 @@ function _m:create_scaled_bmp(w, h)
 	local sh = self.dip.buf_height
 	h = h or w / sp * sh
 	local dest = bitmap:new(w, h)
-	for y = 0, h do
-		for x = 0, w do
-			dest:putrgb(x, y, self:getrgb(math.ceil((sp - 1)*x/w), math.ceil((sh - 1)*y/h)))	
+	for y = 0, h-1 do
+		for x = 0, w-1 do
+			dest:putrgb(x, y, self:getrgb(
+				math.floor((sp-1)*x/w+0.1), math.floor((sh-1)*y/h+0.1)))	
 		end
 	end
 	return dest

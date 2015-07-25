@@ -13,8 +13,21 @@ global("__streamdef_dir__", __exec_dir__.."script/streamdef/")
 global("__default_enable_print__",  false)
 
 -- __out_dir__を作成しておく
+-- windowsの場合はディレクトリ名を/→\に置換する
 if windows then
 	os.execute("mkdir \""..__out_dir__.."\"")
+	global("__text_editor__", "C:\\Program Files (x86)\\sakura\\sakura.exe")
+	global("__hex_editor__",  "C:\\Program Files (x86)\\BzEditor\\Bz.exe")
+	__exec_path__     = __exec_path__:gsub("(/)", "\\")
+	__exec_name__     = __exec_name__:gsub("(/)", "\\")
+	__exec_ext__      = __exec_ext__:gsub("(/)", "\\")
+	__stream_path__   = __stream_path__:gsub("(/)", "\\")
+	__stream_dir__    = __stream_dir__:gsub("(/)", "\\")
+	__stream_name__   = __stream_name__:gsub("(/)", "\\")
+	__stream_ext__    = __stream_ext__:gsub("(/)", "\\")
+	__out_dir__       = __out_dir__:gsub("(/)", "\\")
+	__streamdef_dir__ = __streamdef_dir__:gsub("(/)", "\\")
+	__exec_dir__      = __exec_dir__:gsub("(/)", "\\")
 else
 	os.execute("mkdir -p \""..__out_dir__.."\"")
 end

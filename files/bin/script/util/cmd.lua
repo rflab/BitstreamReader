@@ -36,15 +36,6 @@ function exec_cmd(c)
 			if type(c[2]) == "string" then
 				open(__stream_dir__..c[2])
 			end
-		elseif c[1] == "stream" then
-			local streams = get_streams()
-			for i, v in ipairs(streams) do
-				print(i, v.name, v.file_name)
-			end
-			if type(c[2]) == "number" then
-				print("swap("..streams[toindex(c[2], streams)].name..")")
-				swap(streams[toindex(c[2], streams)])
-			end
 		elseif c[1] == "info" then
 			local data = get_data()
 			local vs, ts, bys, bis = data.values, data.tables, data.bytes, data.bits
@@ -303,7 +294,24 @@ function exec_cmd(c)
 				else
 					print("abort.")
 				end
-			end	
+			end
+		elseif c[1] == "stream" then
+			local streams = get_streams()
+			for i, v in ipairs(streams) do
+				print(i, v.name, v.file_name)
+			end
+			if type(c[2]) == "number" then
+				print("swap("..streams[toindex(c[2], streams)].name..")")
+				swap(streams[toindex(c[2], streams)])
+			end
+		elseif c[1] == "edit" then
+			local cmdline = "\""..__hex_editor__.."\" "..__stream_path__
+			print(cmdline)
+			os.execute(cmdline)	
+		elseif c[1] == "tedit" then
+			local cmdline = "\""..__text_editor__.."\" "..__stream_path__
+			print(cmdline)
+			os.execute(cmdline)	
 		elseif c[1] == "sql" then
 			local cmd
 			if windows then
@@ -312,39 +320,52 @@ function exec_cmd(c)
 				else
 					os.execute("sqlite3.exe "..c[2])
 				end
+			end	
+		elseif c[1] == "dir" then
+			local cmdline = "explorer \""..__exec_dir__.."\""
+			print(cmdline)
+			os.execute(cmdline)
+		elseif c[1] == "test" then
+			do
+				local command = [[select * from bitstream limit 100]]
+				local stmt = get_sql():prepare(command)
+				sql_print(stmt)
 			end
-			
-		elseif c[1] == "sql_test" then
-			local command = [[select * from bitstream limit 100]]
-			local stmt = get_sql():prepare(command)
-			sql_print(stmt)
-		elseif c[1] == "sql_info" then
-			local command = [[select count(*), name from bitstream group by name limit 100]]
-			local stmt = get_sql():prepare(command)
-			print("num   |name")
-			print("------|--------------------------")
-			sql_print(stmt, "%6d| %-40s")
-		elseif c[1] == "sql_info2" then
-			local command = [[select name, count(*) from bitstream group by name limit 100]]
-			local stmt = get_sql():prepare(command)
-			sql_print(stmt)
+
+			do
+				local command = [[select count(*), name from bitstream group by name limit 100]]
+				local stmt = get_sql():prepare(command)
+				print("num   |name")
+				print("------|--------------------------")
+				sql_print(stmt, "%6d| %-40s")
+			end
+
+			do
+				local command = [[select name, count(*) from bitstream group by name limit 100]]
+				local stmt = get_sql():prepare(command)
+				sql_print(stmt)
+			end
 		elseif c[1] == "hogehoge" then
 			elseif c[1] == "function" then
 				if type(_G[c[2]]) == "table" then
 					_G[c[2]](c[3], c[4], c[5], c[6], c[7], c[8], c[9])
 				end
 		else
-			print("history               : show history")
-			print("info                  : show all values")
-			print("grep REGEX...         : search & show last value")
-			print("list REGEX...         : search & show all value")
-			print("dump REGEX INDEX      : hex dump around REGEX[INDEX]")
-			print("dump ADDRESS          : hex dump from ADDRESS")
-			print("find PATTERN ADDRESS  : find PATTERN from ADDRESS, e.g. find \"00 00 01\" ")
-			print("open FILENAME         : open newfile in stream directory")
-			print("stream INDEX          : show and swap stream")
-			print("sql                   : open database by SQLite shell")
-			print("q|exit                : exit command mode")
+			print("history              : show history")
+			print("info                 : show all values")
+			print("grep REGEX...        : search & show last value")
+			print("list REGEX...        : search & show all value")
+			print("dump REGEX [INDEX]   : hex dump around REGEX[INDEX]")
+			print("dump ADDRESS         : hex dump from ADDRESS")
+			print("find PATTERN ADDRESS : find PATTERN from ADDRESS, e.g. find \"00 00 01\" ")
+			print("open FILENAME        : open newfile in stream directory")
+			print("stream INDEX         : show and swap stream")
+			print("edit                 : open stream by hex editor")
+			print("tedit                : open stream by text editor")
+			print("sql                  : open database by SQLite shell")
+			print("dir                  : open .exe directory")
+			print("test                 : test command")
+			print("q|exit               : exit command mode")
 		end
 	until true
 end

@@ -52,8 +52,30 @@ function BITMAPINFOHEADER()
 	elseif get("biCompression") == 2 then assert(false, "unsupported RunLength4")
 	elseif get("biCompression") == 3 then assert(false, "unsupported Bitfields")
 	end
-	
-	rbyte("data", get("biSizeImage"))
+		
+	enable_print(false)
+	local begin = cur()
+	local aligned_x = info.width + info.width%4
+	local ascii_w = 120
+	local ascii_h = math.floor(ascii_w*info.height/info.width)
+	local intervalx = math.floor(aligned_x / ascii_w)
+	local intervaly = math.floor(info.height / ascii_h)
+	local bmp = bitmap:new(ascii_w, ascii_h)
+	local r,g,b
+	for y=0, ascii_h-1 do
+		check_progress(false)
+		for x=0, ascii_w-1 do
+			b=gbyte(1)
+			g=gbyte(1)
+			r=gbyte(1)
+			bmp:putrgb(x, ascii_h-1-y, r, g, b)
+			seekoff(3*(intervalx)-3)
+		end
+		
+		seek(begin+3*aligned_x*y*intervaly)
+	end
+	local sb = bmp:create_scaled_bmp(120, nil)
+	sb:print_ascii(120, nil)
 end
 
 function bmp()
@@ -67,6 +89,7 @@ function bmp()
 	else
 		print("unsupported cbSize")
 	end
+	
 end
 
 open(__stream_path__)

@@ -28,8 +28,8 @@ function unknown_data(size, begin)
 	end
 end
 
-function unknown_box(header, box_size, header_size)
-	print("# unknown box", header)
+function unsupported_box(header, box_size, header_size)
+	print("# unsupported box", header)
 	rbyte("payload", box_size-header_size)
 end
 
@@ -75,7 +75,7 @@ function moov(size)
 		elseif header == "auth" then
 			auth(box_size-header_size)
 		else
-			unknown_box(header, box_size, header_size)
+			unsupported_box(header, box_size, header_size)
 		end
 
 		total_size = total_size + box_size
@@ -112,7 +112,7 @@ function trak(size, header)
 		elseif header == "edts" then
 			edts(box_size-header_size)
 		else
-			unknown_box(header, box_size, header_size)
+			unsupported_box(header, box_size, header_size)
 		end
 
 		total_size = total_size + box_size
@@ -156,7 +156,7 @@ function mdia(size)
 		elseif header == "minf" then
 			minf(box_size-header_size)
 		else
-			unknown_box(header, box_size, header_size)
+			unsupported_box(header, box_size, header_size)
 		end
 
 		total_size = total_size + box_size
@@ -189,7 +189,7 @@ function minf(size)
 		if header == "stbl" then
 			stbl(box_size-header_size)
 		else
-			unknown_box(header, box_size, header_size)
+			unsupported_box(header, box_size, header_size)
 		end
 
 		total_size = total_size + box_size
@@ -244,7 +244,7 @@ function stbl(size)
 		elseif header == "ctts" then
 			ctts(box_size-header_size)
 		else
-			unknown_box(header, box_size, header_size)
+			unsupported_box(header, box_size, header_size)
 		end
 
 		total_size = total_size + box_size
@@ -308,7 +308,7 @@ function HEVCSampleEntry(size)
 		elseif header == "btrt" then
 			MPEG4BitRateBox()
 		else
-			unknown_box(header, box_size, header_size)
+			unsupported_box(header, box_size, header_size)
 		end
 
 		total_size = total_size + box_size
@@ -344,7 +344,7 @@ function AVCSampleEntry(size)
 		elseif header == "btrt" then
 			MPEG4BitRateBox()
 		else
-			unknown_box(header, box_size, header_size)
+			unsupported_box(header, box_size, header_size)
 		end
 	
 		unknown_data(box_size, begin)
@@ -411,7 +411,7 @@ function DESCRIPTIONRECORD()
 	elseif header == "mp4a" then
 		rbyte("some data", box_size - header_size)
 	else
-		unknown_box(header, box_size, header_size)
+		unsupported_box(header, box_size, header_size)
 	end
 end
 
@@ -634,7 +634,7 @@ function moof(size)
 		elseif header == "traf" then
 			traf(box_size-header_size)
 		else
-			unknown_box(header, box_size, header_size)
+			unsupported_box(header, box_size, header_size)
 		end
 
 		total_size = total_size + box_size
@@ -655,7 +655,7 @@ function traf(size)
 		elseif header == "traf" then
 			traf(box_size-header_size)
 		else
-			unknown_box(header, box_size, header_size)
+			unsupported_box(header, box_size, header_size)
 		end
 
 		total_size = total_size + box_size
@@ -784,7 +784,7 @@ function mp4(size)
 		elseif header == "mdat" then
 			mdat(box_size-header_size)
 		else
-			unknown_box(header, box_size, header_size)
+			unsupported_box(header, box_size, header_size)
 		end
 
 		total_size = total_size + box_size

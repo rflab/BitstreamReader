@@ -1,35 +1,14 @@
 -- jpeg解析
-local jpeg = {q = {}, huffman = {}, frame = {}, scan  = {}}
-local dct_matrix = {}
-local dct_matrix_t = {}
-local zigzag = {
-	 0,  1,  8, 16,  9,  2,  3, 10,
-	17, 24, 32, 25, 18, 11,  4,  5,
-	12, 19, 26, 33, 40, 48, 41, 34,
-	27, 20, 13,  6,  7, 14, 21, 28,
-	35, 42, 49, 56, 57, 50, 43, 36,
-	29, 22, 15, 23, 30, 37, 44, 51,
-	58, 59, 52, 45, 38, 31, 39, 46,
-	53, 60, 61, 54, 47, 55, 62, 63
-}
--- テーブルの値を作っておく	
-for i=0, 7 do
-	dct_matrix[i] = 1/(2*(2^0.5))
-	dct_matrix_t[i*8] = 1/(2*(2^0.5))
-end
-for i=1, 7 do
-	for j=0, 7 do
-		local v = 0.5 * math.cos(( i*(j+0.5) / 8) * math.pi)
-		dct_matrix  [(i*8)+j] = v
-		dct_matrix_t[(j*8)+i] = v
-	end
-end
 
--- デコード用関数
+-- 解析データ
+local jpeg = {q = {}, huffman = {}, frame = {}, scan  = {}}
+
+-- ビット読み込み
 function RECEIVE(SSSS)
 	return gbit(SSSS)
 end
 
+-- ±0の二値として扱う
 function EXTEND(V, T)
 	local Vt = 2^(T-1)
 	if V < Vt then
@@ -39,6 +18,7 @@ function EXTEND(V, T)
 	return V
 end
 
+-- ハフマン符号を一つデコード
 function read_huffman(huffval, maxcode, mincode, valptr)
 	local i=1
 	local code = gbit(1) 
@@ -62,12 +42,14 @@ function read_huffman(huffval, maxcode, mincode, valptr)
 	return huffval[j]
 end
 
+-- ブロック0埋め
 function init8x8(frame, block)
 	for i=0, 63 do
 		frame.macroblock[block][i] = 0
 	end
 end
 
+-- DC成分ハフマンデコード
 function dcdiff8x8(frame, block)
 	local T = read_huffman(
 		frame.dc_huffval, frame.dc_maxcode, frame.dc_mincode, frame.dc_valptr)
@@ -78,6 +60,7 @@ function dcdiff8x8(frame, block)
 	frame.dc_prev_diff = val
 end
 
+-- AC成分ハフマンデコード
 function ac8x8(frame, block)
 	-- AC成分
 	local K = 1
@@ -114,6 +97,17 @@ function ac8x8(frame, block)
 	end
 end
 
+-- ジグザグスキャン
+local zigzag = {
+	 0,  1,  8, 16,  9,  2,  3, 10,
+	17, 24, 32, 25, 18, 11,  4,  5,
+	12, 19, 26, 33, 40, 48, 41, 34,
+	27, 20, 13,  6,  7, 14, 21, 28,
+	35, 42, 49, 56, 57, 50, 43, 36,
+	29, 22, 15, 23, 30, 37, 44, 51,
+	58, 59, 52, 45, 38, 31, 39, 46,
+	53, 60, 61, 54, 47, 55, 62, 63
+}
 function zigzag8x8(frame, block)
 	local ZZ = frame.macroblock[block]
 	frame.macroblock[block] = {}
@@ -122,12 +116,14 @@ function zigzag8x8(frame, block)
 	end
 end
 
+-- 逆量子化
 local function iquontization8x8(frame, block)
 	for i=0, 63 do
 		frame.macroblock[block][i] = frame.macroblock[block][i] * frame.q[i]
 	end
 end
 
+-- 行列の掛算(IDCTで使う)
 function mul8x8(a, b)
 	local ret = {}
 	local ix
@@ -143,7 +139,20 @@ function mul8x8(a, b)
 	return ret
 end
 
--- 高速化なしDCT
+-- IDCT(高速化なし)
+local dct_matrix = {}
+local dct_matrix_t = {}
+for i=0, 7 do
+	dct_matrix[i] = 1/(2*(2^0.5))
+	dct_matrix_t[i*8] = 1/(2*(2^0.5))
+end
+for i=1, 7 do
+	for j=0, 7 do
+		local v = 0.5 * math.cos(( i*(j+0.5) / 8) * math.pi)
+		dct_matrix  [(i*8)+j] = v
+		dct_matrix_t[(j*8)+i] = v
+	end
+end
 function idct8x8(frame, block)
 	frame.macroblock[block] = mul8x8(dct_matrix_t, frame.macroblock[block])
 	frame.macroblock[block] = mul8x8(frame.macroblock[block], dct_matrix)
@@ -159,6 +168,7 @@ function idct8x8(frame, block)
 	end
 end
 
+-- 8x8ブロックをデバッグ表示
 function dump8x8(t)
 	for i = 1, 8 do
 		for j = 1, 8  do
@@ -168,7 +178,7 @@ function dump8x8(t)
 	end
 end
 
--- Y16x16で4:2:0
+-- Y16x16で4:2:0をビットマップに書き込み
 local c420_indices = 
 {
 	 0, 0, 1, 1, 2, 2, 3, 3,
@@ -204,7 +214,7 @@ function fill_block_420(bmp, x, y, Y, Cb, Cr)
 	end
 end
 
--- Y16x8で4:2:0
+-- Y16x8で4:2:0をビットマップに書き込み
 local c422_indices = 
 {
 	 0, 0, 1, 1, 2, 2, 3, 3,
@@ -237,7 +247,7 @@ function fill_block_422(bmp, x, y, Y, Cb, Cr)
 	end
 end
 
--- Y8x8の4:4:4
+-- Y8x8で4:4:4をビットマップに書き込み
 function fill_block_444(bmp, x, y, Y, Cb, Cr)
 	local yix = 0
 	for bi=0, 7 do
@@ -248,6 +258,7 @@ function fill_block_444(bmp, x, y, Y, Cb, Cr)
 	end
 end
 
+-- ピクチャデータをスキャン・デコード
 function start_scan()
 	-- データを転送
 	local scan, prev = open()
@@ -277,23 +288,10 @@ function start_scan()
 	swap(scan)
 	
 	repeat
-		-- 3Gとか食うのでやめ
-		if false then -- jpeg.width * jpeg.height > 2073600 then
-			print("########################################")
-			print("# need too much memory in current impl.#")
-			print("# force cancel decode.                 #")
-			print("########################################")
-			break;
-		end
-		
 		-- スキャン用のテーブルを用意
 		local hi
 		local vi
 		for i=1, jpeg.num_frame do
-			-- jpeg.frame[i].Qi = get("Tqi")
-			-- jpeg.frame[i].Hi = get("Hi")
-			-- jpeg.frame[i].Vi = get("Vi")
-			-- jpeg.frame[i].Ci = get("Ci")
 			jpeg.frame[i].q = jpeg.q[jpeg.frame[i].Qi]
 			jpeg.frame[i].dc_huffval   = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].huffval
 			jpeg.frame[i].dc_huffcode  = jpeg.huffman[jpeg.scan[jpeg.frame[i].Ci].dc_huffman][0].huffcode
@@ -315,8 +313,6 @@ function start_scan()
 				vi = jpeg.frame[i].Vi
 			end
 		end
-		
-		
 		
 		if hi == 2 and vi == 2 then
 		elseif hi == 2 and vi == 1 then
@@ -421,10 +417,13 @@ function start_scan()
 	swap(prev)
 end
 
+-- 知らないセグメント読み飛ばし
 function segment()
 	local length = rbit("L", 16)
 	seekoff(length - 2)
 end
+
+-- 以下JPEG規格通り
 
 function app0()
 	local begin = cur()
@@ -461,18 +460,21 @@ end
 function dqt()
 print("Quantization table")
 	local begin = cur()
-	rbit("Lq", 16)
-	rbit("Pq", 4)
-	rbit("Tq", 4)
 
-	local precision = get("Pq") == 0 and 8 or 16
-	local length = get("Lq") - (cur() - begin)
-	local Q = {}
-	for i=0, length-1 do
-		Q[i] = rbit("Qk", precision)
-	end
+	rbit("Lq", 16)
 	
-	jpeg.q[get("Tq")] = Q
+	repeat
+		rbit("Pq", 4)
+		rbit("Tq", 4)
+
+		local precision = get("Pq") == 0 and 8 or 16
+		local Q = {}
+		for i=0, 63 do
+			Q[i] = rbit("Qk", precision)
+		end
+		
+		jpeg.q[get("Tq")] = Q
+	until get("Lq") <= cur()-begin
 end
 
 function dri()
@@ -491,82 +493,85 @@ print("Huffman table")
 
 	local begin = cur()
 	rbit("Lh", 16)
-	rbit("Tc", 4) -- このテーブルを使うのがDCかACか
-	rbit("Th", 4) -- このテーブルのID
 
-	local BITS = {}
-	local V = {}
-	for i=1, 16 do
-		BITS[i] = rbit("Li",        8)
-	end
-	local k = 0
-	for i=1, 16 do
-		for j=1, BITS[i] do
-			V[k] = rbit("Vij",      8)
-			k = k + 1
-		end
-	end
+	repeat
+		rbit("Tc", 4) -- このテーブルを使うのがDCかACか
+		rbit("Th", 4) -- このテーブルのID
 
-	-- huffsize
-	local k = 0
-	local huffsize = {}
-	for i=1, 16 do
-		for j = 1, BITS[i] do
-			huffsize[k] = i
-			k = k + 1
+		local BITS = {}
+		local V = {}
+		for i=1, 16 do
+			BITS[i] = rbit("Li",        8)
 		end
-	end
-	huffsize[k] = 0
-	
-	-- huffcode
-	k = 0
-	local code = 0
-	local si = huffsize[0]
-	local huffcode = {}
-	while true do
-		while huffsize[k] == si do
-			huffcode[k] = code
-			-- printf("%10s, %-16s %-32s", k, "val="..V[k], "huff=="..binstr(code, si))
-			code = code + 1
-			k = k + 1
+		local k = 0
+		for i=1, 16 do
+			sprint("V["..i.."]")
+			for j=1, BITS[i] do
+				V[k] = rbit("Vij",      8)
+				k = k + 1
+			end
 		end
 
-		if huffsize[k] == 0 then
-			break
+		-- huffsize
+		local k = 0
+		local huffsize = {}
+		for i=1, 16 do
+			for j = 1, BITS[i] do
+				huffsize[k] = i
+				k = k + 1
+			end
 		end
+		huffsize[k] = 0
+		
+		-- huffcode
+		k = 0
+		local code = 0
+		local si = huffsize[0]
+		local huffcode = {}
+		while true do
+			while huffsize[k] == si do
+				huffcode[k] = code
+				-- printf("%10s, %-16s %-32s", k, "val="..V[k], "huff=="..binstr(code, si))
+				code = code + 1
+				k = k + 1
+			end
 
-		while huffsize[k] ~= si do
-			code = code << 1 -- 11111 の状態から左シフト
-			si = si + 1
-		end
-	end
-	
-	-- max min valptr
-	local maxcode = {} -- 同じbit数のハフマンコードの最大値
-	local mincode = {} -- 同じbit数のハフマンコードの最大値
-	local valptr = {}  -- mincodeのindex
-	local j = 0
-	for i = 1, 16 do
-		if BITS[i] == 0 then
-			maxcode[i] = -1
-		else
-			valptr[i] = j
-			mincode[i] = huffcode[j]
-			j = j + BITS[i] - 1
-			maxcode[i] = huffcode[j]
-			j = j + 1
-		end
-	end
-	
-	jpeg.huffman[get("Th")] = jpeg.huffman[get("Th")] or {}
-	jpeg.huffman[get("Th")][get("Tc")] = {}
-	jpeg.huffman[get("Th")][get("Tc")].huffval  = V
-	jpeg.huffman[get("Th")][get("Tc")].huffcode = huffcode
-	jpeg.huffman[get("Th")][get("Tc")].mincode  = mincode
-	jpeg.huffman[get("Th")][get("Tc")].maxcode  = maxcode
-	jpeg.huffman[get("Th")][get("Tc")].valptr   = valptr
+			if huffsize[k] == 0 then
+				break
+			end
 
-	skip(get("Lh"), begin)
+			while huffsize[k] ~= si do
+				code = code << 1 -- 11111 の状態から左シフト
+				si = si + 1
+			end
+		end
+		
+		-- max min valptr
+		local maxcode = {} -- 同じbit数のハフマンコードの最大値
+		local mincode = {} -- 同じbit数のハフマンコードの最大値
+		local valptr = {}  -- mincodeのindex
+		local j = 0
+		for i = 1, 16 do
+			if BITS[i] == 0 then
+				maxcode[i] = -1
+			else
+				valptr[i] = j
+				mincode[i] = huffcode[j]
+				j = j + BITS[i] - 1
+				maxcode[i] = huffcode[j]
+				j = j + 1
+			end
+		end
+		
+		jpeg.huffman[get("Th")] = jpeg.huffman[get("Th")] or {}
+		jpeg.huffman[get("Th")][get("Tc")] = {}
+		jpeg.huffman[get("Th")][get("Tc")].huffval  = V
+		jpeg.huffman[get("Th")][get("Tc")].huffcode = huffcode
+		jpeg.huffman[get("Th")][get("Tc")].mincode  = mincode
+		jpeg.huffman[get("Th")][get("Tc")].maxcode  = maxcode
+		jpeg.huffman[get("Th")][get("Tc")].valptr   = valptr
+
+	until get("Lh") <= cur()-begin
 end
 
 function sof0()
@@ -633,7 +638,7 @@ print("Scan header")
 
 	skip(get("Ls"), begin)
 	
-	--スキャン開始
+	--スキャンデコード開始
 	start_scan()
 end
 
@@ -648,6 +653,8 @@ function get_type(t)
 	elseif t == 10  then return 8, "srational"
 	end
 end
+
+-- Exif情報領域名取得
 function get_tag(t)
 	if     t == 0       then return "GPSVersionID"                ,"GPSタグのバージョン                   :"
 	elseif t == 1       then return "GPSLatitudeRef"              ,"緯度の南北                            :"
@@ -1164,112 +1171,7 @@ function get_tag(t)
 	elseif t == 18246   then return "Rating"                      ,"Rating                                :"
 	elseif t == 18249   then return "RatingPercent"               ,"RatingPercent                         :"
 	elseif t == 40093   then return "XPAuthor"                    ,"XPAuthor                              :"
-
-
---	elseif t == 0       then return "GPSVersionID"                ,"GPSタグのバージョン                   :"
---	elseif t == 1       then return "GPSLatitudeRef"              ,"緯度の南北                            :"
---	elseif t == 2       then return "GPSLatitude"                 ,"緯度（度、分、秒）                    :"
---	elseif t == 3       then return "GPSLongitudeRef"             ,"経度の東西                            :"
---	elseif t == 4       then return "GPSLongitude"                ,"経度（度、分、秒）                    :"
---	elseif t == 5       then return "GPSAltitudeRef"              ,"高度の基準                            :"
---	elseif t == 6       then return "GPSAltitude"                 ,"高度（m）                             :"
---	elseif t == 7       then return "GPSTimeStamp"                ,"GPSの時間（原子時計）                 :"
---	elseif t == 8       then return "GPSSatellites"               ,"測位に使用したGPS衛星                 :"
---	elseif t == 9       then return "GPSStatus"                   ,"GPS受信機の状態                       :"
---	elseif t == 10      then return "GPSMeasureMode"              ,"GPSの測位モード                       :"
---	elseif t == 11      then return "GPSDOP"                      ,"測位の信頼性                          :"
---	elseif t == 12      then return "GPSSpeedRef"                 ,"速度の単位                            :"
---	elseif t == 13      then return "GPSSpeed"                    ,"速度                                  :"
---	elseif t == 14      then return "GPSTrackRef"                 ,"進行方向の基準                        :"
---	elseif t == 15      then return "GPSTrack"                    ,"進行方向（度）                        :"
---	elseif t == 16      then return "GPSImgDirectionRef"          ,"撮影方向の基準                        :"
---	elseif t == 17      then return "GPSImgDirection"             ,"撮影方向（度）                        :"
---	elseif t == 18      then return "GPSMapDatum"                 ,"測位に用いた地図データ                :"
---	elseif t == 19      then return "GPSDestLatitudeRef"          ,"目的地の緯度の南北                    :"
---	elseif t == 20      then return "GPSDestLatitude"             ,"目的地の緯度（度、分、秒）            :"
---	elseif t == 21      then return "GPSDestLongitudeRef"         ,"目的地の経度の東西                    :"
---	elseif t == 22      then return "GPSDestLongitude"            ,"目的地の経度（度、分、秒）            :"
---	elseif t == 23      then return "GPSBearingRef"               ,"目的地の方角の基準                    :"
---	elseif t == 24      then return "GPSBearing"                  ,"目的地の方角（度）                    :"
---	elseif t == 25      then return "GPSDestDistanceRef"          ,"目的地への距離の単位                  :"
---	elseif t == 26      then return "GPSDestDistance"             ,"目的地への距離                        :"
---	elseif t == 256     then return "ImageWidth"                  ,"画像の幅（ピクセル）                  :"
---	elseif t == 257     then return "ImageLength"                 ,"画像の高さ（ピクセル）                :"
---	elseif t == 258     then return "BitsPerSample"               ,"画素のビットの深さ（ビット）          :"
---	elseif t == 259     then return "Compression"                 ,"圧縮の種類                            :"
---	elseif t == 262     then return "PhotometricInterpretation"   ,"画素こう成の種類                      :"
---	elseif t == 274     then return "Orientation"                 ,"画素の並び                            :"
---	elseif t == 277     then return "SamplesPerPixel"             ,"ピクセル毎のコンポーネント数          :"
---	elseif t == 284     then return "PlanarConfiguration"         ,"画素データの並び                      :"
---	elseif t == 530     then return "YCbCrSubSampling"            ,"画素の比率こう成                      :"
---	elseif t == 531     then return "YCbCrPositioning"            ,"画素の位置こう成                      :"
---	elseif t == 282     then return "XResolution"                 ,"画像の幅方向の解像度（dpi）           :"
---	elseif t == 283     then return "YResolution"                 ,"画像の高さ方向の解像度（dpi）         :"
---	elseif t == 296     then return "ResolutionUnit"              ,"解像度の単位                          :"
---	elseif t == 273     then return "StripOffsets"                ,"イメージデータへのオフセット          :"
---	elseif t == 278     then return "RowsPerStrip"                ,"１ストリップあたりの行数              :"
---	elseif t == 279     then return "StripByteCounts"             ,"各ストリップのサイズ（バイト）        :"
---	elseif t == 513     then return "JPEGInterchangeFormat"       ,"JPEGサムネイルのSOIへのオフセット     :"
---	elseif t == 514     then return "JPEGInterchangeFormatLength" ,"JPEGサムネイルデータのサイズ（バイト）:"
---	elseif t == 301     then return "TransferFunction"            ,"諧調カーブ特性                        :"
---	elseif t == 318     then return "WhitePoint"                  ,"ホワイトポイントの色座標値            :"
---	elseif t == 319     then return "PrimaryChromaticities"       ,"原色の色座標値                        :"
---	elseif t == 529     then return "YCbCrCoefficients"           ,"色変換マトリックス係数                :"
---	elseif t == 532     then return "ReferenceBlackWhite"         ,"黒色と白色の値                        :"
---	elseif t == 306     then return "DateTime"                    ,"ファイル変更日時                      :"
---	elseif t == 270     then return "ImageDescription"            ,"画像タイトル                          :"
---	elseif t == 271     then return "Make"                        ,"メーカー                              :"
---	elseif t == 272     then return "Model"                       ,"モデル                                :"
---	elseif t == 305     then return "Software"                    ,"使用したSoftware                      :"
---	elseif t == 315     then return "Artist"                      ,"撮影者名                              :"
---	elseif t == 3432    then return "Copyright"                   ,"著作権                                :"
---	elseif t == 34665   then return "ExifIFDPointer"              ,"Exif IFDへのポインタ                  :"
---	elseif t == 34853   then return "GPSInfoIFDPointer"           ,"GPS情報IFDへのポインタ                :"
---	elseif t == 36864   then return "ExifVersion"                 ,"Exifバージョン                        :"
---	elseif t == 40960   then return "FlashPixVersion"             ,"対応FlashPixのバージョン              :"
---	elseif t == 40961   then return "ColorSpace"                  ,"色空間情報                            :"
---	elseif t == 37121   then return "ComponentsConfiguration"     ,"コンポーネントの意味                  :"
---	elseif t == 37122   then return "CompressedBitsPerPixel"      ,"画像圧縮モード（ビット／ピクセル）    :"
---	elseif t == 40962   then return "PixelXDimension"             ,"有効な画像の幅（ピクセル）            :"
---	elseif t == 40963   then return "PixelYDimension"             ,"有効な画像の高さ（ピクセル）          :"
---	elseif t == 37500   then return "MakerNote"                   ,"メーカ固有情報                        :"
---	elseif t == 37510   then return "UserComment"                 ,"ユーザコメント                        :"
---	elseif t == 40964   then return "RelatedSoundFile"            ,"関連音声ファイル名                    :"
---	elseif t == 36867   then return "DateTimeOriginal"            ,"オリジナル画像の生成日時              :"
---	elseif t == 36868   then return "DateTimeDigitized"           ,"ディジタルデータの生成日時            :"
---	elseif t == 37520   then return "SubSecTime"                  ,"ファイル変更日時の秒以下の値          :"
---	elseif t == 37521   then return "SubSecTimeOriginal"          ,"画像生成日時の秒以下の値              :"
---	elseif t == 37522   then return "SubSecTimeDigitized"         ,"ディジタルデータ生成日時の秒以下の値  :"
---	elseif t == 33434   then return "ExposureTime"                ,"露出時間（秒）                        :"
---	elseif t == 33437   then return "FNumber"                     ,"F値                                   :"
---	elseif t == 34850   then return "ExposureProgram"             ,"露出プログラム                        :"
---	elseif t == 34852   then return "SpectralSensitivity"         ,"スペクトル感度                        :"
---	elseif t == 34855   then return "ISOSpeedRatings"             ,"ISOスピードレート                     :"
---	elseif t == 34856   then return "OECF"                        ,"光電変換関数                          :"
---	elseif t == 37377   then return "ShutterSpeedValue"           ,"シャッタースピード（APEX）            :"
---	elseif t == 37378   then return "ApertureValue"               ,"絞り（APEX）                          :"
---	elseif t == 37379   then return "BrightnessValue"             ,"輝度（APEX）                          :"
---	elseif t == 37380   then return "ExposureBiasValue"           ,"露出補正（APEX）                      :"
---	elseif t == 37381   then return "MaxApertureValue"            ,"レンズの最小F値（APEX）               :"
---	elseif t == 37382   then return "SubjectDistance"             ,"被写体距離（m）                       :"
---	elseif t == 37383   then return "MeteringMode"                ,"測光方式                              :"
---	elseif t == 37384   then return "LightSource"                 ,"光源                                  :"
---	elseif t == 37385   then return "Flash"                       ,"フラッシュ                            :"
---	elseif t == 37386   then return "FocalLength"                 ,"レンズの焦点距離（mm）                :"
---	elseif t == 41483   then return "FlashEnergy"                 ,"フラッシュのエネルギー（BCPS）        :"
---	elseif t == 41484   then return "SpatialFrequencyResponse"    ,"空間周波数応答                        :"
---	elseif t == 41486   then return "FocalPlaneXResolution"       ,"焦点面の幅方向の解像度（ピクセル）    :"
---	elseif t == 41487   then return "FocalPlaneYResolution"       ,"焦点面の高さ方向の解像度（ピクセル）  :"
---	elseif t == 41488   then return "FocalPlaneResolutionUnit"    ,"焦点面の解像度の単位                  :"
---	elseif t == 41492   then return "SubjectLocation"             ,"被写体位置                            :"
---	elseif t == 41493   then return "ExposureIndex"               ,"露出インデックス                      :"
---	elseif t == 41495   then return "SensingMethod"               ,"画像センサの方式                      :"
---	elseif t == 41728   then return "FileSource"                  ,"画像入力機器の種類                    :"
---	elseif t == 41729   then return "SceneType"                   ,"シーンタイプ                          :"
---	elseif t == 41730   then return "CFAPattern"                  ,"CFAパターン                           :"
---	elseif t == 40965   then return "InteroperabilityIFDPointer"  ,"互換性IFDへのポインタ                 :"
-
-	else                   return "UNDEFINED"                   ,"不明なタグ ("..t.."):"
+	else                     return "UNDEFINED"                   ,"不明なタグ ("..t.."):"
 
 	end
 end
@@ -1277,15 +1179,15 @@ end
 function exif(size)
 	local begin = cur()
 
-	rstr ("ByteCode",            2)
+	rstr ("ByteCode", 2)
 	if get("ByteCode") == "MM" then
 		little_endian(false)
 	else
 		little_endian(true)
 	end
 
-	cbyte("002A"  ,              2, 0x002A)
-	rbyte("ifd_ofs",             4)
+	cbyte("002A"  ,  2, 0x002A)
+	rbyte("ifd_ofs", 4)
 	ifd(begin, get("ifd_ofs"))
 
 	seek(begin + size)
@@ -1296,16 +1198,16 @@ function ifd(origin, offset, indent)
 	local tab = string.rep("    ", indent)
 
 	seek(origin + offset)
-	rbyte("FieldCount",                                                     2)
+	rbyte("FieldCount", 2)
 	print(tab.."---------------IFD count:"..hexstr(get("FieldCount")).."-----------------")
 
-	local count = get("FieldCount") -- 先決するためにlocalに保存する
+	local count = get("FieldCount")
 	for i=1, count do
 		local begin = cur()
-		rbyte("Tag",                                                        2)
-		rbyte("Type",                                                       2)
-		rbyte("Count",                                                      4)
-		rbyte("ValueOffset",                                                4)
+		rbyte("Tag",         2)
+		rbyte("Type",        2)
+		rbyte("Count",       4)
+		rbyte("ValueOffset", 4)
 
 		local sz, ty = get_type(get("Type"))
 		if get("Count") * sz > 4 then
@@ -1329,7 +1231,7 @@ function ifd(origin, offset, indent)
 			end
 		elseif ty == "long" then
 			for j=1, get("Count") do
-				local val = rbyte("Long",                           4)
+				local val = rbyte("Long",                     4)
 				print(tab..(select(2, get_tag(get("Tag")))), val)
 
 				-- 次の階層
@@ -1366,7 +1268,7 @@ function ifd(origin, offset, indent)
 		seek(begin + 12)
 	end
 
-	rbyte("NextIFD",                                                        4)
+	rbyte("NextIFD", 4)
 	if get("NextIFD") == 0 then
 		return
 	else
@@ -1398,16 +1300,16 @@ function jpg()
 			sof0()
 		elseif maker == 0xffda then
 			sos()
-			--fstr("ff d9", true)
-		--elseif maker == 0xffd0
-		--or     maker == 0xffd1
-		--or     maker == 0xffd2
-		--or     maker == 0xffd3
-		--or     maker == 0xffd4
-		--or     maker == 0xffd5
-		--or     maker == 0xffd6
-		--or     maker == 0xffd7 then
-		--	 restart
+		elseif maker == 0xffd0
+		or     maker == 0xffd1
+		or     maker == 0xffd2
+		or     maker == 0xffd3
+		or     maker == 0xffd4
+		or     maker == 0xffd5
+		or     maker == 0xffd6
+		or     maker == 0xffd7 then
+			-- restartはスキャンついでに行う
+			assert(false, "RST found")
 		else
 			print("#unknown maker=", hexstr(maker))
 			segment()
@@ -1416,8 +1318,6 @@ function jpg()
 end
 
 open(__stream_path__)
-little_endian(false)
 enable_print(false)
-stdout_to_file(false)
 jpg()
 

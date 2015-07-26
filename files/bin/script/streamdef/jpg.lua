@@ -266,23 +266,23 @@ function start_scan()
 	swap(prev)
 	while true do
 		local ofs = fbyte(0xff, false)
-		tbyte("scan", ofs+1, scan, true)
-		local segment = lbyte(1)
-		if segment == 0xd0
-		or segment == 0xd1
-		or segment == 0xd2
-		or segment == 0xd3
-		or segment == 0xd4
-		or segment == 0xd5
-		or segment == 0xd6
-		or segment == 0xd7 then
+		tbyte("scan", ofs, scan, true)
+		local segment = lbyte(2)
+		if segment == 0xffd0
+		or segment == 0xffd1
+		or segment == 0xffd2
+		or segment == 0xffd3
+		or segment == 0xffd4
+		or segment == 0xffd5
+		or segment == 0xffd6
+		or segment == 0xffd7 then
 			-- reset
-			tbyte("RST", 1, scan, true)
-		elseif segment ~= 0 then
+			tbyte("RST", 2, scan, true)
+		elseif segment ~= 0xff00 then
 			break
 		else
+			tbyte("scan", 1, scan, true)
 			cbyte("dummy", 1, 0)
-			-- print("continue scan")
 		end
 	end
 	swap(scan)
@@ -333,7 +333,7 @@ function start_scan()
 		local reset_count = 0
 		local RST
 		local bmp = bitmap:new(jpeg.width, jpeg.height, buf_width, buf_height)
-		print("W  = "..jpeg.width)
+		print("W = "..jpeg.width)
 		print("H = "..jpeg.height)
 		print("Start Decode ..")
 		while y < buf_height do
@@ -1280,10 +1280,12 @@ end
 
 function jpg()
 	cbyte("SOI",           2, 0xffd8)
-
-	while cur() + 4 < get_size() do
-		local maker = rbyte("Markar",        2)
+	print("SOI")
+	
+	while cur() <= get_size() - 2 do
+		local maker = rbyte("Markar", 2)
 		if maker == 0xffd9 then -- EOI
+			print("EOI")
 			break;
 		elseif maker == 0xffe0 then
 			app0()

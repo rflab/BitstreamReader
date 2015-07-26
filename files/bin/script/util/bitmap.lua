@@ -147,9 +147,9 @@ function _m:print_ascii(w, h, aspect)
 		io.write("\n")
 	end
 	if has_empty then
-		print("#############################")
-		print("# some empty pixels in bmp! #")
-		print("#############################")
+		print("###############################")
+		print("# some empty pixels in asiii! #")
+		print("###############################")
 	end
 end
 

@@ -449,12 +449,12 @@ function app1()
 	if get("Identifier") == "Exif" then
 		print("-------------------Exif-------------------")
 		rbyte("0000",                2)
-		exif(get("L") - 8)
+		exif()
 	elseif get("Identifier") == "http" then
 		print("-------------------Http-------------------")
 		rstr("http",             256)
-		seek(get("L") + begin)
 	end
+	skip(get("L"), begin)
 end
 
 function dqt()
@@ -1176,7 +1176,7 @@ function get_tag(t)
 	end
 end
 
-function exif(size)
+function exif()
 	local begin = cur()
 
 	rstr ("ByteCode", 2)
@@ -1190,7 +1190,8 @@ function exif(size)
 	rbyte("ifd_ofs", 4)
 	ifd(begin, get("ifd_ofs"))
 
-	seek(begin + size)
+	-- エンディアンを戻す
+	little_endian(false)
 end
 
 function ifd(origin, offset, indent)

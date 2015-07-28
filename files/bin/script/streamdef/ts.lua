@@ -343,6 +343,7 @@ function pmt()
 		local buf, prev = open(
 			__out_dir__..hexstr(get("elementary_PID"))..".pes", "wb+")
 		enable_print(__default_enable_print__)
+		enable_store(false, true)
 		local pid = get("elementary_PID")
 	    pes_array[pid] = {}
 		pes_array[pid].buf = buf
@@ -537,6 +538,9 @@ function store_recode(pid, offset, size, PCR, PTS, DTS)
 end
 
 function analyze()
+	-- TSは記録しない
+	enable_store(false, true)
+
 	print("analyze PAT")
 	seek(0)
 	enable_print(__default_enable_print__)

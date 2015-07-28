@@ -4,8 +4,52 @@ local gs_files = {}
 local gs_progress
 local gs_perf
 local gs_csv
-local gs_data = {values={}, tables={}, bytes={}, bits={}, sizes={}, streams={}, ignore_nil=nil}
-local gs_store_to_table = true
+local gs_data = {
+	skipcnt={}, values={}, tables={}, bytes={}, bits={}, sizes={}, streams={},
+	ignore_nil=false}
+
+--------------------------------------
+-- 内部関数
+--------------------------------------
+local function check(size)
+	if size + cur() > get_size() then
+		print("size over", "size:", get_size(), "readsize:", size)
+		io.write("size over. enter key to continue.")
+		io.read()
+		--coroutine.yield()
+	end
+end
+
+-- データ読み込み事に記録する処理
+local function on_set_value(name, byte, bit, size, value)
+	-- get()
+	gs_data.values[name] = value
+
+	-- Lua用
+	if gs_stream.enable_store_lua == true then
+		if gs_data.tables[name] == nil then
+			gs_data.tables[name]  = {}
+			gs_data.bytes[name]   = {}
+			gs_data.bits[name]    = {}
+			gs_data.sizes[name]   = {}
+			gs_data.streams[name] = {}
+		end
+		
+		table.insert(gs_data.bytes[name], byte)
+		table.insert(gs_data.bits[name], bit)
+		table.insert(gs_data.tables[name], value)
+		table.insert(gs_data.sizes[name], size)
+		table.insert(gs_data.streams[name], gs_stream)
+	else
+		local cnt = gs_data.skipcnt[name] or 0
+		gs_data.skipcnt[name] = cnt + 1 
+	end
+
+	-- SQL用お試し
+	if gs_stream.enable_store_sql == true then
+		sql_insert_record(name, byte, bit, size, value)
+	end
+end
 
 --------------------------------------------
 -- ストリーム解析用関数
@@ -29,8 +73,12 @@ function open(arg1, openmode)
 	end
 	
 	gs_stream = stream:new(arg1, openmode)
-	gs_csv = csv:new()
+	gs_stream.enable_store_lua = true
+	gs_stream.enable_store_sql = true
 	table.insert(gs_all_streams, gs_stream) 
+
+	gs_csv = csv:new()
+
 	return gs_stream, prev_stream
 end
 
@@ -67,24 +115,30 @@ function dump(size)
 end
 
 -- 解析結果表示のON/OFF
-local ee = nil
 function enable_print(b)
-	ee = b
-	return gs_stream:enable_print(b)
+	if b == nil then
+		return gs_stream:enable_print(nil)
+	else
+		gs_stream:enable_print(b)
+	end
 end
 
-function eee()
-	return ee 
+-- 解析結果保存のON/OFF
+function enable_store(lua_b, sql_b)
+	if lua_b == nil then
+		assert(sql_b == nil)
+		return
+			gs_stream.enable_store_lua,
+			gs_stream.enable_store_sql
+	else
+		gs_stream.enable_store_lua = lua_b
+		gs_stream.enable_store_sql = sql_b
+	end
 end
 
 -- 解析結果表示のON/OFFに応じてprint
 function sprint(...)
 	return gs_stream:sprint(...)
-end
-
--- 解析結果表示のON/OFF
-function enable_store_all(b)
-	gs_store_to_table = b
 end
 
 -- 解析結果表示のON/OFFを問い合わせる
@@ -127,10 +181,10 @@ function peek(name)
 	return gs_data.values[name]
 end
 
--- 最後に読み込んだ値を破棄する
+-- 値をセットする
 function reset(name, value)
 	local byte, bit = cur()
-	gs_stream:reset(name, value)
+	-- gs_stream:reset(name, value)
 	on_set_value(name, byte, bit, 0, value)
 end
 
@@ -505,41 +559,6 @@ function start_thread(func, ...)
 	end
 end
 
---------------------------------------
--- 内部関数、通常使わない
---------------------------------------
-function check(size)
-	if size + cur() > get_size() then
-		print("size over", "size:", get_size(), "readsize:", size)
-		io.write("size over. enter key to continue.")
-		io.read()
-		--coroutine.yield()
-	end
-end
-
--- データ読み込み事に記録する処理
-function on_set_value(name, byte, bit, size, value)
-	if gs_data.tables[name] == nil then
-		gs_data.tables[name]  = {}
-		gs_data.bytes[name]   = {}
-		gs_data.bits[name]    = {}
-		gs_data.sizes[name]   = {}
-		gs_data.streams[name] = {}
-	end
-
-	-- get()
-	gs_data.values[name] = value
-
-	-- Lua用
-	table.insert(gs_data.bytes[name], byte)
-	table.insert(gs_data.bits[name], bit)
-	table.insert(gs_data.tables[name], value)
-	table.insert(gs_data.sizes[name], size)
-	table.insert(gs_data.streams[name], gs_stream)
-
-	-- SQL用お試し
-	sql_insert_record(name, byte, bit, size, value)
-end
 
 
 -- 第一正規形

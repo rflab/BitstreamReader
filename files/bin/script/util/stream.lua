@@ -85,6 +85,7 @@ function _m:print()
 end
 
 function _m:print_table()	
+	assert(false, "unsupported")
 	print_table(self.tbl)
 end
 
@@ -100,18 +101,21 @@ function _m:cur()
 	return self.stream:byte_pos(), self.stream:bit_pos()
 end
 
-function _m:get(name)	
+function _m:get(name)
+	assert(false, "unsupported")
 	local val = self.tbl[name]
 	assert(val, "get nil value \""..name.."\"")
 	return val
 end
 
 function _m:peek(name)
+	assert(false, "unsupported")
 	local val = self.tbl[name]
 	return val
 end
 
 function _m:reset(name, value)	
+	assert(false, "unsupported")
 	self.tbl[name] = value
 end
 
@@ -134,28 +138,28 @@ end
 function _m:rbit(name, size)
 	local val = self.stream:read_bit(name, size)
 	check(self, val, "rbit:"..name)
-	self.tbl[name] = val
+	-- self.tbl[name] = val
 	return val
 end
 
 function _m:rbyte(name, size)
 	local val = self.stream:read_byte(name, size)
 	check(self, val, "rbyte:"..name)
-	self.tbl[name] = val
+	-- self.tbl[name] = val
 	return val
 end
 
 function _m:rstr(name, size)	
  	local val = self.stream:read_string(name, size)
 	check(self, val, "rstr:"..name)
-	self.tbl[name] = val
+	-- self.tbl[name] = val
 	return val
 end
 
 function _m:rexp(name)
 	local val = self.stream:read_expgolomb(name)
 	check(self, val, "rexp:"..name)
-	self.tbl[name] = val
+	-- self.tbl[name] = val
 	return val
 end
 
@@ -269,6 +273,9 @@ function _m:sub_stream(name, size, advance)
 end
 
 function _m:enable_print(b)
+	if b == nil then
+		return self.print_enabled
+	end
 	self.print_enabled = b
 	return self.stream:enable_print(b)
 end

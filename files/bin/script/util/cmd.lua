@@ -38,15 +38,18 @@ function exec_cmd(c)
 			end
 		elseif c[1] == "info" then
 			local data = get_data()
-			local vs, ts, bys, bis = data.values, data.tables, data.bytes, data.bits
-			local num
-			local byte
-			local bit
+			local vs, ts, bys, bis, skipcnt = data.values, data.tables, data.bytes, data.bits, data.skipcnt
 			for k, v in pairs(vs) do
-				num  = ts[k]  and #(ts[k])  or 0
-				byte = bys[k] and bys[k][#(bis[k])]
-				bit  = bis[k] and bis[k][#(bis[k])]
-				printf("  adr=0x%08x(+%d) [%6d]| %-50s %-8s", byte, bit, num, k, hexstr(v))
+				local num  = ts[k] and #(ts[k]) or 0
+				local byte = bys[k] and bys[k][#(bis[k])] or 0
+				local bit  = bis[k] and bis[k][#(bis[k])] or 0
+				local numstr = ""
+				if skipcnt[k] ~= nil then
+					numstr = tostring(num+1).."/"..skipcnt[k]+num
+				else
+					numstr = tostring(num)
+				end
+				printf("  adr=0x%08x(+%d) [%10s]| %-50s %-8s", byte, bit, numstr, k, hexstr(v))
 			end
 			print_status()
 		elseif c[1] == "grep" then
@@ -62,8 +65,9 @@ function exec_cmd(c)
 						local num = ts[k] and #(ts[k]) or 0
 						--printf("  %-50s %-8s [%d]", k, v, num)
 						num  = ts[k]  and #(ts[k])  or 0
-						byte = bys[k] and bys[k][#(bis[k])]
-						bit  = bis[k] and bis[k][#(bis[k])]
+						byte = bys[k] and bys[k][#(bys[k])] or 0
+						bit  = bis[k] and bis[k][#(bis[k])] or 0
+						print(k,  bys[k],  bis[k])
 						printf("  adr=0x%08x(+%d) [%6d]| %-50s %-8s", byte, bit, num, k, hexstr(v))
 					end
 				end
@@ -80,6 +84,8 @@ function exec_cmd(c)
 				for i, v in ipairs(ts[k]) do
 					count = count + 1
 					if count % 1000 == 0 then
+						
+						print(k.."["..count.."]")
 						print("n:next")
 						if io.read() ~= "n" then
 							break
@@ -99,7 +105,7 @@ function exec_cmd(c)
 						if type(t) == "table" then
 							if #t > 1000 then
 								if print_continue == nil then
-									print("table size is ".. #t..", continue? [y/n]")
+									print("table size is ".. #t..", continue? [y]")
 									if io.read() == "y" then
 										print_continue = true
 										print_values(k)
@@ -135,6 +141,7 @@ function exec_cmd(c)
 					else
 						print("found ["..c[2].."]")
 						dump()
+						
 						print("n:next, p:prev")
 						local c = io.read()
 						if c == "n"  then
@@ -276,6 +283,7 @@ function exec_cmd(c)
 								for i, v in ipairs(bytes[k]) do
 									count = count + 1
 									if count % 100 == 0 then
+										print(k.."["..count.."]")
 										print("n:next")
 										if io.read() ~= "n" then
 											break

@@ -8,6 +8,33 @@ namespace rf
 	using namespace wrapper;
 	using namespace data;
 
+	// printfの出力先を変更する
+	static void stdout_to_file(bool enable)
+	{
+		static FILE* fp = nullptr;
+		if (enable && fp == nullptr)
+		{
+			std::cout << "stdout to log.txt" << std::endl;
+
+#ifdef _MSC_VER
+			if (FAIL(freopen_s(&fp, "log.txt", "w", stdout) == 0))
+				throw runtime_error(FAIL_STR("file open error."));
+
+#else
+			fp = freopen("log.txt", "w", stdout);
+			if (FAIL(fp != NULL))
+				throw runtime_error(FAIL_STR("file open error."));
+#endif
+		}
+		else if (fp != nullptr)
+		{
+			std::cout << "stdout to console" << std::endl;
+			fclose(fp);
+			fp = nullptr;
+		}
+	}
+
+	// transfer_to_file用
 	class FileManager final
 	{
 	private:
@@ -29,31 +56,18 @@ namespace rf
 					ERR << it->first << "close fail" << endl;
 				}
 			}
-
-			stdout_to_file(false);	// 一応
 		}
 
 	public:
 
-		static FileManager &getInstance()
+		static FileManager &get_instance()
 		{
 			static FileManager instance;
 			return instance;
 		}
-
-		// 暫定
-		static void close_file(const char* file_name)
-		{
-			auto it = ofs_map_.find(file_name);
-			if (it != ofs_map_.end())
-			{
-				it->second->close();
-				ofs_map_.erase(it);
-			}
-		}
-
+		
 		// 指定したバイト列を指定したファイル名に出力、二度目以降は追記
-		static void write_to_file(const char* file_name, const char* address, integer size)
+		static void append(const char* file_name, const char* address, integer size)
 		{
 			if (FAIL(valid_ptr(address)))
 				throw logic_error(FAIL_STR("invalid argument."));
@@ -81,29 +95,14 @@ namespace rf
 			}
 		}
 
-		// printfの出力先を変更する
-		static void stdout_to_file(bool enable)
+		// 明示的にクローズ
+		static void close(const char* file_name)
 		{
-			static FILE* fp = nullptr;
-			if (enable && fp == nullptr)
+			auto it = ofs_map_.find(file_name);
+			if (it != ofs_map_.end())
 			{
-				std::cout << "stdout to log.txt" << std::endl;
-
-#ifdef _MSC_VER
-				if (FAIL(freopen_s(&fp, "log.txt", "w", stdout) == 0))
-					throw runtime_error(FAIL_STR("file open error."));
-
-#else
-				fp = freopen("log.txt", "w", stdout);
-				if (FAIL(fp != NULL))
-					throw runtime_error(FAIL_STR("file open error."));
-#endif
-			}
-			else if (fp != nullptr)
-			{
-				std::cout << "stdout to console" << std::endl;
-				fclose(fp);
-				fp = nullptr;
+				it->second->close();
+				ofs_map_.erase(it);
 			}
 		}
 	};
@@ -116,6 +115,7 @@ namespace rf
 
 		// ストリームからファイルに転送
 		// 現状オーバーヘッド多め
+		// メンバ関数にすべきだったかも。
 		static void transfer_to_file(
 			const char* file_name, LuaGlueBitstream &stream, integer size, bool advance = false)
 		{
@@ -125,7 +125,7 @@ namespace rf
 			char* buf = new char[static_cast<int>(size)];
 
 			stream.bs_.look_byte_string(buf, size);
-			FileManager::getInstance().write_to_file(file_name, buf, size);
+			FileManager::get_instance().append(file_name, buf, size);
 			if (advance)
 			{
 				stringstream ss;
@@ -777,9 +777,10 @@ unique_ptr<LuaBinder> init_lua(int argc, char** argv)
 	auto lua = make_unique<LuaBinder>();
 
 	// 関数バインド
-	lua->def("stdout_to_file",   FileManager::stdout_to_file);        // コンソール出力の出力先切り替え
-	lua->def("write_to_file",    FileManager::write_to_file);         // 指定したバイト列をファイルに出力
-	lua->def("close_file",       FileManager::close_file);         // 指定したバイト列をファイルに出力
+	lua->def("stdout_to_file",   stdout_to_file);        // コンソール出力の出力先切り替え
+
+	lua->def("write_to_file",    FileManager::append);                // 指定したバイト列をファイルに出力
+	lua->def("close_file",       FileManager::close);                 // 指定したバイト列をファイルに出力
 	lua->def("transfer_to_file", LuaGlueBitstream::transfer_to_file); // 指定したストリームををファイルに出力
 	lua->def("reverse_16",       reverse_endian_16);                  // 16ビットエンディアン変換
 	lua->def("reverse_32",       reverse_endian_32);                  // 32ビットエンディアン変換
@@ -1040,5 +1041,6 @@ int main(int argc, char** argv)
 		}
 	};
 
+	stdout_to_file(false);
 	return 0;
 }

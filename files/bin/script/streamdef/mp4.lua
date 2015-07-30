@@ -975,7 +975,7 @@ function init()
 end
 
 open(__stream_path__)
-enable_print(__default_enable_print__)
+enable_print(false)
 init()
 mp4(get_size())
 save_as_csv(__out_dir__.."mp4.csv")

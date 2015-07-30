@@ -35,12 +35,10 @@ local FD_NUT         = 38
 local PREFIX_SEI_NUT = 39
 local SUFFIX_SEI_NUT = 40
 
- 
 local B = 0 -- (B slice)
 local P = 1 -- (P slice)
 local I = 2 -- (I slice)
 
-local ChromaArrayType = 0
 local NumDeltaPocs = {}
 local NumNegativePics = {}
 local NumPositivePics = {}
@@ -52,7 +50,25 @@ local use_delta_flag = {}
 local slice_reserved_flag = {}
 local LayerIdxInVps = {}
 local poc_lsb_not_present_flag = {}
+local NumDirectRefLayers = {}
+local CtbAddrTsToRs = {}
+local TileId = {}
+local ChromaArrayType = 0
+local NalHrdBpPresentFlag = 0
+local xCtb = 0
+local yCtb = 0
+local CtbLog2SizeY = 0
+local CtbLog2SizeY = 0
+local CtbAddrInTs = 0
+local CtbAddrInRs = 0
+local PicWidthInCtbsY = 0
+local leftCtbInTile = 0
+local CtbAddrRsToTs = {}
+local upCtbInSliceSeg = 0
+local SliceAddrRs = 0
+local SaoTypeIdx = {}
 
+-- 初期値の扱いまちがってるっぽい
 function reset_initial_values()
 	reset("chroma_qp_offset_list_enabled_flag", 0)
 	reset("deblocking_filter_override_enabled_flag", 0)
@@ -68,7 +84,7 @@ function reset_initial_values()
 	reset("pps_range_extension_flag",      0)
 	reset("pps_multilayer_extension_flag", 0)
 	reset("pps_extension_6bits",           0)
-	reset("collocated_from_l0_flag", 1)
+	reset("collocated_from_l0_flag",       1)
 	reset("inter_ref_pic_set_prediction_flag", 0)
 	reset("delta_idx_minus1", 0)
 	reset("poc_reset_idc", 0)
@@ -518,17 +534,19 @@ function pps_range_extension()
 end
 
 function sei_rbsp()
---print("SEI")
+io.write("S")
 	repeat
 		sei_message()
 	until more_rbsp_data() == false
 	rbsp_trailing_bits()
 end
 
+local aud_no = 0
 function access_unit_delimiter_rbsp()
 	rbit("pic_type",                            3)
-
 	if has_slice_header == false then
+		sprint("aud_no"..aud_no)
+		aud_no = aud_no + 1
 		if     get("pic_type") == 0 then io.write("I") sprint("AUD I")  
 		elseif get("pic_type") == 1 then io.write("P") sprint("AUD IP") 
 		elseif get("pic_type") == 2 then io.write("B") sprint("AUD IPB")
@@ -743,8 +761,10 @@ function sei_message()
 	sei_payload(payloadType, payloadSize)
 end
 
-local NumDirectRefLayers = {}
+local slice_header_no = 0
 function slice_segment_header(nal_unit_type)
+	reset("collocated_from_l0_flag", 1)
+
 	rbit("first_slice_segment_in_pic_flag",                       1) -- u(1))
 	if nal_unit_type >= BLA_W_LP and nal_unit_type <= RSV_IRAP_VCL23 then
 		rbit("no_output_of_prior_pics_flag",                      1) -- u(1))
@@ -779,6 +799,8 @@ function slice_segment_header(nal_unit_type)
 			print(" -> slice_header_found")
 			has_slice_header = true
 		end
+		sprint("slice_header_no"..slice_header_no)
+		slice_header_no = slice_header_no + 1
 		if     slice_type == 0 then io.write("B")
 		elseif slice_type == 1 then io.write("P")
 		elseif slice_type == 2 then io.write("I")
@@ -861,9 +883,9 @@ function slice_segment_header(nal_unit_type)
 		if get("slice_type") == P or get("slice_type") == B then 
 			rbit("num_ref_idx_active_override_flag",                   1) -- u(1))
 			if get("num_ref_idx_active_override_flag") == 1 then 
-				rexp("num_ref_idx_l0_active_minus1"                        ) -- ue(v))
+				rexp("num_ref_idx_l0_active_minus1") -- ue(v))
 				if get("slice_type") == B then
-					rexp("num_ref_idx_l1_active_minus1"                    ) -- ue(v))
+					rexp("num_ref_idx_l1_active_minus1") -- ue(v))
 				end
 			end
 			
@@ -881,7 +903,7 @@ function slice_segment_header(nal_unit_type)
 
 			if get("slice_temporal_mvp_enabled_flag") == 1 then 
 				if get("slice_type") == B then
-					rbit("collocated_from_l0_flag",                        1) -- u(1))
+					rbit("collocated_from_l0_flag", 1) -- u(1))
 				end
 				if (get("collocated_from_l0_flag") == 1 and get("num_ref_idx_l0_active_minus1") > 0 )
 				or (get("collocated_from_l0_flag") ~= 1 and get("num_ref_idx_l1_active_minus1") > 0 ) then
@@ -1160,11 +1182,6 @@ function pred_weight_table( )
 	end
 end
 
-local CtbAddrInTs
-local CtbAddrInRs
-local CtbAddrTsToRs = {}
-local TileId = {}
-local PicWidthInCtbsY
 function slice_segment_data( ) 
 	repeat 
 		coding_tree_unit( )
@@ -1179,10 +1196,6 @@ function slice_segment_data( )
 	until get("end_of_slice_segment_flag") == 0
 end
 
-local xCtb
-local yCtb
-local CtbLog2SizeY
-local CtbLog2SizeY
 function coding_tree_unit( ) 
 	xCtb = ( CtbAddrInRs % PicWidthInCtbsY ) << CtbLog2SizeY
 	yCtb = ( CtbAddrInRs / PicWidthInCtbsY ) << CtbLog2SizeY
@@ -1192,45 +1205,59 @@ function coding_tree_unit( )
 	end
 end
 	
---	
---function sao( rx, ry )
---	                                              	if ( rx > 0 ) == true then 
---	leftCtbInSliceSeg  CtbAddrInRs > SliceAddrRs
---	leftCtbInTile = TileId[CtbAddrInTs] =  TileId[CtbAddrRsToTs[CtbAddrInRs ? 1]]
---	if ( leftCtbInSliceSeg and leftCtbInTile ) == true then
---	rexp("sao_merge_left_flag"                                              ) -- ae(v))
---	end
---	if ( ry > 0 and !sao_merge_left_flag ) == true then 
---	upCtbInSliceSeg = ( CtbAddrInRs ? PicWidthInCtbsY ) > SliceAddrRs
---	upCtbInTile = TileId[CtbAddrInTs] =  TileId[CtbAddrRsToTs[CtbAddrInRs ? PicWidthInCtbsY]]
---	if ( upCtbInSliceSeg and upCtbInTile ) == true then
---	rexp("sao_merge_up_flag"                                              ) -- ae(v))
---	end
---	if ( !sao_merge_up_flag and !sao_merge_left_flag ) == true then
---	for  cIdx = 0; cIdx < ( ChromaArrayType != 0 ? 3 : 1 ); cIdx++  do
---	if ( ( slice_sao_luma_flag and cIdx == 0 ) or ( slice_sao_chroma_flag and cIdx > 0 ) ) == true then 
---	if ( cIdx == 0 ) == true then
---	rexp("sao_type_idx_luma"                                              ) -- ae(v))
---	elseif ( cIdx == 1 ) == true then
---	rexp("sao_type_idx_chroma"                                              ) -- ae(v))
---	if ( SaoTypeIdx[cIdx][rx][ry] != 0 ) == true then 
---	for  i = 0; i < 4; i++  do
---	rexp("sao_offset_abs[cIdx][rx][ry][i]"                                              ) -- ae(v))
---	if ( SaoTypeIdx[cIdx][rx][ry] == 1 ) == true then 
---	for  i = 0; i < 4; i++  do
---	if ( sao_offset_abs[cIdx][rx][ry][i] != 0 ) == true then
---	rexp("sao_offset_sign[cIdx][rx][ry][i]"                                              ) -- ae(v))
---	rexp("sao_band_position[cIdx][rx][ry]"                                              ) -- ae(v))
---	elseif 
---	if ( cIdx == 0 ) == true then
---	rexp("sao_eo_class_luma"                                              ) -- ae(v))
---	if ( cIdx == 1 ) == true then
---	rexp("sao_eo_class_chroma"                                              ) -- ae(v))
---	end
---	end
---	end
---	end
---	   
+	
+function sao( rx, ry )
+	if rx > 0 then 
+		leftCtbInSliceSeg = CtbAddrInRs > SliceAddrRs
+		leftCtbInTile = TileId[CtbAddrInTs] == TileId[CtbAddrRsToTs[CtbAddrInRs - 1]]
+		if ( leftCtbInSliceSeg and leftCtbInTile ) == true then
+			rexp("sao_merge_left_flag") -- ae(v))
+		end
+	end
+	if ry > 0 and get("sao_merge_left_flag") ~= 1 then 
+		upCtbInSliceSeg = ( CtbAddrInRs - PicWidthInCtbsY ) >= SliceAddrRs
+		upCtbInTile = TileId[CtbAddrInTs] == TileId[CtbAddrRsToTs[CtbAddrInRs - PicWidthInCtbsY]]
+		if upCtbInSliceSeg and upCtbInTile then
+			rexp("sao_merge_up_flag") -- ae(v))
+		end
+	end
+	if get("sao_merge_up_flag") ~= 1 and get("sao_merge_left_flag") ~= 1 then
+		local n = (ChromaArrayType ~= 0 and 3 or 1)
+		for cIdx = 0, n-1 do
+			if (get("slice_sao_luma_flag") == 1 and cIdx == 0)
+			or (get("slice_sao_chroma_flag") == 1 and cIdx > 0) then 
+				if cIdx == 0 then
+					rexp("sao_type_idx_luma") -- ae(v)
+				elseif cIdx == 1 then
+					rexp("sao_type_idx_chroma") -- ae(v)
+				end
+				SaoTypeIdx[cIdx] = SaoTypeIdx[cIdx] or {}
+				SaoTypeIdx[cIdx][rx] = SaoTypeIdx[cIdx][rx] or {}
+				if SaoTypeIdx[cIdx][rx][ry] ~= 0 then 
+					for  i = 0, 4-1  do
+						rexp("sao_offset_abs[cIdx][rx][ry][i]") -- ae(v)
+					end
+					if SaoTypeIdx[cIdx][rx][ry] == 1 then 
+						for  i = 0, i < 4-1 do
+							if get("sao_offset_abs[cIdx][rx][ry][i]") ~= 0 then
+								rexp("sao_offset_sign[cIdx][rx][ry][i]") -- ae(v)
+							end
+						end
+						rexp("sao_band_position[cIdx][rx][ry]") -- ae(v)
+					else
+						if cIdx == 0 then
+							rexp("sao_eo_class_luma") -- ae(v)
+						end
+						if cIdx == 1 then
+							rexp("sao_eo_class_chroma") -- ae(v)
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
 --function coding_quadtree( x0, y0, log2CbSize, cqtDepth ) 
 --	                                              	if ( x0 + ( 1 << log2CbSize ) <= pic_width_in_luma_samples and y0 + ( 1 << log2CbSize ) <= pic_height_in_luma_samples and log2CbSize > MinCbLog2SizeY ) == true then
 --	rexp("split_cu_flag[x0][y0]"                                              ) -- ae(v))
@@ -1572,210 +1599,199 @@ end
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 function sei_payload(payloadType, payloadSize)
 	local begin = cur()
 	
 	if get("nal_unit_type") == PREFIX_SEI_NUT then
 		if payloadType == 0 then
-			--print("buffering_period")--buffering_period(payloadSize)
+			sprint("buffering_period")--buffering_period(payloadSize)
 		elseif payloadType == 1 then
-			--print("pic_timing( payloadSize ) 5")
+			sprint("pic_timing( payloadSize ) 5")
 		elseif payloadType == 2 then
-			print("pan_scan_rect( payloadSize ) 5")
+			sprint("pan_scan_rect( payloadSize ) 5")
 		elseif payloadType == 3 then
-			print("filler_payload( payloadSize ) 5")
+			sprint("filler_payload( payloadSize ) 5")
 		elseif payloadType == 4 then
-			print("user_data_registered_itu_t_t35( payloadSize ) 5")
+			sprint("user_data_registered_itu_t_t35( payloadSize ) 5")
 		elseif payloadType == 5 then
-			print("user_data_unregistered( payloadSize ) 5")
+			sprint("user_data_unregistered( payloadSize ) 5")
 		elseif payloadType == 6 then
-			print("recovery_point( payloadSize ) 5")
+			sprint("recovery_point( payloadSize ) 5")
 		elseif payloadType == 7 then
-			print("dec_ref_pic_marking_repetition( payloadSize ) 5")
+			sprint("dec_ref_pic_marking_repetition( payloadSize ) 5")
 		elseif payloadType == 8 then
-			print("spare_pic( payloadSize ) 5")
+			sprint("spare_pic( payloadSize ) 5")
 		elseif payloadType == 9 then
-			print("scene_info( payloadSize ) 5")
+			sprint("scene_info( payloadSize ) 5")
 		elseif payloadType == 10 then
-			print("sub_seq_info( payloadSize ) 5")
+			sprint("sub_seq_info( payloadSize ) 5")
 		elseif payloadType == 11 then
-			print("sub_seq_layer_characteristics( payloadSize ) 5")
+			sprint("sub_seq_layer_characteristics( payloadSize ) 5")
 		elseif payloadType == 12 then
-			print("sub_seq_characteristics( payloadSize ) 5")
+			sprint("sub_seq_characteristics( payloadSize ) 5")
 		elseif payloadType == 13 then
-			print("full_frame_freeze( payloadSize ) 5")
+			sprint("full_frame_freeze( payloadSize ) 5")
 		elseif payloadType == 14 then
-			print("full_frame_freeze_release( payloadSize ) 5")
+			sprint("full_frame_freeze_release( payloadSize ) 5")
 		elseif payloadType == 15 then
-			print("full_frame_snapshot( payloadSize ) 5")
+			sprint("full_frame_snapshot( payloadSize ) 5")
 		elseif payloadType == 16 then
-			print("progressive_refinement_segment_start( payloadSize ) 5")
+			sprint("progressive_refinement_segment_start( payloadSize ) 5")
 		elseif payloadType == 17 then
-			print("progressive_refinement_segment_end( payloadSize ) 5")
+			sprint("progressive_refinement_segment_end( payloadSize ) 5")
 		elseif payloadType == 18 then
-			print("motion_constrained_slice_group_set( payloadSize ) 5")
+			sprint("motion_constrained_slice_group_set( payloadSize ) 5")
 		elseif payloadType == 19 then
-			print("film_grain_characteristics( payloadSize ) 5")
+			sprint("film_grain_characteristics( payloadSize ) 5")
 		elseif payloadType == 20 then
-			print("deblocking_filter_display_preference( payloadSize ) 5")
+			sprint("deblocking_filter_display_preference( payloadSize ) 5")
 		elseif payloadType == 21 then
-			print("stereo_video_info( payloadSize ) 5")
+			sprint("stereo_video_info( payloadSize ) 5")
 		elseif payloadType == 22 then
-			print("post_filter_hint( payloadSize ) 5")
+			sprint("post_filter_hint( payloadSize ) 5")
 		elseif payloadType == 23 then
-			print("tone_mapping_info( payloadSize ) 5")
+			sprint("tone_mapping_info( payloadSize ) 5")
 		elseif payloadType == 24 then
-			print("scalability_info( payloadSize )  5")
+			sprint("scalability_info( payloadSize )  5")
 		elseif payloadType == 25 then
-			print("sub_pic_scalable_layer( payloadSize )  5")
+			sprint("sub_pic_scalable_layer( payloadSize )  5")
 		elseif payloadType == 26 then
-			print("non_required_layer_rep( payloadSize )  5")
+			sprint("non_required_layer_rep( payloadSize )  5")
 		elseif payloadType == 27 then
-			print("priority_layer_info( payloadSize )  5")
+			sprint("priority_layer_info( payloadSize )  5")
 		elseif payloadType == 28 then
-			print("layers_not_present( payloadSize )  5")
+			sprint("layers_not_present( payloadSize )  5")
 		elseif payloadType == 29 then
-			print("layer_dependency_change( payloadSize )  5")
+			sprint("layer_dependency_change( payloadSize )  5")
 		elseif payloadType == 30 then
-			print("scalable_nesting( payloadSize )  5")
+			sprint("scalable_nesting( payloadSize )  5")
 		elseif payloadType == 31 then
-			print("base_layer_temporal_hrd( payloadSize )  5")
+			sprint("base_layer_temporal_hrd( payloadSize )  5")
 		elseif payloadType == 32 then
-			print("quality_layer_integrity_check( payloadSize )  5")
+			sprint("quality_layer_integrity_check( payloadSize )  5")
 		elseif payloadType == 33 then
-			print("redundant_pic_property( payloadSize )  5")
+			sprint("redundant_pic_property( payloadSize )  5")
 		elseif payloadType == 34 then
-			print("tl0_dep_rep_index( payloadSize )  5")
+			sprint("tl0_dep_rep_index( payloadSize )  5")
 		elseif payloadType == 35 then
-			print("tl_switching_point( payloadSize )  5")
+			sprint("tl_switching_point( payloadSize )  5")
 		elseif payloadType == 36 then
-			print("parallel_decoding_info( payloadSize )  5")
+			sprint("parallel_decoding_info( payloadSize )  5")
 		elseif payloadType == 37 then
-			print("mvc_scalable_nesting( payloadSize )  5")
+			sprint("mvc_scalable_nesting( payloadSize )  5")
 		elseif payloadType == 38 then
-			print("view_scalability_info( payloadSize )  5")
+			sprint("view_scalability_info( payloadSize )  5")
 		elseif payloadType == 39 then
-			print("multiview_scene_info( payloadSize )  5")
+			sprint("multiview_scene_info( payloadSize )  5")
 		elseif payloadType == 40 then
-			print("multiview_acquisition_info( payloadSize )  5")
+			sprint("multiview_acquisition_info( payloadSize )  5")
 		elseif payloadType == 41 then
-			print("non_required_view_component( payloadSize )  5")
+			sprint("non_required_view_component( payloadSize )  5")
 		elseif payloadType == 42 then
-			print("view_dependency_change( payloadSize )  5")
+			sprint("view_dependency_change( payloadSize )  5")
 		elseif payloadType == 43 then
-			print("operation_points_not_present( payloadSize )  5")
+			sprint("operation_points_not_present( payloadSize )  5")
 		elseif payloadType == 44 then
-			print("base_view_temporal_hrd( payloadSize )  5")
+			sprint("base_view_temporal_hrd( payloadSize )  5")
 		elseif payloadType == 45 then
-			print("frame_packing_arrangement( payloadSize ) 5")
+			sprint("frame_packing_arrangement( payloadSize ) 5")
 		elseif payloadType == 46 then
-			print("multiview_view_position( payloadSize )  5")
+			sprint("multiview_view_position( payloadSize )  5")
 		elseif payloadType == 47 then
-			print("display_orientation( payloadSize ) 5")
+			sprint("display_orientation( payloadSize ) 5")
 		elseif payloadType == 48 then
-			print("mvcd_scalable_nesting( payloadSize )  5")
+			sprint("mvcd_scalable_nesting( payloadSize )  5")
 		elseif payloadType == 49 then
-			print("mvcd_view_scalability_info( payloadSize )  5")
+			sprint("mvcd_view_scalability_info( payloadSize )  5")
 		elseif payloadType == 50 then
-			print("depth_representation_info( payloadSize )  5")
+			sprint("depth_representation_info( payloadSize )  5")
 		elseif payloadType == 51 then
-			print("three_dimensional_reference_displays_info( payloadSize ) 5")
+			sprint("three_dimensional_reference_displays_info( payloadSize ) 5")
 		elseif payloadType == 52 then
-			print("depth_timing( payloadSize )  5")
+			sprint("depth_timing( payloadSize )  5")
 		elseif payloadType == 53 then
-			print("depth_sampling_info( payloadSize )  5")
+			sprint("depth_sampling_info( payloadSize )  5")
 		elseif payloadType == 128 then
-			print("structure_of_pictures_info( payloadSize )")
+			sprint("structure_of_pictures_info( payloadSize )")
 		elseif payloadType == 129 then
-			print("active_parameter_sets( payloadSize )")
+			sprint("active_parameter_sets( payloadSize )")
 		elseif payloadType == 130 then
-			print("decoding_unit_info( payloadSize )")
+			sprint("decoding_unit_info( payloadSize )")
 		elseif payloadType == 131 then
-			print("temporal_sub_layer_zero_index( payloadSize )")
+			sprint("temporal_sub_layer_zero_index( payloadSize )")
 		elseif payloadType == 133 then
-			print("scalable_nesting( payloadSize )")
+			sprint("scalable_nesting( payloadSize )")
 		elseif payloadType == 134 then
-			print("region_refresh_info( payloadSize )")
+			sprint("region_refresh_info( payloadSize )")
 		elseif payloadType == 135 then
-			print("no_display( payloadSize )")
+			sprint("no_display( payloadSize )")
 		elseif payloadType == 136 then
-			print("time_code( payloadSize )")
+			sprint("time_code( payloadSize )")
 		elseif payloadType == 137 then
 			mastering_display_colour_volume( payloadSize )
 		elseif payloadType == 138 then
-			print("segmented_rect_frame_packing_arrangement( payloadSize )")
+			sprint("segmented_rect_frame_packing_arrangement( payloadSize )")
 		elseif payloadType == 139 then
-			print("temporal_motion_constrained_tile_sets( payloadSize )")
+			sprint("temporal_motion_constrained_tile_sets( payloadSize )")
 		elseif payloadType == 140 then
-			print("chroma_resampling_filter_hint( payloadSize )")
+			sprint("chroma_resampling_filter_hint( payloadSize )")
 		elseif payloadType == 141 then
-			print("knee_function_info( payloadSize )")
+			sprint("knee_function_info( payloadSize )")
 		elseif payloadType == 142 then
-			print("colour_remapping_info( payloadSize )")
+			sprint("colour_remapping_info( payloadSize )")
 		elseif payloadType == 143 then
-			print("deinterlaced_field_identification( payloadSize )")
+			sprint("deinterlaced_field_identification( payloadSize )")
 		elseif payloadType == 160 then
-			print("layers_not_present( payloadSize ) /* specified in Annex F */")
+			sprint("layers_not_present( payloadSize ) /* specified in Annex F */")
 		elseif payloadType == 161 then
-			print("inter_layer_constrained_tile_sets( payloadSize ) /* specified in Annex F */")
+			sprint("inter_layer_constrained_tile_sets( payloadSize ) /* specified in Annex F */")
 		elseif payloadType == 162 then
-			print("bsp_nesting( payloadSize ) /* specified in Annex F */")
+			sprint("bsp_nesting( payloadSize ) /* specified in Annex F */")
 		elseif payloadType == 163 then
-			print("bsp_initial_arrival_time( payloadSize ) /* specified in Annex F */")
+			sprint("bsp_initial_arrival_time( payloadSize ) /* specified in Annex F */")
 		elseif payloadType == 164 then
-			print("sub_bitstream_property( payloadSize ) /* specified in Annex F */")
+			sprint("sub_bitstream_property( payloadSize ) /* specified in Annex F */")
 		elseif payloadType == 165 then
-			print("alpha_channel_info( payloadSize ) /* specified in Annex F */")
+			sprint("alpha_channel_info( payloadSize ) /* specified in Annex F */")
 		elseif payloadType == 166 then
-			print("overlay_info( payloadSize ) /* specified in Annex F */")
+			sprint("overlay_info( payloadSize ) /* specified in Annex F */")
 		elseif payloadType == 167 then
-			print("temporal_mv_prediction_constraints( payloadSize ) /* specified in Annex F */")
+			sprint("temporal_mv_prediction_constraints( payloadSize ) /* specified in Annex F */")
 		elseif payloadType == 168 then
-			print("frame_field_info( payloadSize ) /* specified in Annex F */")
+			sprint("frame_field_info( payloadSize ) /* specified in Annex F */")
 		elseif payloadType == 176 then
-			print("three_dimensional_reference_displays_info( payloadSize ) /* specified in Annex G */")
+			sprint("three_dimensional_reference_displays_info( payloadSize ) /* specified in Annex G */")
 		elseif payloadType == 177 then
-			print("depth_representation_info( payloadSize ) /* specified in Annex G */")
+			sprint("depth_representation_info( payloadSize ) /* specified in Annex G */")
 		elseif payloadType == 178 then
-			print("multiview_scene_info( payloadSize ) /* specified in Annex G */")
+			sprint("multiview_scene_info( payloadSize ) /* specified in Annex G */")
 		elseif payloadType == 179 then
-			print("multiview_acquisition_info( payloadSize ) /* specified in Annex G */")
+			sprint("multiview_acquisition_info( payloadSize ) /* specified in Annex G */")
 		elseif payloadType == 180 then
-			print("multiview_view_position( payloadSize ) /* specified in Annex G */")
+			sprint("multiview_view_position( payloadSize ) /* specified in Annex G */")
 		else
-			print("reserved_sei_message( payloadSize )")
+			sprint("reserved_sei_message( payloadSize )")
 		end
 	else --  SUFFIX_SEI_NUT		
 		if payloadType == 3 then
-			print("filler_payload( payloadSize )")
+			sprint("filler_payload( payloadSize )")
 		elseif payloadType == 4 then
-			print("user_data_registered_itu_t_t35( payloadSize )")
+			sprint("user_data_registered_itu_t_t35( payloadSize )")
 		elseif payloadType == 5 then
-			print("user_data_unregistered( payloadSize )")
+			sprint("user_data_unregistered( payloadSize )")
 		elseif payloadType == 17 then
-			print("progressive_refinement_segment_end( payloadSize )")
+			sprint("progressive_refinement_segment_end( payloadSize )")
 		elseif payloadType == 22 then
-			print("post_filter_hint( payloadSize )")
+			sprint("post_filter_hint( payloadSize )")
 		elseif payloadType == 132 then
-			print("decoded_picture_hash( payloadSize )")
+			sprint("decoded_picture_hash( payloadSize )")
 		else
-			print("reserved_sei_message( payloadSize )")
+			sprint("reserved_sei_message( payloadSize )")
 		end
 	end
+	
+	
+	-- 非対応のペイロード含めて読む
 	rbyte("sei payload", payloadSize - (cur() - begin))
 	
 	if byte_aligned() == false then
@@ -1783,7 +1799,6 @@ function sei_payload(payloadType, payloadSize)
 	end
 end
 
-local NalHrdBpPresentFlag = nil
 function buffering_period(payloadSize)
 	local begin_bit = select(2, cur()) 
 	rexp("bp_seq_parameter_set_id"                                     ) -- ue(v)
@@ -2025,7 +2040,7 @@ end
 
 function byte_stream(max_length)
 	local rbsp = stream:new(1024*1024*5)
-	rbsp:enable_print(__default_enable_print__)
+	rbsp:enable_print(false)
 
 	reset_initial_values()
 
@@ -2039,8 +2054,8 @@ end
 function length_stream(lenght_size)
 	local rbsp, prev = open(1024*1024*3)
 	swap(prev)
-	prev:enable_print(__default_enable_print__)
-	rbsp:enable_print(__default_enable_print__)
+	prev:enable_print(false)
+	rbsp:enable_print(false)
 
 	reset_initial_values()
 	
@@ -2056,7 +2071,7 @@ end
 if __stream_ext__ == ".h265" then
 	open(__stream_path__)
 	print_status()
-	enable_print(__default_enable_print__)
+	enable_print(false)
 	byte_stream(get_size()/10)
 	print_status()
 end

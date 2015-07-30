@@ -296,6 +296,7 @@ function get_stream_type(stream_type, format_identifire)
 		-- none
 	elseif format_identifire == "HEVC" then
 		ret1 = ret1.."[HEVC]"
+		ret2 = ES_H265
 	else 
 		ret1 = ret1..format_identifire
 	end
@@ -340,9 +341,10 @@ function pmt()
 		-- local buf, prev = open(1024*1024*3)
 		local type_str, es_type = get_stream_type(
 			get("stream_type"), peek("format_identifier"))
+		reset("format_identifier")
 		local buf, prev = open(
 			__out_dir__..hexstr(get("elementary_PID"))..".pes", "wb+")
-		enable_print(__default_enable_print__)
+		enable_print(false)
 		enable_store(false, true)
 		local pid = get("elementary_PID")
 	    pes_array[pid] = {}
@@ -539,22 +541,22 @@ end
 
 function analyze()
 	-- TSは記録しない
-	enable_store(false, true)
+	enable_store(true, true)
 
 	print("analyze PAT")
 	seek(0)
-	enable_print(__default_enable_print__)
+	enable_print(false)
 	ts(1024*1024, TYPE_PAT)
 
 	print("analyze PMT")
 	seek(0)
-	enable_print(__default_enable_print__)
+	enable_print(false)
 	ts(1024*1024, TYPE_PMT)
 
 	print("analyze PES")
 	analyse_data_byte = true
 	seek(0)
-	enable_print(__default_enable_print__)
+	enable_print(false)
 	local analyse_size = math.min(3*1024*1024, get_size())
 	ts(analyse_size, TYPE_PES)
 	print("short analyse size="..analyse_size)
@@ -571,13 +573,13 @@ function analyze()
 			dofile(__streamdef_dir__.."h264.lua")
 			open(v.es_file_name)
 			print_status()
-			enable_print(__default_enable_print__)
+			enable_print(false)
 			byte_stream(get_size())
 		elseif v.es_type == ES_H265 then
 			dofile(__streamdef_dir__.."h265.lua")
 			open(v.es_file_name)
 			print_status()
-			enable_print(__default_enable_print__)
+			enable_print(false)
 			byte_stream(get_size())
 		end
 		print("[EOS]")

@@ -739,8 +739,10 @@ sprint("------------"..hexstr(cur()).."------------")
 end
 
 function byte_stream(max_length)
-	local rbsp = stream:new(1024*1024*3)
+	local rbsp, prev = open(1024*1024*3)
+	swap(prev)
 	rbsp:enable_print(false)
+	prev:enable_print(false)
 	local total_size = 0;
 	while total_size < max_length do
 		total_size = total_size + byte_stream_nal_unit(rbsp, max_length-total_size)

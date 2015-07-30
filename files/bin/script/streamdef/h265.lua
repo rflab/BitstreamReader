@@ -2039,8 +2039,10 @@ sprint("------------"..hexstr(cur()).."------------")
 end
 
 function byte_stream(max_length)
-	local rbsp = stream:new(1024*1024*5)
+	local rbsp, prev= open(1024*1024*5)
+	swap(prev)
 	rbsp:enable_print(false)
+	prev:enable_print(false)
 
 	reset_initial_values()
 

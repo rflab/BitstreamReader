@@ -1,4 +1,4 @@
--- Riffの一種だけど簡単なので得だし
+-- Riffの一種だけど簡単なので別ファイルにしてみた
 
 little_endian(true)
 cstr ("RIFF",                         4, "RIFF")

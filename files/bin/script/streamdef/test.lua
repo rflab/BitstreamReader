@@ -138,6 +138,22 @@ function test_flie()
 	rbit("test", 0x104)
 end
 
+function test_wav()
+	local w = wavfile:new()
+	local sampling_rate = 44100
+	local sec = 5
+	local freq = 440
+	--local freq = 880
+	local tmp_sample
+	for i=1, sampling_rate * sec do
+		tmp_sample = math.sin(i * freq * math.pi/sampling_rate)
+		w:append_sample(tmp_sample, tmp_sample)
+	end
+	w:write(__stream_dir__.."out.wav")
+end
+
+
+test_wav()
 --test_flie()
 --test_sqlite()
 --test_sql()
@@ -145,7 +161,7 @@ end
 --dofile(__streamdef_dir__.."bmp.lua")
 --dofile(__streamdef_dir__.."ts.lua")
 --dofile(__streamdef_dir__.."mp4.lua")
-dofile(__streamdef_dir__.."jpg.lua")
+--dofile(__streamdef_dir__.."jpg.lua")
 --dofile(__streamdef_dir__.."ts.lua")
 --dofile(__streamdef_dir__.."h265.lua")
 

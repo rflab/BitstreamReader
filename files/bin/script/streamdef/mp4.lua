@@ -975,6 +975,18 @@ function init()
 end
 
 open(__stream_path__)
+
+print(">enter or print_address+enter")
+local print_address = io.read()
+if print_address ~= "" then
+	set_print_address(tonumber(print_address))
+end
+print(">enter or assert_address+enter")
+local assert_address = io.read()
+if assert_address ~= "" then
+	set_exit(tonumber(assert_address))
+end
+
 enable_print(false)
 init()
 mp4(get_size())

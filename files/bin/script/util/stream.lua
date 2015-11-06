@@ -26,11 +26,19 @@ local function check(_self, result, msg)
 		assert(false, "assertion failed! msg=".. msg)
 	end
 	
-	if _self.break_address ~= nil then
-		if cur() > _self.break_address - 127 then
-			print_on(true)
+	if _self.print_address ~= nil then
+		if cur() > _self.print_address then
+			enable_print(true)
 		end
+	end
+
+	if _self.break_address ~= nil then
 		if cur() > _self.break_address + 126 then
+			print("")
+			print("==========================")
+			print("break point address=".._self.break_address)
+			_self:print()
+			print("==========================")
 			assert(false)
 		end
 	end
@@ -291,6 +299,10 @@ function _m:ask_enable_print()
 	local enalbe = io.read() == "y" and true or false
 	self.stream:enable_print(enalbe)
 	return enalbe
+end
+
+function _m:set_print_address(address)	
+	self.print_address = address
 end
 
 function _m:set_exit(address)	

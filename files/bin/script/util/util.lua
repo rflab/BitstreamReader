@@ -198,6 +198,11 @@ function seekoff(byte, bit)
 	return gs_stream:seekoff(byte, bit)
 end
 
+-- 指定したアドレスからenable_printする
+function set_print_address(address)
+	return gs_stream:set_print_address(address)
+end
+
 -- 指定したアドレス前後の読み込み結果を表示し、assert(false)する
 function set_exit(address)
 	return gs_stream:set_exit(address)

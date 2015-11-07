@@ -1,4 +1,5 @@
-open(__stream_path__)
+seek(0)
+--open(__stream_path__)
 little_endian(false)
 enable_print(true)
 

@@ -900,18 +900,32 @@ function analyse_trak(trak)
 		seek(Offset[i])
 		tbyte("es", Size[i], out_file_name)
 	end
-	if trak.descriptor == "avc1" then
-		dofile(__streamdef_dir__.."h264.lua")
-		local stream, prev = open(out_file_name)
-		length_stream(get("lengthSizeMinusOne")+1)
-		swap(prev)
-	elseif trak.descriptor == "hvc1" then
-		dofile(__streamdef_dir__.."h265.lua")
-		local stream, prev = open(out_file_name)
-		length_stream(get("lengthSizeMinusOne")+1)
-		swap(prev)
+	
+	
+	
+	
+	
+	
+	print("analyze es?")
+	if io.read() == "y" then
+		if trak.descriptor == "avc1" then
+			dofile(__streamdef_dir__.."h264.lua")
+			local stream, prev = open(out_file_name)
+			length_stream(get("lengthSizeMinusOne")+1)
+			swap(prev)
+		elseif trak.descriptor == "hvc1" then
+			dofile(__streamdef_dir__.."h265.lua")
+			local stream, prev = open(out_file_name)
+			length_stream(get("lengthSizeMinusOne")+1)
+			swap(prev)
+		end
 	end
 	seek(prev)
+	
+	
+	
+	
+	
 
 	-- タイムスタンプ書き出し用
 	trak_no = trak_no + 1
@@ -970,25 +984,11 @@ function analyse_mp4()
 	end
 end
 
-function init()
-	reset("lengthSizeMinusOne", 3)
-end
+reset("lengthSizeMinusOne", 3)
 
-open(__stream_path__)
-
-print(">enter or print_address+enter")
-local print_address = io.read()
-if print_address ~= "" then
-	set_print_address(tonumber(print_address))
-end
-print(">enter or assert_address+enter")
-local assert_address = io.read()
-if assert_address ~= "" then
-	set_exit(tonumber(assert_address))
-end
-
+--open(__stream_path__)
+ask_debug()
 enable_print(false)
-init()
 mp4(get_size())
 save_as_csv(__out_dir__.."mp4.csv")
 analyse_mp4()

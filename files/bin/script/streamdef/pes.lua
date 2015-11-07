@@ -81,7 +81,11 @@ function pes(pid, size, out_file_name)
 			PTS = get("PTS [32..30]")*0x40000000
 				+ get("PTS [29..15]")*0x8000
 				+ get("PTS [14..0]")
-		    -- printf("# PTS=0x%09x (%10.3f sec)", PTS, PTS/90000)
+		    
+		    -- if pid == 512 then
+			--     printf("# PTS=0x%09x (%10.3f sec)", PTS, PTS/90000)
+			-- end
+	
 	    end
 	    if get("PTS_DTS_flags") & 1 == 1 then
 	        rbit("Åf0001Åf",                                            4)
@@ -227,7 +231,8 @@ function pes_stream(size)
 end
 
 if __stream_ext__ == ".pes" then
-	open(__stream_path__)
+	seek(0)
+	--open(__stream_path__)
 	enable_print(false)
 	pes_stream(get_size() - 10*1024)
 end

@@ -25,23 +25,6 @@ local function check(_self, result, msg)
 		_self:dump()
 		assert(false, "assertion failed! msg=".. msg)
 	end
-	
-	if _self.print_address ~= nil then
-		if cur() > _self.print_address then
-			enable_print(true)
-		end
-	end
-
-	if _self.break_address ~= nil then
-		if cur() > _self.break_address + 126 then
-			print("")
-			print("==========================")
-			print("break point address=".._self.break_address)
-			_self:print()
-			print("==========================")
-			assert(false)
-		end
-	end
 end
 
 ------------------------------------------------
@@ -84,17 +67,18 @@ function _m:new(param, openmode)
 	return obj
 end
 
-function _m:print()	
+function _m:print(...)
+	if self.print_enabled then
+		print(...)
+	end
+end
+
+function _m:print_status()	
 	printf("name    : %s", self.file_name)
 	printf("size    : 0x%08x", self:get_size())
 	printf("cursor  : 0x%08x(%d)", self:cur(), self:cur())
 	printf("remain  : 0x%08x", self:get_size() - self:cur())
 	perf:print()
-end
-
-function _m:print_table()	
-	assert(false, "unsupported")
-	print_table(self.tbl)
 end
 
 function _m:get_size()	
@@ -286,27 +270,6 @@ function _m:enable_print(b)
 	end
 	self.print_enabled = b
 	return self.stream:enable_print(b)
-end
-
-function _m:sprint(...)
-	if self.print_enabled then
-		print(...)
-	end
-end
-
-function _m:ask_enable_print()
-	print("print analyze for "..self.name.."? [y/n]")
-	local enalbe = io.read() == "y" and true or false
-	self.stream:enable_print(enalbe)
-	return enalbe
-end
-
-function _m:set_print_address(address)	
-	self.print_address = address
-end
-
-function _m:set_exit(address)	
-	self.break_address = address
 end
 
 function _m:little_endian(enable)

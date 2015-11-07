@@ -11,6 +11,14 @@ local function analyse_stream_type(s)
 		print("check stream...")
 		print("")
 
+		-- dat
+		if __stream_ext__ == ".dat" then
+			print("please input extention. (ex. \"wav\")")
+			ret = "."..io.read()
+			ascii = ret
+			break
+		end
+
 		-- test	
 		if __stream_ext__ == ".test" then
 			ret = ".test"
@@ -299,13 +307,6 @@ local function analyse_stream_type(s)
 				break
 			end
 		end
-				
-		-- dat
-		if __stream_ext__ == ".dat" then
-			ret = ".dat"
-			ascii = "Data"
-			break
-		end
 
 		-- unknown
 		ret= ".dat"
@@ -324,7 +325,7 @@ end
 
 function dispatch_stream(stream)
 	local st = analyse_stream_type(stream)
-
+	
 	if st == ".test" then
 		dofile(__streamdef_dir__.."test.lua")
 

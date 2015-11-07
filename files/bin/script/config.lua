@@ -10,13 +10,13 @@ global("__stream_name__",   sn)
 global("__stream_ext__",    se)
 global("__out_dir__",       __exec_dir__.."out/")
 global("__streamdef_dir__", __exec_dir__.."script/streamdef/")
+global("__text_editor__",   "C:\\Program Files (x86)\\sakura\\sakura.exe")
+global("__hex_editor__",    "C:\\Program Files (x86)\\BzEditor\\Bz.exe")
 
 -- __out_dir__を作成しておく
 -- windowsの場合はディレクトリ名を/→\に置換する
 if windows then
 	os.execute("mkdir \""..__out_dir__.."\"")
-	global("__text_editor__", "C:\\Program Files (x86)\\sakura\\sakura.exe")
-	global("__hex_editor__",  "C:\\Program Files (x86)\\BzEditor\\Bz.exe")
 	__exec_path__     = __exec_path__:gsub("(/)", "\\")
 	__exec_name__     = __exec_name__:gsub("(/)", "\\")
 	__exec_ext__      = __exec_ext__:gsub("(/)", "\\")

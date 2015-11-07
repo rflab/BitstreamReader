@@ -101,5 +101,5 @@ function comm_chunk_data(size)
 	end
 end
 
-
+enable_print(true)
 chunk()

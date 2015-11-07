@@ -150,7 +150,7 @@ function adaptation_field()
 		rbit("program_clock_reference_extension",           9)
 		local PCR = get("program_clock_reference_base_upper1")*0x100000000
 			+ get("program_clock_reference_base")
-		store_recode(get("PID"), cur(), 0, PCR, false, false)
+		store_recode(get("PID"), cur(), 0, PCR and PCR/90, false, false)
 	end
 	if get("OPCR_flag") == 1 then
 		rbit("original_program_clock_reference_base",       33)
@@ -512,14 +512,15 @@ end
 function analyze_payload(pid)
 	if  pes_array[pid] ~= nil then
 		local ts_file = swap(pes_array[pid].buf)
+		local size, PTS, DTS
 		if get_size() ~= cur() then
-			local size, PTS, DTS = pes(pid, get_size() - cur(), pes_array[pid].es_file_name)
-			store_recode(pid, cur(), size, false, PTS, DTS)
+			size, PTS, DTS = pes(pid, get_size() - cur(), pes_array[pid].es_file_name)
 			if get_size() ~= cur() then
 				rbyte("#unknown remain data", get_size() - cur())
 			end
 		end
 		swap(ts_file)
+		store_recode(pid, cur(), size, false, PTS and PTS/90, DTS and DTS/90)
 	else
 		--sprint(hexstr(cur()), get_pid_string(pid))
 	end
@@ -539,9 +540,6 @@ function store_recode(pid, offset, size, PCR, PTS, DTS)
 end
 
 function analyze()
-	-- TSは記録しない
-	--enable_store(true, true)
-
 	print("analyze PAT")
 	seek(0)
 	enable_print(false)
@@ -556,7 +554,8 @@ function analyze()
 	analyse_data_byte = true
 	seek(0)
 	enable_print(false)
-	local analyse_size = math.min(3*1024*1024, get_size())
+	local analyse_size = math.min(1*1024*1024, get_size())
+	--local analyse_size = get_size()/8
 	ts(analyse_size, TYPE_PES)
 	print("short analyse size="..analyse_size)
 	
@@ -585,6 +584,9 @@ function analyze()
 	end
 end
 
+--open(__stream_path__)
+ask_debug()
+enable_print(false)
 analyze()
 save_as_csv(__out_dir__.."ts.csv")
 

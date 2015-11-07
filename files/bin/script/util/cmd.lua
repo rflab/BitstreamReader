@@ -37,95 +37,44 @@ function exec_cmd(c)
 				open(__stream_dir__..c[2])
 			end
 		elseif c[1] == "info" then
-			local data = get_data()
-			local vs, ts, bys, bis, skipcnt = data.values, data.tables, data.bytes, data.bits, data.skipcnt
-			for k, v in pairs(vs) do
-				local num  = ts[k] and #(ts[k]) or 0
-				local byte = bys[k] and bys[k][#(bis[k])] or 0
-				local bit  = bis[k] and bis[k][#(bis[k])] or 0
-				local numstr = ""
-				if skipcnt[k] ~= nil then
-					numstr = tostring(num+1).."/"..skipcnt[k]+num
-				else
-					numstr = tostring(num)
-				end
-				printf("  adr=0x%08x(+%d) [%10s]| %-50s %-8s", byte, bit, numstr, k, hexstr(v))
-			end
+			local command = [[
+				select byte, count(*), name, value
+				from bitstream
+				group by name;]]
+			local stmt = get_sql():prepare(command)
+			sql_print(stmt, "  adr=0x%08x [%10d]| %-50s %-8s")
 			print_status()
 		elseif c[1] == "grep" then
-			local data = get_data()
-			local vs, ts, bys, bis = data.values, data.tables, data.bytes, data.bits
-			local num
-			local byte
-			local bit
-			for i = 2, #c do
-				print("["..c[i].."]")
-				for k, v in pairs(vs) do
-					if string.find(k, c[i]) ~= nil then
-						local num = ts[k] and #(ts[k]) or 0
-						--printf("  %-50s %-8s [%d]", k, v, num)
-						num  = ts[k]  and #(ts[k])  or 0
-						byte = bys[k] and bys[k][#(bys[k])] or 0
-						bit  = bis[k] and bis[k][#(bis[k])] or 0
-						print(k,  bys[k],  bis[k])
-						printf("  adr=0x%08x(+%d) [%6d]| %-50s %-8s", byte, bit, num, k, hexstr(v))
-					end
-				end
+			if c[2] == nil then
+				print("error:no keyword REGEX")
+				break
 			end
+			
+			local command = [[
+				select byte, count(*), name, value
+				from bitstream
+				where name like "%]]..c[2]..[[%" 
+				group by name
+				limit 100;]]
+			local stmt = get_sql():prepare(command)
+			sql_print(stmt, "  adr=0x%08x [%10d]| %-50s %-8s")
+
 		elseif c[1] == "list" then
-			local data = get_data()
-			local vs, ts, bys, bis, sizs, streams
-				 = data.values, data.tables, data.bytes, data.bits, data.sizes, data.streams
-			local print_continue = nil
-			local function print_values(k)
-				local count = 0
-				print ("    no.         stream       address         size        value         ")
-				print ("    ----------  -----------  --------------  ----------  --------------")
-				for i, v in ipairs(ts[k]) do
-					count = count + 1
-					if count % 1000 == 0 then
-						
-						print(k.."["..count.."]")
-						print("n:next")
-						if io.read() ~= "n" then
-							break
-						end
-					end
-					printf("    %10s  %11s  0x%08x(+%d)  %10s  %14s",
-						i, trimstr(streams[k][i].name, 10), bys[k][i], bis[k][i], sizs[k][i], trimstr(hexstr(v), 14))
-				end
+			if c[2] == nil then
+				print("error:no keyword REGEX")
+				break
 			end
-			for i = 2, #c do
-				print("["..c[i].."]")
-				for k, v in pairs(vs) do
-					if string.find(k, c[i]) ~= nil then
-						local num = ts[k] and #(ts[k]) or 0
-						printf("  %s[%d]", k, num)
-						local t = ts[k]
-						if type(t) == "table" then
-							if #t > 1000 then
-								if print_continue == nil then
-									print("table size is ".. #t..", continue? [y]")
-									if io.read() == "y" then
-										print_continue = true
-										print_values(k)
-									else
-										print_continue = false
-										print("    give up print.")
-									end
-								elseif print_continue == false then
-									print("    give up print.")
-								elseif print_continue == true then
-									print_values(k)
-								end
-							else
-								print_values(k)
-							end
-						end
-						print("")
-					end
-				end
-			end
+
+			local command = [[
+				select *
+				from bitstream
+				where name like "%]]..c[2]..[[%"
+				limit 100;]]
+			local stmt = get_sql():prepare(command)
+
+			print("id       name                      byte        bit  size     value")
+			print("-------  ------------------------  ----------  ---  -------  ------------")
+			sql_print(stmt, "%7d  %-25s 0x%08x  %3d %8d %13s")
 		elseif c[1] == "find" then
 			
 			if type(c[2]) == "string" then
@@ -352,6 +301,96 @@ function exec_cmd(c)
 				local command = [[select name, count(*) from bitstream group by name limit 100]]
 				local stmt = get_sql():prepare(command)
 				sql_print(stmt)
+			end
+		elseif c[1] == "grep_old" then
+			local data = get_data()
+			local vs, ts, bys, bis = data.values, data.tables, data.bytes, data.bits
+			local num
+			local byte
+			local bit
+			for i = 2, #c do
+				print("["..c[i].."]")
+				for k, v in pairs(vs) do
+					if string.find(k, c[i]) ~= nil then
+						local num = ts[k] and #(ts[k]) or 0
+						--printf("  %-50s %-8s [%d]", k, v, num)
+						num  = ts[k]  and #(ts[k])  or 0
+						byte = bys[k] and bys[k][#(bys[k])] or 0
+						bit  = bis[k] and bis[k][#(bis[k])] or 0
+						print(k,  bys[k],  bis[k])
+						printf("  adr=0x%08x(+%d) [%6d]| %-50s %-8s", byte, bit, num, k, hexstr(v))
+					end
+				end
+			end
+		elseif c[1] == "info_old" then
+			local data = get_data()
+			local vs, ts, bys, bis, skipcnt = data.values, data.tables, data.bytes, data.bits, data.skipcnt
+			for k, v in pairs(vs) do
+				local num  = ts[k] and #(ts[k]) or 0
+				local byte = bys[k] and bys[k][#(bis[k])] or 0
+				local bit  = bis[k] and bis[k][#(bis[k])] or 0
+				local numstr = ""
+				if skipcnt[k] ~= nil then
+					numstr = tostring(num+1).."/"..skipcnt[k]+num
+				else
+					numstr = tostring(num)
+				end
+				printf("  adr=0x%08x(+%d) [%10s]| %-50s %-8s", byte, bit, numstr, k, hexstr(v))
+			end
+			print_status()
+		elseif c[1] == "list_old" then
+			local data = get_data()
+			local vs, ts, bys, bis, sizs, streams
+				 = data.values, data.tables, data.bytes, data.bits, data.sizes, data.streams
+			local print_continue = nil
+			local function print_values(k)
+				local count = 0
+				print ("    no.         stream       address         size        value         ")
+				print ("    ----------  -----------  --------------  ----------  --------------")
+				for i, v in ipairs(ts[k]) do
+					count = count + 1
+					if count % 1000 == 0 then
+						
+						print(k.."["..count.."]")
+						print("n:next")
+						if io.read() ~= "n" then
+							break
+						end
+					end
+					printf("    %10s  %11s  0x%08x(+%d)  %10s  %14s",
+						i, trimstr(streams[k][i].name, 10), bys[k][i], bis[k][i], sizs[k][i], trimstr(hexstr(v), 14))
+				end
+			end
+			for i = 2, #c do
+				print("["..c[i].."]")
+				for k, v in pairs(vs) do
+					if string.find(k, c[i]) ~= nil then
+						local num = ts[k] and #(ts[k]) or 0
+						printf("  %s[%d]", k, num)
+						local t = ts[k]
+						if type(t) == "table" then
+							if #t > 1000 then
+								if print_continue == nil then
+									print("table size is ".. #t..", continue? [y]")
+									if io.read() == "y" then
+										print_continue = true
+										print_values(k)
+									else
+										print_continue = false
+										print("    give up print.")
+									end
+								elseif print_continue == false then
+									print("    give up print.")
+								elseif print_continue == true then
+									print_values(k)
+								end
+							else
+								print_values(k)
+							end
+						end
+						print("")
+					end
+				end
 			end
 		elseif c[1] == "hogehoge" then
 			elseif c[1] == "function" then

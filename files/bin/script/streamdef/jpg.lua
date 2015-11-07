@@ -1320,7 +1320,8 @@ function jpg()
 	end
 end
 
-open(__stream_path__)
+seek(0)
+--open(__stream_path__)
 enable_print(false)
 jpg()
 

@@ -1,32 +1,43 @@
-local gs_stream
-local gs_all_streams = {}
-local gs_files = {}
+-- 全ストリーム共通
+local gs_global = {
+	main_stream  = nil,
+	all_streams  = {},
+	abort_offset = 0xfffffffff,
+	print_offset = 0xfffffffff,
+	store_lua    = false,
+	store_sql    = true}	
+
+-- 解析中のストリーム
+local gs_cur_stream
+
+-- その他グローバル
+local gs_perf = profiler:new()
+local gs_csv = csv:new()
 local gs_progress
-local gs_perf
-local gs_csv
 local gs_data = {
-	skipcnt={}, values={}, tables={}, bytes={}, bits={}, sizes={}, streams={},
+	skipcnt={},
+	values={},
+	tables={},
+	bytes={},
+	bits={},
+	sizes={},
+	streams={},
 	ignore_nil=false}
+	
+-- 暫定
+local gs_files = {}
 
 --------------------------------------
 -- 内部関数
 --------------------------------------
-local function check(size)
-	if size + cur() > get_size() then
-		print("size over", "size:", get_size(), "readsize:", size)
-		io.write("size over. enter key to continue.")
-		io.read()
-		--coroutine.yield()
-	end
-end
 
 -- データ読み込み事に記録する処理
 local function on_set_value(name, byte, bit, size, value)
-	-- get()
+	-- get()用
 	gs_data.values[name] = value
 
-	-- Lua用
-	if gs_stream.enable_store_lua == true then
+	-- Lua用もう使わないかも
+	if gs_global.store_lua == true then
 		if gs_data.tables[name] == nil then
 			gs_data.tables[name]  = {}
 			gs_data.bytes[name]   = {}
@@ -39,15 +50,35 @@ local function on_set_value(name, byte, bit, size, value)
 		table.insert(gs_data.bits[name], bit)
 		table.insert(gs_data.tables[name], value)
 		table.insert(gs_data.sizes[name], size)
-		table.insert(gs_data.streams[name], gs_stream)
+		table.insert(gs_data.streams[name], gs_cur_stream)
 	else
 		local cnt = gs_data.skipcnt[name] or 0
 		gs_data.skipcnt[name] = cnt + 1 
 	end
 
 	-- SQL用お試し
-	if gs_stream.enable_store_sql == true then
+	if gs_global.store_sql == true then
 		sql_insert_record(name, byte, bit, size, value)
+	end
+
+	-- デバッグ用
+	-- プリント出力開始チェック
+	if gs_global.main_stream:cur() >= gs_global.print_offset then
+		for i, v in ipairs(gs_global.all_streams) do
+			v:enable_print(true)
+		end
+		gs_global.print_offset = 0xfffffffff
+	end
+	
+	-- デバッグ用
+	-- 中断チェック
+	if gs_global.main_stream:cur() >= gs_global.abort_offset then
+		print("")
+		print("====================================================")
+		print("break point address="..gs_global.abort_offset)
+		gs_global.main_stream:print_status()
+		print("====================================================")
+		assert(false)
 	end
 end
 
@@ -64,116 +95,121 @@ end
 -- "b" -> バイナリモード
 function open(arg1, openmode)
 	openmode = openmode or "rb"
-	local prev_stream = gs_stream
+	local prev_stream = gs_cur_stream
 	
 	-- tbyteでファイルを開いている場合があるのでここでクローズする。
 	-- 暫定処理である。
 	if type(arg1)=="string" and gs_files[arg1] == true then
 		close_file(arg1)
 	end
-	
-	gs_stream = stream:new(arg1, openmode)
-	gs_stream.enable_store_lua = true
-	gs_stream.enable_store_sql = true
-	table.insert(gs_all_streams, gs_stream) 
 
-	gs_csv = csv:new()
+	gs_cur_stream = stream:new(arg1, openmode)
+	table.insert(gs_global.all_streams, gs_cur_stream) 
 
-	return gs_stream, prev_stream
+	-- 初回はデバッグ用メインストリームとして強制的に登録
+	if gs_global.main_stream == nil then
+		gs_global.main_stream = gs_cur_stream
+	end
+
+	return gs_cur_stream, prev_stream
+end
+
+-- 読み込み時エンディアン指定
+-- ２バイト/４バイトの読み込みでエンディアンを変換する
+function little_endian(enable)
+	return gs_cur_stream:little_endian(enable)
+end
+
+-- 現在のストリームを得る
+function get_stream()
+	return gs_cur_stream
 end
 
 -- ストリームを入れ替える
 function swap(stream)
-	local prev = gs_stream
-	gs_stream = stream
+	local prev = gs_cur_stream
+	gs_cur_stream = stream
 	return prev
 end
 
--- ストリームを入れ替える
-function get_stream()
-	return gs_stream
+-- デバッグ用設定
+function set_debug(main_stream, abort_offset, print_offset)	
+	gs_global.main_stream  = main_stream
+	gs_global.abort_offset = abort_offset
+	gs_global.print_offset = print_offset
+end
+
+-- デバッグ用設定問い合わせ
+function ask_debug(main_stream)	
+	main_stream = main_stream or gs_cur_stream
+	main_stream:print_status()
+	print("set debug? [y/n]")
+	if io.read() == "y" then
+		print("please enter abort_offset..")
+		local abort_offset = tonumber(io.read()) or 0xfffffffff
+		print("please enter print_offset..")
+		local print_offset = tonumber(io.read()) or 0xfffffffff
+		set_debug(main_stream, abort_offset, print_offset)
+	end
 end
 
 -- ストリーム状態表示
 function print_status()
-	return gs_stream:print()
-end
-
--- 全部表示
-function print_status_all()
-	return gs_stream:print_table()
+	return gs_cur_stream:print_status()
 end
 
 -- ストリームファイルサイズ取得
 function get_size()
-	return gs_stream:get_size()
+	return gs_cur_stream:get_size()
 end
 
 -- ストリームを最大256バイト出力
 function dump(size)
-	return gs_stream:dump(size or 128)
+	return gs_cur_stream:dump(size or 128)
 end
 
 -- 解析結果表示のON/OFF
 function enable_print(b)
 	if b == nil then
-		return gs_stream:enable_print(nil)
+		return gs_cur_stream:enable_print(nil)
 	else
-		gs_stream:enable_print(b)
-	end
-end
-
--- 解析結果保存のON/OFF
-function enable_store(lua_b, sql_b)
-	if lua_b == nil then
-		assert(sql_b == nil)
-		return
-			gs_stream.enable_store_lua,
-			gs_stream.enable_store_sql
-	else
-		gs_stream.enable_store_lua = lua_b
-		gs_stream.enable_store_sql = sql_b
+		gs_cur_stream:enable_print(b)
 	end
 end
 
 -- 解析結果表示のON/OFFに応じてprint
 function sprint(...)
-	return gs_stream:sprint(...)
-end
-
--- 解析結果表示のON/OFFを問い合わせる
-function ask_enable_print()
-	return gs_stream:ask_enable_print()
-end
-
--- ２バイト/４バイトの読み込みでエンディアンを変換する
-function little_endian(enable)
-	return gs_stream:little_endian(enable)
+	return gs_cur_stream:print(...)
 end
 
 -- 現在のバイトオフセット、ビットオフセットを取得
 function cur()
-	return gs_stream:cur()
+	return gs_cur_stream:cur()
 end
 
 -- これまでに読み込んだ値を取得する
+-- なかった場合は以降無視するか中止するか選択する
 function get(name)
 	local val = gs_data.values[name]
-	if val == nil then
-		if gs_data.ignore_nil ~= true then
-			print("get nil value \""..name.."\" continue [y/n]")
-			if io.read() == "y" then
-				gs_data.ignore_nil = true
-				val = 0
-			else
-				assert(false, "abort");
-			end
-		else
-			print("# set 0", name)
-			val = 0
-		end
+	if val ~= nil then
+		return val
 	end
-	return val
+
+	if gs_data.ignore_nil ~= true then
+		print("get nil value \""..name.."\" continue [y/n/all]")
+		if io.read() == "y" then
+			gs_data.values[name] = 0
+			return 0
+		elseif io.read() == "all" then
+			gs_data.ignore_nil = true
+			return 0
+		else
+			assert(false, "abort");
+		end
+	else
+		print("# set 0", name)
+		return 0
+	end
 end
 
 -- nilが返ることをいとわない場合はこちらでget
@@ -184,54 +220,44 @@ end
 -- 値をセットする
 function reset(name, value)
 	local byte, bit = cur()
-	-- gs_stream:reset(name, value)
+	-- gs_cur_stream:reset(name, value)
 	on_set_value(name, byte, bit, 0, value)
 end
 
 -- 絶対位置シーク
 function seek(byte, bit)
-	return gs_stream:seek(byte, bit)
+	return gs_cur_stream:seek(byte, bit)
 end
 
 -- 相対位置シーク
 function seekoff(byte, bit)
-	return gs_stream:seekoff(byte, bit)
-end
-
--- 指定したアドレスからenable_printする
-function set_print_address(address)
-	return gs_stream:set_print_address(address)
-end
-
--- 指定したアドレス前後の読み込み結果を表示し、assert(false)する
-function set_exit(address)
-	return gs_stream:set_exit(address)
+	return gs_cur_stream:seekoff(byte, bit)
 end
 
 -- ビット単位読む
 function gbit(size)
-	return gs_stream:gbit(size)
+	return gs_cur_stream:gbit(size)
 end
 
 -- バイト単位読む
 function gbyte(size)
-	return gs_stream:gbyte(size)
+	return gs_cur_stream:gbyte(size)
 end
 
 -- 文字列として読む
 function gstr(size)
-	return gs_stream:gstr(size)
+	return gs_cur_stream:gstr(size)
 end
 
 -- 指数ゴロムとして読む
 function gexp()
-	return gs_stream:gexp()
+	return gs_cur_stream:gexp()
 end
 
 -- ビット単位読み込み
 function rbit(name, size)
 	local byte, bit = cur()
-	local value = gs_stream:rbit(name, size)
+	local value = gs_cur_stream:rbit(name, size)
 	on_set_value(name, byte, bit, size, value)
 	return value
 end
@@ -239,7 +265,7 @@ end
 -- バイト単位読み込み
 function rbyte(name, size)
 	local byte, bit = cur()
-	local value = gs_stream:rbyte(name, size)
+	local value = gs_cur_stream:rbyte(name, size)
 	on_set_value(name, byte, bit, size*8, value)
 	return value
 end
@@ -247,7 +273,7 @@ end
 -- 文字列として読み込み
 function rstr(name, size)
 	local byte, bit = cur()
-	local value = gs_stream:rstr(name, size)
+	local value = gs_cur_stream:rstr(name, size)
 	on_set_value(name, byte, bit, size*8, value)
 	return value
 end
@@ -255,29 +281,29 @@ end
 -- 指数ゴロムとして読み込み
 function rexp(name)
 	local byte, bit = cur()
-	local value = gs_stream:rexp(name)
+	local value = gs_cur_stream:rexp(name)
 	on_set_value(name, byte, bit, 0, value)
 	return value
 end
 
 -- ビット単位で読み込み、compとの一致を確認
 function cbit(name, size, comp)
-	return gs_stream:cbit(name, size, comp)
+	return gs_cur_stream:cbit(name, size, comp)
 end
 
 -- バイト単位で読み込み、compとの一致を確認
 function cbyte(name, size, comp)
-	return gs_stream:cbyte(name, size, comp)
+	return gs_cur_stream:cbyte(name, size, comp)
 end
 
 -- 文字列として読み込み、compとの一致を確認
 function cstr(name, size, comp)
-	return gs_stream:cstr(name, size, comp)
+	return gs_cur_stream:cstr(name, size, comp)
 end
 
 -- 指数ゴロムとして読み込み
 function cexp(name, comp)
-	return gs_stream:cexp(name, comp)
+	return gs_cur_stream:cexp(name, comp)
 end
 
 function skip(size, begin)
@@ -290,51 +316,51 @@ end
 
 -- bit単位で読み込むがポインタは進めない
 function lbit(size)
-	return gs_stream:lbit(size)
+	return gs_cur_stream:lbit(size)
 end
 
 -- バイト単位で読み込むがポインタは進めない
 function lbyte(size)
-	return gs_stream:lbyte(size)
+	return gs_cur_stream:lbyte(size)
 end
 
 -- 文字列を読み込むがポインタは進めない
 function lstr(size)
-	return gs_stream:lstr(size)
+	return gs_cur_stream:lstr(size)
 end
 
 -- バイト単位で読み込むがポインタは進めない
 function lexp(size)
-	return gs_stream:lexp(size)
+	return gs_cur_stream:lexp(size)
 end
 
 -- １バイト検索
 function fbyte(char, advance, end_offset)
-	return gs_stream:fbyte(char, advance, end_offset)
+	return gs_cur_stream:fbyte(char, advance, end_offset)
 end
 
 -- 文字列を検索、もしくは"00 11 22"のようなバイナリ文字列で検索
 function fstr(pattern, advance, end_offset)
-	return gs_stream:fstr(pattern, advance, end_offset)
+	return gs_cur_stream:fstr(pattern, advance, end_offset)
 end
 
 -- １バイト逆検索
 function rfbyte(char, advance, end_offset)
-	return gs_stream:rfbyte(char, advance, end_offset)
+	return gs_cur_stream:rfbyte(char, advance, end_offset)
 end
 
 -- 文字列を検索、もしくは"00 11 22"のようなバイナリ文字列で逆検索
 function rfstr(pattern, advance, end_offset)
-	return gs_stream:rfstr(pattern, advance, end_offset)
+	return gs_cur_stream:rfstr(pattern, advance, end_offset)
 end
 
 -- ストリームからファイルにデータを追記
 function tbyte(name, size, target)
 	if type(target) == "string" then
 		gs_files[target] = gs_files[target] or true 
-		return transfer_to_file(target, gs_stream.stream, size, true)
+		return transfer_to_file(target, gs_cur_stream.stream, size, true)
 	else
-		return gs_stream:tbyte(name, size, target, true)
+		return gs_cur_stream:tbyte(name, size, target, true)
 	end
 end
 
@@ -354,7 +380,7 @@ end
 
 -- 現在位置からストリームを抜き出す
 function sub_stream(name, size)
-	return gs_stream:sub_stream(name, size)
+	return gs_cur_stream:sub_stream(name, size)
 end
 
 function do_until(closure, offset)
@@ -382,7 +408,6 @@ end
 -- その他ユーティリティ
 --------------------------------------------
 -- 性能計測用
-gs_perf = profiler:new()
 gs_progress = {
 	prev = 10,
 	check = function (self, detail)
@@ -563,8 +588,6 @@ function start_thread(func, ...)
 		return fret, ...
 	end
 end
-
-
 
 -- 第一正規形
 -- id: byte, bit name, size, value
@@ -829,6 +852,6 @@ function get_data()
 end
 
 function get_streams()
-	return gs_all_streams
+	return gs_global.all_streams
 end
 

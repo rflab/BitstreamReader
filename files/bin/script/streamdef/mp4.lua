@@ -12,10 +12,10 @@ function BOXHEADER()
 	if get("boxsize") == 1 then
 		rbyte("boxsize_upper32bit",      4)
 		rbyte("boxsize",                 4)
-		printf("0x%08x      %s", get("boxsize"), get("BOXHEADER"))
+		printf("adr=0x%08x, siz=0x%08x      %s", cur(), get("boxsize"), get("BOXHEADER"))
 		return get("BOXHEADER"), get("boxsize"), 16
 	else
-		printf("0x%08x      %s", get("boxsize"), get("BOXHEADER"))
+		printf("adr=0x%08x, siz=0x%08x      %s", cur(), get("boxsize"), get("BOXHEADER"))
 		return get("BOXHEADER"), get("boxsize"), 8
 	end
 end

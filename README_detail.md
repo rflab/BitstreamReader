@@ -17,9 +17,9 @@ $ ./a.out test.wav
 ```
 -- とりあえず取得した値を全部見る
 cmd>info
--- 名前に foo もしくは bar を含む値の情報を表示
-cmd>grep foo bar
-cmd>list foo bar
+-- 名前に foo を含む値の情報を表示
+cmd>grep foo
+cmd>list foo
 ```
 より正確には以下の挙動となります。
 * コマンドライン引数なしで起動した場合は、Luaのコマンドインタプリタとして起動されます。

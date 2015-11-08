@@ -150,6 +150,8 @@ function ask_debug(main_stream)
 		print("please enter print_offset..")
 		local print_offset = tonumber(io.read()) or 0xfffffffff
 		set_debug(main_stream, abort_offset, print_offset)
+	else
+		print("cancel")
 	end
 end
 

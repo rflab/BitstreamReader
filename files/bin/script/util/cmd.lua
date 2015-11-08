@@ -28,7 +28,12 @@ function toindex(val, tbl)
 	return ix
 end
 
-function exec_cmd(c)
+function exec_cmd(cmd)
+	local c = parse_cmd(cmd)
+	if c == nil then
+		return
+	end
+
 	repeat
 		if c[1] == "history" then
 		
@@ -115,7 +120,7 @@ function exec_cmd(c)
 			sql_print(stmt, "%7d  %-25s 0x%08x  0x%08x%3d %13d %13s")
 		
 		elseif c[1] == "save" then
-		
+		print("hogegho")
 			if type(c[2]) ~= "string" then
 				print("error:no filename")
 				break
@@ -140,20 +145,21 @@ function exec_cmd(c)
 			-- ‚±‚±‚É‘‚«o‚µ
 			local fp
 			if file_exits ~= nil then
-				print("already exists. add_record? [y/n]")
-				if io.read() == "n" then
+				print("already exists. add record? [y/n]")
+				if io.read() == "y" then
+					fp = io.open(__stream_dir__..c[2], "a")
+					if fp == nil then
+						print("open error")
+						break
+					end
+				else
+					print("cancel")
 					fp = io.open(__stream_dir__..c[2], "w")
 					if fp == nil then
 						print("open error")
 						break
 					end
 					fp:write("id, name, main_byte, byte, bit, size, value\n")
-				else
-					fp = io.open(__stream_dir__..c[2], "a")
-					if fp == nil then
-						print("open error")
-						break
-					end
 				end
 			else
 				fp = io.open(__stream_dir__..c[2], "w")
@@ -531,11 +537,11 @@ function exec_cmd(c)
 	until true
 end
 
-function parse_cmd(input)
+function parse_cmd(cmd)
 	local c = {}
 	local str
-	--for tok in string.gmatch(input, "\"(.+?)\"|([^ ]+)") do
-	for tok in string.gmatch(input, "([^\t ]+)") do
+	--for tok in string.gmatch(cmd, "\"(.+?)\"|([^ ]+)") do
+	for tok in string.gmatch(cmd, "([^\t ]+)") do
 		-- ""•¶Žš—ñ
 		if tok:sub(1,1) == "\"" then
 			str = tok:sub(2).." "
@@ -559,28 +565,25 @@ function parse_cmd(input)
 		end
 	end
 	if #c >= 1 then
-		table.insert(history, input)
+		table.insert(history, cmd)
 		return c
 	else
 		return nil
 	end
 end
 
-function cmd()
-	local input
-
+function run_cmd_mode()
+	local cmd
+	
 	print("<< command mode : q:quit, h:help >>")
 	while true do
 		io.write("cmd>")
-		input = io.read()
-		if input == "q"
-		or input == "exit" then
+		cmd = io.read()
+		if cmd == "q"
+		or cmd == "exit" then
 			break
 		else
-			local c = parse_cmd(input)
-			if c ~= nil then
-				exec_cmd(c)
-			end
+			exec_cmd(cmd)
 		end
 	end
 end

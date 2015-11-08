@@ -25,7 +25,7 @@ print("collectgarbage(kB):", collectgarbage("count"))
 collectgarbage("collect")
 
 -- 解析コマンド起動
-exec_cmd({"info"})
-
-cmd()
+exec_cmd("info")
+exec_cmd("save log.csv")
+run_cmd_mode()
 

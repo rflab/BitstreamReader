@@ -82,6 +82,8 @@ function pes(pid, size, out_file_name)
 				+ get("PTS [29..15]")*0x8000
 				+ get("PTS [14..0]")
 		    
+		    set("PTS[90kHz]pid="..hexstr(pid), PTS)
+		    set("PTS[ms]pid="..hexstr(pid), PTS/90000)
 		    -- if pid == 512 then
 			--     printf("# PTS=0x%09x (%10.3f sec)", PTS, PTS/90000)
 			-- end
@@ -100,6 +102,9 @@ function pes(pid, size, out_file_name)
 			DTS = get("DTS [32..30]")*0x40000000
 				+ get("DTS [29..15]")*0x8000
 				+ get("DTS [14..0]")
+
+		    set("DTS[90kHz]pid="..hexstr(pid), DTS)
+		    set("DTS[ms]pid="..hexstr(pid), DTS/90000)
 		    -- printf("# DTS=0x%09x (%10.3f sec)", DTS, DTS/90000)
 	    end
    	    if get("ESCR_flag") == 1 then

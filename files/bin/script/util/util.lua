@@ -227,9 +227,15 @@ function peek(name)
 end
 
 -- 値をセットする
+function set(name, value)
+	local byte, bit = cur()
+	on_set_value(name, byte, bit, 0, value)
+end
+
+-- 値をセットする
+-- こちらは廃止したい
 function reset(name, value)
 	local byte, bit = cur()
-	-- gs_cur_stream:reset(name, value)
 	on_set_value(name, byte, bit, 0, value)
 end
 

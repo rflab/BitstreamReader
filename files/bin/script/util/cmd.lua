@@ -131,8 +131,38 @@ function exec_cmd(c)
 				where name like "%]]..c[3]..[[%";]]
 			local stmt = get_sql():prepare(command)
 
-			local fp = io.open(__stream_dir__..c[2], "w")
-			fp:write("id, name, main_byte, byte, bit, size, value\n")
+			-- 追加するか確認（出力ファイルがすでにあるか）
+			local file_exits = io.open(__stream_dir__..c[2], "r")
+			if file_exits ~= nil then 
+				file_exits:close()
+			end
+			
+			-- ここに書き出し
+			local fp
+			if file_exits ~= nil then
+				print("already exists. add_record? [y/n]")
+				if io.read() == "n" then
+					fp = io.open(__stream_dir__..c[2], "w")
+					if fp == nil then
+						print("open error")
+						break
+					end
+					fp:write("id, name, main_byte, byte, bit, size, value\n")
+				else
+					fp = io.open(__stream_dir__..c[2], "a")
+					if fp == nil then
+						print("open error")
+						break
+					end
+				end
+			else
+				fp = io.open(__stream_dir__..c[2], "w")
+				if fp == nil then
+					print("open error")
+					break
+				end
+				fp:write("id, name, main_byte, byte, bit, size, value\n")
+			end
 			sql_print(stmt, "%d,%s,%d,%d,%d,%d,%s\n", fp)
 			fp:close()
 			

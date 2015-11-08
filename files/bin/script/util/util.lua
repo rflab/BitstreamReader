@@ -58,7 +58,7 @@ local function on_set_value(name, byte, bit, size, value)
 
 	-- SQL用お試し
 	if gs_global.store_sql == true then
-		sql_insert_record(name, byte, bit, size, value)
+		sql_insert_record(name, byte, bit, size, value, (gs_global.main_stream:cur()))
 	end
 
 	-- デバッグ用
@@ -180,6 +180,15 @@ end
 -- 解析結果表示のON/OFFに応じてprint
 function sprint(...)
 	return gs_cur_stream:print(...)
+end
+
+-- ファイルに出力、fpが指定されてなければただのprint
+function fprint(fp, ...)
+	if fp == nil then
+		print(...)
+	else
+		fp:write(...)
+	end
 end
 
 -- 現在のバイトオフセット、ビットオフセットを取得
@@ -589,106 +598,14 @@ function start_thread(func, ...)
 	end
 end
 
--- 第一正規形
+-- SQL
 -- id: byte, bit name, size, value
 function sql_insert_record() assert(false, "sql is not started.") end
 function sql_print() assert(false, "sql is not started.") end
 function sql_commit() assert(false, "sql is not started.") end
+function sql_get_value() assert(false, "sql is not started.") end
 function sql_rollback() assert(false, "sql is not started.") end
 function get_sql() assert(false, "sql is not started.") end
-
-function sql_begin_1nf()
- 	local sql = SQLite:new("out/"..__stream_name__..".db")
-	
-	sql:exec([[begin]])
-	sql:exec([[drop table if exists bitstream]])
-	sql:exec([[
-		create table bitstream (
-		id        integer primary key,
-		name      text,
-		byte      integer,
-		bit       integer,
-		size      integer,
-		value     text)]])
-
-	-- レコード追加
-	local insert_record_stmt = sql:prepare(
-		[[insert into bitstream(name, byte, bit, size, value)
-		 values (?, ?, ?, ?, ?)]])
-	function sql_insert_record (name, byte, bit, size, value)
-		sql:reset(insert_record_stmt)
-		sql:bind_text(insert_record_stmt, 1, name)
-		sql:bind_int (insert_record_stmt, 2, byte)
-		sql:bind_int (insert_record_stmt, 3, bit)
-		sql:bind_int (insert_record_stmt, 4, size)
-		sql:bind_text(insert_record_stmt, 5, tostring(value))
-		sql:step(insert_record_stmt)
-	end
-
---	-- レコードの値を更新
---	local update_value_stmt = sql:prepare([[
---		update bitstream
---		set	   value = ?, size = ?
---		where  id = max(id)]])
---	function sql_update_value(value, size)
---		sql:reset(update_value_stmt)
---		sql:bind_text(update_value_stmt, 0, tostring(value))
---		sql:bind_int(update_value_stmt, 1, size)
---		sql:step(update_value_stmt)
---	end
-
-	function sql_print(stmt, format)
-		local str={}
-		local count=0
-	
-		sql:reset(stmt)
-		if format == nil then
-			for i=0, sql:column_count(stmt)-1 do
-				io.write(
-					string.format("%-12s  ",
-					tostring(sql:column_name(stmt, i)):sub(1, 12)))
-			end
-			print()
-			printf(string.rep("------------  ", sql:column_count(stmt)))
-		end
-		while SQLITE_ROW == sql:step(stmt) do
-			for i=0, sql:column_count(stmt)-1 do
-				local ty = sql:column_type(stmt, i) 
-				if ty == SQLITE_NULL then
-				elseif ty == SQLITE_INTEGER then
-					str[i+1] = tostring(sql:column_int(stmt, i))
-				elseif ty == SQLITE_TEXT then
-					str[i+1] = sql:column_text(stmt, i)
-				else
-					str[i+1] = "unsupported type"
-				end
-				
-				if format == nil then
-					str[i+1] = str[i+1]:sub(1, 10)
-				end
-			end
-			if format == nil then
-				printf(string.rep("%-12s  ", sql:column_count(stmt)), table.unpack(str))
-			else
-				printf(format, table.unpack(str))
-			end
-		end
-	end
-	
-	function sql_commit()
-		sql:exec("commit")
-	end
-
-	function sql_rollback()
-		sql:exec("rollback")
-	end
-
-	function get_sql()
-		return sql
-	end
-end
-
--- 第三正規形
 function sql_begin()
 	local sql
 	if __exec_dir__:match("[^ %g]") ~= nil then
@@ -734,7 +651,8 @@ function sql_begin()
 		create table offset_table (
 		id        integer primary key,
 		byte      integer,
-		bit       integer)]])
+		bit       integer,
+		main_byte integer)]])
 
 	-------------
 	-- VIEW
@@ -744,6 +662,7 @@ function sql_begin()
 		create view bitstream as select
 			v.id,
 			p.name,
+			o.main_byte,
 			o.byte,
 			o.bit,
 			p.size,
@@ -758,13 +677,13 @@ function sql_begin()
 	local insert_param_table_stmt = sql:prepare([[
 		insert into param_table(param_id, name, size) values(?, ?, ?)]])
 	local insert_offset_table_stmt = sql:prepare([[
-		insert into offset_table(byte, bit) values(?, ?)]])
+		insert into offset_table(byte, bit, main_byte) values(?, ?, ?)]])
 	local insert_value_table_stmt = sql:prepare([[
 		insert into value_table(param_id, value) values(?, ?)]])
 	local param_ids = {}
 	local id = 0
 	local param_id = 0
-	function sql_insert_record (name, byte, bit, size, value)
+	function sql_insert_record (name, byte, bit, size, value, main_byte)
 		id = id + 1
 		--パラメータ
 		if param_ids[name] == nil then
@@ -781,6 +700,7 @@ function sql_begin()
 		--sql:bind_int(insert_offset_table_stmt, 1, id)
 		sql:bind_int(insert_offset_table_stmt, 1, byte)
 		sql:bind_int(insert_offset_table_stmt, 2, bit)
+		sql:bind_int(insert_offset_table_stmt, 3, main_byte)
 		sql:step(insert_offset_table_stmt)
 		
 		-- 値
@@ -789,25 +709,33 @@ function sql_begin()
 		sql:bind_int (insert_value_table_stmt, 1, param_ids[name])
 		sql:bind_text(insert_value_table_stmt, 2, tostring(value))
 		sql:step(insert_value_table_stmt)
+		
+		if id%100000 == 0 then
+			sql:exec("commit")
+			sql:exec("begin")
+			print("sql_commit")
+		end
 	end
 	
 	-------------
 	-- レコード取得クエリ
 	-------------
-	function sql_print(stmt, format)
+	function sql_print(stmt, format, fp)
 		local str={}
 		local count=0
 	
+		-- 先頭にカラムを出力
 		sql:reset(stmt)
 		if format == nil then
 			for i=0, sql:column_count(stmt)-1 do
 				io.write(
 					string.format("%-12s  ",
-					tostring(sql:column_name(stmt, i)):sub(1, 12)))
+						tostring(sql:column_name(stmt, i)):sub(1, 12)))
 			end
-			print()
-			printf(string.rep("------------  ", sql:column_count(stmt)))
+			fprint(fp, string.rep("------------  ", sql:column_count(stmt)))
 		end
+		
+		-- 取得値を出力
 		while SQLITE_ROW == sql:step(stmt) do
 			for i=0, sql:column_count(stmt)-1 do
 				local ty = sql:column_type(stmt, i) 
@@ -825,10 +753,36 @@ function sql_begin()
 				end
 			end
 			if format == nil then
-				printf(string.rep("%-12s  ", sql:column_count(stmt)), table.unpack(str))
+				fprint(fp, string.format(string.rep("%-12s  ", sql:column_count(stmt)), table.unpack(str)))
 			else
-				printf(format, table.unpack(str))
+				fprint(fp, string.format(format, table.unpack(str)))
 			end
+		end
+	end
+		
+	function sql_get_value(command)
+		local command = [[select max(id) from bitstream]]
+		local stmt = sql:prepare(command)
+
+		if SQLITE_ROW == sql:step(stmt) then
+			if sql:column_count(stmt) == 1 then
+				local ty = sql:column_type(stmt, 0) 
+				if ty == SQLITE_NULL then
+				elseif ty == SQLITE_INTEGER then
+					return sql:column_int(stmt, 0)
+				elseif ty == SQLITE_TEXT then
+					return sql:column_text(stmt, 0)
+				else
+					print("sql error:", command)
+					return 0
+				end
+			else
+				print("sql error:", command)
+				return 0
+			end
+		else
+			print("sql error:", command)
+			return 0
 		end
 	end
 	

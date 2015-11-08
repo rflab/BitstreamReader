@@ -31,12 +31,17 @@ end
 function exec_cmd(c)
 	repeat
 		if c[1] == "history" then
+		
 			print_table(history)
+		
 		elseif c[1] == "open" then
+		
 			if type(c[2]) == "string" then
 				open(__stream_dir__..c[2])
 			end
+		
 		elseif c[1] == "info" then
+		
 			local command = [[
 				select byte, count(*), name, value
 				from bitstream
@@ -44,10 +49,17 @@ function exec_cmd(c)
 			local stmt = get_sql():prepare(command)
 			sql_print(stmt, "  adr=0x%08x [%10d]| %-50s %-8s")
 			print_status()
+			print("records : "..touint(sql_get_value([[select max(id) from bitstream]])))
+			
 		elseif c[1] == "grep" then
+		
 			if c[2] == nil then
-				print("error:no keyword REGEX")
+				print("error:keyword REGEX")
 				break
+			end
+			
+			if tonumber(c[3]) == nil then
+				c[3] = 50
 			end
 			
 			local command = [[
@@ -55,26 +67,75 @@ function exec_cmd(c)
 				from bitstream
 				where name like "%]]..c[2]..[[%" 
 				group by name
-				limit 100;]]
+				limit ]]..tonumber(c[3])..[[;]]
 			local stmt = get_sql():prepare(command)
 			sql_print(stmt, "  adr=0x%08x [%10d]| %-50s %-8s")
 
 		elseif c[1] == "list" then
+		
 			if c[2] == nil then
-				print("error:no keyword REGEX")
+				print("error:keyword REGEX")
 				break
+			end
+
+			if tonumber(c[3]) == nil then
+				c[3] = 50
+			end
+			
+			local command = [[
+				select *
+				from bitstream
+				where name like "%]]..c[2]..[[%"
+				limit ]]..tonumber(c[3])..[[;]]
+			local stmt = get_sql():prepare(command)
+
+			print("id,      name                      main_byte   byte        bit  size        value")
+			print("-------  ------------------------  ----------  ----------  ---  ----------  ------------")
+			sql_print(stmt, "%7d  %-25s 0x%08x  0x%08x%3d %13d %13s")
+		
+		elseif c[1] == "view" then
+			
+			if tonumber(c[2]) == nil then
+				c[2] = 0
+			end
+			
+			if tonumber(c[3]) == nil then
+				c[3] = 50
 			end
 
 			local command = [[
 				select *
 				from bitstream
-				where name like "%]]..c[2]..[[%"
-				limit 100;]]
+				where id >= ]]..tonumber(c[2])..[[
+				limit ]]..tonumber(c[3])..[[;]]
 			local stmt = get_sql():prepare(command)
 
-			print("id       name                      byte        bit  size     value")
-			print("-------  ------------------------  ----------  ---  -------  ------------")
-			sql_print(stmt, "%7d  %-25s 0x%08x  %3d %8d %13s")
+			print("id,      name                      main_byte   byte        bit  size        value")
+			print("-------  ------------------------  ----------  ----------  ---  ----------  ------------")
+			sql_print(stmt, "%7d  %-25s 0x%08x  0x%08x%3d %13d %13s")
+		
+		elseif c[1] == "save" then
+		
+			if type(c[2]) ~= "string" then
+				print("error:no filename")
+				break
+			end
+			
+			if c[3] == nil then
+				c[3] = ""
+			end
+
+			local command = [[
+				select *
+				from bitstream
+				where name like "%]]..c[3]..[[%";]]
+			local stmt = get_sql():prepare(command)
+
+			local fp = io.open(__stream_dir__..c[2], "w")
+			fp:write("id, name, main_byte, byte, bit, size, value\n")
+			sql_print(stmt, "%d,%s,%d,%d,%d,%d,%s\n", fp)
+			fp:close()
+			
 		elseif c[1] == "find" then
 			
 			if type(c[2]) == "string" then
@@ -158,7 +219,9 @@ function exec_cmd(c)
 			else
 				print("invalid argment", c[2], c[3])
 			end
+		
 		elseif c[1] == "dump" then
+		
 			if type(c[2]) == "number" or c[2] == nil then
 				c[2] = c[2] or 0
 				local dump_address = touint(c[2])
@@ -252,7 +315,9 @@ function exec_cmd(c)
 					print("abort.")
 				end
 			end
+		
 		elseif c[1] == "stream" then
+		
 			local streams = get_streams()
 			for i, v in ipairs(streams) do
 				print(i, v.name, v.file_name)
@@ -261,15 +326,21 @@ function exec_cmd(c)
 				print("swap("..streams[toindex(c[2], streams)].name..")")
 				swap(streams[toindex(c[2], streams)])
 			end
+		
 		elseif c[1] == "edit" then
+		
 			local cmdline = "\""..__hex_editor__.."\" "..__stream_path__
 			print(cmdline)
 			os.execute(cmdline)	
+		
 		elseif c[1] == "tedit" then
+		
 			local cmdline = "\""..__text_editor__.."\" "..__stream_path__
 			print(cmdline)
 			os.execute(cmdline)	
+		
 		elseif c[1] == "sql" then
+		
 			local cmd
 			if windows then
 				if c[2] == nil then
@@ -278,11 +349,15 @@ function exec_cmd(c)
 					os.execute("sqlite3.exe "..c[2])
 				end
 			end	
+		
 		elseif c[1] == "dir" then
+		
 			local cmdline = "explorer \""..__exec_dir__.."\""
 			print(cmdline)
 			os.execute(cmdline)
+		
 		elseif c[1] == "test" then
+		
 			do
 				local command = [[select * from bitstream limit 100]]
 				local stmt = get_sql():prepare(command)
@@ -302,7 +377,9 @@ function exec_cmd(c)
 				local stmt = get_sql():prepare(command)
 				sql_print(stmt)
 			end
+		
 		elseif c[1] == "grep_old" then
+		
 			local data = get_data()
 			local vs, ts, bys, bis = data.values, data.tables, data.bytes, data.bits
 			local num
@@ -322,7 +399,9 @@ function exec_cmd(c)
 					end
 				end
 			end
+		
 		elseif c[1] == "info_old" then
+		
 			local data = get_data()
 			local vs, ts, bys, bis, skipcnt = data.values, data.tables, data.bytes, data.bits, data.skipcnt
 			for k, v in pairs(vs) do
@@ -338,7 +417,9 @@ function exec_cmd(c)
 				printf("  adr=0x%08x(+%d) [%10s]| %-50s %-8s", byte, bit, numstr, k, hexstr(v))
 			end
 			print_status()
+		
 		elseif c[1] == "list_old" then
+		
 			local data = get_data()
 			local vs, ts, bys, bis, sizs, streams
 				 = data.values, data.tables, data.bytes, data.bits, data.sizes, data.streams
@@ -392,27 +473,30 @@ function exec_cmd(c)
 					end
 				end
 			end
-		elseif c[1] == "hogehoge" then
-			elseif c[1] == "function" then
-				if type(_G[c[2]]) == "table" then
-					_G[c[2]](c[3], c[4], c[5], c[6], c[7], c[8], c[9])
-				end
+		elseif c[1] == "function" then
+			if type(_G[c[2]]) == "table" then
+				_G[c[2]](c[3], c[4], c[5], c[6], c[7], c[8], c[9])
+			end
 		else
+
 			print("history              : show history")
 			print("info                 : show all values")
-			print("grep REGEX...        : search & show last value")
-			print("list REGEX...        : search & show all value")
-			print("dump REGEX [INDEX]   : hex dump around REGEX[INDEX]")
+			print("view [FROM] [LIMIT]  : show records")
+			print("save FILENAME REGEX  : save records to file")
+			print("grep REGEX [LIMIT]   : search & show last value")
+			print("list REGEX [LIMIT]   : search & show values")
+			-- print("dump REGEX [INDEX]   : hex dump around REGEX[INDEX]")
 			print("dump ADDRESS         : hex dump from ADDRESS")
-			print("find PATTERN ADDRESS : find PATTERN from ADDRESS, e.g. find \"00 00 01\" ")
+			print("find PATTERN ADDRESS : find byte or PATTERN from ADDRESS, e.g. find \"00 00 01\" ")
 			print("open FILENAME        : open newfile in stream directory")
 			print("stream INDEX         : show and swap stream")
 			print("edit                 : open stream by hex editor")
 			print("tedit                : open stream by text editor")
-			print("sql                  : open database by SQLite shell")
+			print("sql                  : open database")
 			print("dir                  : open .exe directory")
 			print("test                 : test command")
 			print("q|exit               : exit command mode")
+
 		end
 	until true
 end
@@ -455,7 +539,7 @@ end
 function cmd()
 	local input
 
-	print("<< command mode : \"q\" to exit >>")
+	print("<< command mode : q:quit, h:help >>")
 	while true do
 		io.write("cmd>")
 		input = io.read()

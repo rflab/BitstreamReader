@@ -709,14 +709,14 @@ function profile_tier_level(profilePresentFlag, maxNumSubLayersMinus1)
 				rbit("sub_layer_reserved_zero_bit[i]", 1) -- u(1)
 			end
 		end
-		if get(sub_layer_level_present_flag[i]) == 1then                                    
+		if get("sub_layer_level_present_flag[i]") == 1then                                    
 			rbit("sub_layer_level_idc[i]", 8) -- u(8)
 		end
 	end
 end
 
 function scaling_list_data() 
-	ScalingList = {}
+	local ScalingList = {}
 	for sizeId = 0, 4-1 do
 		ScalingList[sizeId] = {}
 		for matrixId = 0, 6-1, (sizeId == 3 and 3 or 1) do 
@@ -725,7 +725,7 @@ function scaling_list_data()
 				rexp("scaling_list_pred_matrix_id_delta[sizeId][matrixId]") -- ue(v))
 			else                                               	
 				local nextCoef = 8
-				coefNum = math.min(64, (1 << ( 4 + (sizeId << 1))))
+				local coefNum = math.min(64, (1 << ( 4 + (sizeId << 1))))
 				if sizeId > 1 then 
 					rexp("scaling_list_dc_coef_minus8[sizeId - 2][matrixId]") -- se(v)
 					nextCoef = get("scaling_list_dc_coef_minus8[sizeId - 2][matrixId]") + 8
@@ -2026,7 +2026,7 @@ sprint("------------"..hexstr(cur()).."------------")
 	end
 	cbyte("start_code_prefix_one_3bytes", 3, 0x000001)
 	
-	local NumBytesInNALunit = math.min(fstr("00 00 00", false), fstr("00 00 01", false), remain_size)
+	local NumBytesInNALunit = math.min(fstr("00 00 00 01", false), remain_size)
 	if NumBytesInNALunit == remain_size then
 		print("return big size to exit")
 		return 100000

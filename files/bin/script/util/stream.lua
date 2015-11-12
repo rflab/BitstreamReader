@@ -129,28 +129,28 @@ end
 
 function _m:rbit(name, size)
 	local val = self.stream:read_bit(name, size)
-	check(self, val, "rbit:"..name)
+	-- check(self, val, "rbit:"..name)
 	-- self.tbl[name] = val
 	return val
 end
 
 function _m:rbyte(name, size)
 	local val = self.stream:read_byte(name, size)
-	check(self, val, "rbyte:"..name)
+	-- check(self, val, "rbyte:"..name)
 	-- self.tbl[name] = val
 	return val
 end
 
 function _m:rstr(name, size)	
  	local val = self.stream:read_string(name, size)
-	check(self, val, "rstr:"..name)
+	-- check(self, val, "rstr:"..name)
 	-- self.tbl[name] = val
 	return val
 end
 
 function _m:rexp(name)
 	local val = self.stream:read_expgolomb(name)
-	check(self, val, "rexp:"..name)
+	-- check(self, val, "rexp:"..name)
 	-- self.tbl[name] = val
 	return val
 end
@@ -174,25 +174,25 @@ end
 
 function _m:lbyte(size)	
  	local val = self.stream:look_byte(size)
-	check(self, val, "lbyte:")
+	-- check(self, val, "lbyte:")
 	return val
 end
 
 function _m:lbit(size)	
  	local val = self.stream:look_bit(size)
-	check(self, val, "lbit:")
+	-- check(self, val, "lbit:")
 	return val
 end
 
 function _m:lstr(size)	
  	local val = self.stream:look_byte_string(size)
-	check(self, val, "lstr:")
+	-- check(self, val, "lstr:")
 	return val
 end
 
 function _m:lexp(size)	
  	local val = self.stream:look_expgolomb(size)
-	check(self, val, "lbit:")
+	-- check(self, val, "lbit:")
 	return val
 end
 

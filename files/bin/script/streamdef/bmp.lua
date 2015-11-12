@@ -93,10 +93,8 @@ function bmp()
 	
 end
 
-seek(0)
 --open(__stream_path__)
+enable_print(false)
 little_endian(true)
-enable_print(true)
 bmp()
---print_table(info)
 

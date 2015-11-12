@@ -213,7 +213,7 @@ function nmhd(size)
 end
 
 function dinf(size)
-	rbyte("dinf", size)
+	rbyte("dinf", 0)
 end
 
 function dref(size)
@@ -984,10 +984,9 @@ function analyse_mp4()
 	end
 end
 
-reset("lengthSizeMinusOne", 3)
+--reset("lengthSizeMinusOne", 3)
 
 --open(__stream_path__)
-ask_debug()
 enable_print(false)
 mp4(get_size())
 save_as_csv(__out_dir__.."mp4.csv")

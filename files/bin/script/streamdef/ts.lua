@@ -585,7 +585,6 @@ function analyze()
 end
 
 --open(__stream_path__)
-ask_debug()
 enable_print(false)
 analyze()
 save_as_csv(__out_dir__.."ts.csv")

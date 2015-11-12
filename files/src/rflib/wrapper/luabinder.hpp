@@ -356,6 +356,12 @@ namespace rf
 						push_stack(L, r);
 						return 1;
 					}
+					catch (const std::exception &e)
+					{
+						push_stack(L, false);
+						push_stack(L, e.what());
+						return 2;
+					}
 					catch (const False &)
 					{
 						push_stack(L, false);
@@ -383,6 +389,12 @@ namespace rf
 					{
 						f(get_stack<Args>(L, Ixs)...);
 						return 0;
+					}
+					catch (const std::exception &e)
+					{
+						push_stack(L, false);
+						push_stack(L, e.what());
+						return 2;
 					}
 					catch (const False &)
 					{
@@ -445,6 +457,12 @@ namespace rf
 						push_stack(L, r);
 						return 1;
 					}
+					catch (const std::exception &e)
+					{
+						push_stack(L, false);
+						push_stack(L, e.what());
+						return 2;
+					}
 					catch (const False &)
 					{
 						push_stack(L, false);
@@ -482,6 +500,12 @@ namespace rf
 					{
 						(self->*fp)(get_stack<Args>(L, Ixs)...);
 						return 0;
+					}
+					catch (const std::exception &e)
+					{
+						push_stack(L, false);
+						push_stack(L, e.what());
+						return 2;
 					}
 					catch (const False &)
 					{

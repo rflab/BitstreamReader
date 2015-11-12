@@ -2076,9 +2076,7 @@ function length_stream(lenght_size)
 end
 
 if __stream_ext__ == ".h265" then
-	seek(0)
 	--open(__stream_path__)
-	print_status()
 	enable_print(false)
 	byte_stream(get_size()/10)
 	print_status()

@@ -101,5 +101,6 @@ function comm_chunk_data(size)
 	end
 end
 
-enable_print(true)
+--open(__stream_path__)
+enable_print(false)
 chunk()

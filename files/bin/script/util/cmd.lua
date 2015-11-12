@@ -120,7 +120,6 @@ function exec_cmd(cmd)
 			sql_print(stmt, "%7d  %-25s 0x%08x  0x%08x%3d %13d %13s")
 		
 		elseif c[1] == "save" then
-		print("hogegho")
 			if type(c[2]) ~= "string" then
 				print("error:no filename")
 				break

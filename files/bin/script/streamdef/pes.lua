@@ -236,7 +236,6 @@ function pes_stream(size)
 end
 
 if __stream_ext__ == ".pes" then
-	seek(0)
 	--open(__stream_path__)
 	enable_print(false)
 	pes_stream(get_size() - 10*1024)

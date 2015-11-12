@@ -326,6 +326,9 @@ end
 function dispatch_stream(stream)
 	local st = analyse_stream_type(stream)
 	
+	-- 前回のエラー情報を読み込む
+	load_error_info()
+	
 	if st == ".test" then
 		dofile(__streamdef_dir__.."test.lua")
 

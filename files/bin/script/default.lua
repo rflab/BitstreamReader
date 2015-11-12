@@ -27,5 +27,6 @@ collectgarbage("collect")
 -- 解析コマンド起動
 exec_cmd("info")
 exec_cmd("save log.csv")
+os.remove(__error_info_path__)
 run_cmd_mode()
 

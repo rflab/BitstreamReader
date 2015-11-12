@@ -33,6 +33,17 @@ local gs_files = {}
 
 -- データ読み込み事に記録する処理
 local function on_set_value(name, byte, bit, size, value)
+	-- 読込結果がエラーの場合はエラー情報をシリアライズしてabort()
+	if value == false then
+		print("#########################")
+		print("#         ERROR         #")
+		print("#########################")
+		save_error_info(name, byte, bit, size, value)
+		print_status()
+		print("")
+		assert(false)
+	end
+
 	-- get()用
 	gs_data.values[name] = value
 
@@ -67,6 +78,10 @@ local function on_set_value(name, byte, bit, size, value)
 		for i, v in ipairs(gs_global.all_streams) do
 			v:enable_print(true)
 		end
+		print("====================================================")
+		print("enable print offset="..hexstr(gs_global.print_offset))
+		gs_global.main_stream:print_status()
+		print("====================================================")
 		gs_global.print_offset = 0xfffffffff
 	end
 	
@@ -75,7 +90,7 @@ local function on_set_value(name, byte, bit, size, value)
 	if gs_global.main_stream:cur() >= gs_global.abort_offset then
 		print("")
 		print("====================================================")
-		print("break point address="..gs_global.abort_offset)
+		print("abort point offset="..hexstr(gs_global.abort_offset))
 		gs_global.main_stream:print_status()
 		print("====================================================")
 		assert(false)
@@ -155,9 +170,75 @@ function ask_debug(main_stream)
 	end
 end
 
+-- エラー情報を__error_info_path__に書き込む
+function save_error_info(name, byte, bit, size, value)
+	local error_info = {}
+	error_info.file_name = __stream_path__
+	error_info.byte = gs_global.main_stream:cur()
+	local f = io.open(__error_info_path__, "w")
+	if f == nil then
+		--abort(false, "save_error_info failed")
+		print("#save_error_info failed")
+		return false
+	end
+	local s = serialize(error_info)
+	print(s)
+	f:write(s)
+	f:close()
+end
+
+-- __error_info_path__を読み込み、デバッグを登録する
+function load_error_info()
+	local f = io.open(__error_info_path__, "r")
+	if f == nil then 
+		print("no previous error.")
+		return
+	end
+	
+	local length = f:seek("end")
+	if length > 0x10000 then
+		abort(false, "#too big error file")
+	end 
+	
+	f:seek("set")
+	local s = f:read("*a")
+	f:close()
+
+	local error_info = deserialize(s) or {file_name = "", byte = 0}
+	if error_info.file_name ~= __stream_path__ then
+		print("no previous error.")
+		return
+	end
+
+	print("previous error log exists.")
+	print("set debug by previous error info? [y/n/start_offset]")
+	local input = io.read()
+	if input == "n" then
+		print("cancel")
+	elseif type(tonumber(input)) == "number" then
+		set_debug(
+			gs_global.main_stream,
+			0xffffffff,
+			math.max(0, error_info.byte+tonumber(input)))
+	else 
+		set_debug(
+			gs_global.main_stream,
+			0xffffffff,
+			math.max(0, error_info.byte-256))
+	end
+
+end
+
 -- ストリーム状態表示
 function print_status()
-	return gs_cur_stream:print_status()
+	print("<main_stream>")
+	gs_global.main_stream:print_status()
+	print("<current_stream>")
+	if gs_global.main_stream ~= gs_cur_stream then
+		gs_cur_stream:print_status()
+	else
+		print("  == main_stream")
+	end
 end
 
 -- ストリームファイルサイズ取得
@@ -493,7 +574,6 @@ function binstr(value, size)
 	end
 end
 
-
 -- 値をlengthでトリミングした文字列にする
 function trimstr(v, length)
 	local str = tostring(v)
@@ -532,6 +612,46 @@ function print_table(tbl, indent)
 		print_table(meta, indent+1)
 	end
 end
+
+-- テーブルを文字列に変換する
+function serialize(o, indent_)
+	local indent
+	if indent_ == nil then 
+		indent = "\t"
+		indent_ = ""
+	else
+		indent = "\t"..indent_
+	end
+	
+	local t = type(o)
+	if t == "number" then
+		return o
+	elseif t == "string" then
+		return string.format("%q", o)
+	elseif t == "table" then
+		local result = ""
+		for k,v in pairs(o) do
+			if type(k) == "number" then
+				result = result..indent..serialize(v, indent)..",\n"
+			else
+				result = result..indent..k.." = "..serialize(v, indent)..",\n"
+			end
+		end
+		return "{\n"..result..indent_.."}"
+	else
+		error("cannot serialize a " .. type(o))
+	end
+end
+
+-- serializeで作った文字列をテーブルに戻す
+function deserialize(d)
+	--文字列を関数実行させる
+	return assert(load("return " .. d .. ";"))();
+	--分解すると
+	--function
+	--  return {x=400,y=5...};
+	--end
+end;
 
 -- tbl[name].tblの末尾とtbl[name].valに値を入れる
 -- 自作store関数のテーブル版

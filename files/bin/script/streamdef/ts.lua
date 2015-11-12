@@ -559,7 +559,7 @@ function analyze()
 	ts(analyse_size, TYPE_PES)
 	print("short analyse size="..analyse_size)
 	
-	print("analyze more? [y]")
+	print("analyze more? [y/n (default:n)]")
 	if io.read() == "y" then
 	--if false then
 		ts(get_size()-(cur())-192, TYPE_PES)

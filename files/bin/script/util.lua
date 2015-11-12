@@ -158,7 +158,7 @@ end
 function ask_debug(main_stream)	
 	main_stream = main_stream or gs_cur_stream
 	main_stream:print_status()
-	print("set debug? [y/n]")
+	print("set debug? [y/n (default:n)]")
 	if io.read() == "y" then
 		print("please enter abort_offset..")
 		local abort_offset = tonumber(io.read()) or 0xfffffffff
@@ -211,7 +211,7 @@ function load_error_info()
 	end
 
 	print("previous error log exists.")
-	print("set debug by previous error info? [y/n/start_offset]")
+	print("set debug by previous error info? [y/n/start_offset (default:y)]")
 	local input = io.read()
 	if input == "n" then
 		print("cancel")
@@ -288,7 +288,7 @@ function get(name)
 	end
 
 	if gs_data.ignore_nil ~= true then
-		print("get nil value \""..name.."\" continue [y/n/all]")
+		print("get nil value \""..name.."\" continue [y/n/all (default:n)]")
 		if io.read() == "y" then
 			gs_data.values[name] = 0
 			return 0

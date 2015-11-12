@@ -906,7 +906,7 @@ function analyse_trak(trak)
 	
 	
 	
-	print("analyze es?")
+	print("analyze es? [y/n (default:n)]")
 	if io.read() == "y" then
 		if trak.descriptor == "avc1" then
 			dofile(__streamdef_dir__.."h264.lua")

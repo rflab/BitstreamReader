@@ -1,33 +1,5 @@
 local history = {}
 
-function touint(val)
-	if type(val) ~= "number" then
-		print("invalid arg - return 0.")
-		return 0
-	end
-	local ix = math.ceil(val)
-	if ix < 0 then
-		print("invalid arg - return 0.")
-		return 0
-	end
-	return ix
-end
-
-function toindex(val, tbl)
-	assert(tbl ~= nil)
-	if type(val) ~= "number" then
-		print("invalid inxex - return 1")
-		return 1 
-	end
-	local ix = math.ceil(val)
-	if ix <= 0
-	or ix > #tbl then
-		print("invalid inxex - return #tbl")
-		return #tbl
-	end
-	return ix
-end
-
 function exec_cmd(cmd)
 	local c = parse_cmd(cmd)
 	if c == nil then
@@ -54,6 +26,7 @@ function exec_cmd(cmd)
 			local stmt = get_sql():prepare(command)
 			sql_print(stmt, "  adr=0x%08x [%10d]| %-50s %-8s")
 			print_status()
+			print("<database>")
 			print("records : "..touint(sql_get_value([[select max(id) from bitstream]])))
 			
 		elseif c[1] == "grep" then
@@ -75,7 +48,7 @@ function exec_cmd(cmd)
 				limit ]]..tonumber(c[3])..[[;]]
 			local stmt = get_sql():prepare(command)
 			sql_print(stmt, "  adr=0x%08x [%10d]| %-50s %-8s")
-
+			
 		elseif c[1] == "list" then
 		
 			if c[2] == nil then
@@ -144,15 +117,16 @@ function exec_cmd(cmd)
 			-- ‚±‚±‚É‘‚«o‚µ
 			local fp
 			if file_exits ~= nil then
-				print("already exists. add record? [y/n]")
+				print("log file already exists. add record? [y/n (default:n)]")
 				if io.read() == "y" then
+					print("add record")
 					fp = io.open(__stream_dir__..c[2], "a")
 					if fp == nil then
 						print("open error")
 						break
 					end
 				else
-					print("cancel")
+					print("overwrite")
 					fp = io.open(__stream_dir__..c[2], "w")
 					if fp == nil then
 						print("open error")
@@ -281,7 +255,7 @@ function exec_cmd(cmd)
 				local vs, ts, bytes, sizs, streams = data.values, data.tables, data.bytes, data.sizes, data.streams
 				local dump_all = nil
 				--if c[3] == nil then
-				--	print("no index. dump for all data? [y/n]")
+				--	print("no index. dump for all data? [y/n (default:n)]")
 				--	if io.read() == "y" then
 						dump_all = true
 				--	else
@@ -487,7 +461,7 @@ function exec_cmd(cmd)
 						if type(t) == "table" then
 							if #t > 1000 then
 								if print_continue == nil then
-									print("table size is ".. #t..", continue? [y]")
+									print("table size is ".. #t..", continue? [y/n (default:n)]")
 									if io.read() == "y" then
 										print_continue = true
 										print_values(k)
@@ -571,7 +545,7 @@ function parse_cmd(cmd)
 	end
 end
 
-function run_cmd_mode()
+function run_command_mode()
 	local cmd
 	
 	print("<< command mode : q:quit, h:help >>")
@@ -585,4 +559,32 @@ function run_cmd_mode()
 			exec_cmd(cmd)
 		end
 	end
+end
+
+function touint(val)
+	if type(val) ~= "number" then
+		print("invalid arg - return 0.")
+		return 0
+	end
+	local ix = math.ceil(val)
+	if ix < 0 then
+		print("invalid arg - return 0.")
+		return 0
+	end
+	return ix
+end
+
+function toindex(val, tbl)
+	assert(tbl ~= nil)
+	if type(val) ~= "number" then
+		print("invalid inxex - return 1")
+		return 1 
+	end
+	local ix = math.ceil(val)
+	if ix <= 0
+	or ix > #tbl then
+		print("invalid inxex - return #tbl")
+		return #tbl
+	end
+	return ix
 end

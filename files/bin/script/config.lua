@@ -14,10 +14,8 @@ global("__text_editor__",     "C:\\Program Files (x86)\\sakura\\sakura.exe")
 global("__hex_editor__",      "C:\\Program Files (x86)\\BzEditor\\Bz.exe")
 global("__error_info_path__", __stream_dir__.."err.txt")
 
--- __out_dir__を作成しておく
 -- windowsの場合はディレクトリ名を/→\に置換する
 if windows then
-	os.execute("mkdir \""..__out_dir__.."\"")
 	__exec_path__       = __exec_path__:gsub("(/)", "\\")
 	__exec_name__       = __exec_name__:gsub("(/)", "\\")
 	__exec_ext__        = __exec_ext__:gsub("(/)", "\\")
@@ -29,6 +27,13 @@ if windows then
 	__streamdef_dir__   = __streamdef_dir__:gsub("(/)", "\\")
 	__exec_dir__        = __exec_dir__:gsub("(/)", "\\")
 	__error_info_path__ = __error_info_path__:gsub("(/)", "\\")
+end
+
+-- __out_dir__を作成する
+if windows then
+	os.execute("mkdir \""..__out_dir__.."\"")
 else
 	os.execute("mkdir -p \""..__out_dir__.."\"")
 end
+
+

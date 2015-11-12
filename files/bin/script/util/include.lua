@@ -6,7 +6,5 @@ require("wavfile")
 require("bitmap")
 require("csv")
 require("explicit_globals")
-require("util")
-require("cmd")
 use_explicit_globals(true)
 

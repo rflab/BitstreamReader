@@ -543,18 +543,18 @@ function analyze()
 	print("analyze PAT")
 	seek(0)
 	enable_print(false)
-	ts(1024*1024, TYPE_PAT)
+	ts(math.min(get_size(), 1024*1024), TYPE_PAT)
 
 	print("analyze PMT")
 	seek(0)
 	enable_print(false)
-	ts(1024*1024, TYPE_PMT)
+	ts(math.min(get_size(), 1024*1024), TYPE_PMT)
 
 	print("analyze PES")
 	analyse_data_byte = true
 	seek(0)
 	enable_print(false)
-	local analyse_size = math.min(1*1024*1024, get_size())
+	local analyse_size = math.min(3*1024*1024, get_size()-192)
 	--local analyse_size = get_size()/8
 	ts(analyse_size, TYPE_PES)
 	print("short analyse size="..analyse_size)

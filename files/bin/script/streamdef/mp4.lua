@@ -859,6 +859,8 @@ function analyse_trak(trak)
 	end
 	for i=1, #DTS_in_tick do
 		table.insert(DTS, DTS_in_tick[i]/time_scale)
+		set(trak.descriptor.."_DTS[ms]", DTS_in_tick[i]/time_scale*1000)
+		set(trak.descriptor.."_DTS[90kHz]", DTS_in_tick[i]/time_scale*90000)
 	end
 	store(trak.descriptor.."DTS", DTS)
 
@@ -877,6 +879,8 @@ function analyse_trak(trak)
 		end
 		for i=1, #PTS_in_tick do
 			table.insert(PTS, PTS_in_tick[i]/time_scale)
+			set(trak.descriptor.."_PTS[ms]", PTS_in_tick[i]/time_scale*1000)
+			set(trak.descriptor.."_PTS[90kHz]", PTS_in_tick[i]/time_scale*90000)
 		end
 		store(trak.descriptor.."PTS", PTS)
 	else

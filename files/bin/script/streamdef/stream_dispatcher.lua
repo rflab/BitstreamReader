@@ -7,9 +7,6 @@ local function analyse_stream_type(s)
 	repeat -- for break
 		
 		print("====================================================================================================================")
-		--ascii_art("stream?")
-		print("check stream...")
-		print("")
 
 		-- dat
 		if __stream_ext__ == ".dat" then
@@ -50,10 +47,10 @@ local function analyse_stream_type(s)
 		end
 		
 		-- text2dat
-		if rstr("hex", 3):find("^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
-			if rstr("hex", 3):find("^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
-				if rstr("hex", 3):find("^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
-					if rstr("hex", 3):find("^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
+		if gstr(3):find("^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
+			if gstr(3):find("^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
+				if gstr(3):find("^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
+					if gstr(3):find("^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
 						ret = ".hextext"
 						ascii = "Hex Convert"
 						break
@@ -65,7 +62,7 @@ local function analyse_stream_type(s)
 		-- RIFFのほうが正確
 		-- -- wav
 		-- seek(0)
-		-- if cstr("ckID", 4, "RIFF") then
+		-- if gstr("ckID", 4, "RIFF") then
 		-- 	seekoff(4) 
 		-- 	if cstr("ckData", 4, "WAVE") then 
 		-- 		ret = ".wav"
@@ -76,7 +73,7 @@ local function analyse_stream_type(s)
 		
 		-- riff other than wave and avi
 		seek(0)
-		if cstr("RIFF", 4, "RIFF") then
+		if gstr(4) == "RIFF" then
 			seekoff(4) 
 			local id = lstr(4)
 			ret = ".iff"
@@ -86,7 +83,7 @@ local function analyse_stream_type(s)
 		
 		-- riff other than wave and avi
 		seek(0)
-		if cstr("FORM", 4, "FORM") then
+		if gstr(4) == "FORM" then
 			seekoff(4) 
 			local id = lstr(4)
 			ret = ".iff"
@@ -96,7 +93,7 @@ local function analyse_stream_type(s)
 		
 		-- bmp
 		seek(0)
-		if cstr("bfType", 2, "BM") then
+		if gstr(2) == "BM" then
 			ret = ".bmp"
 			ascii = "Bitmap"
 			break
@@ -104,7 +101,7 @@ local function analyse_stream_type(s)
 		
 		-- jpg
 		seek(0)
-		if cbyte("SOI", 2, 0xffd8) then
+		if gbyte(2) == 0xffd8 then
 			ret = ".jpg"
 			ascii = "Jpeg"
 			break
@@ -129,9 +126,26 @@ local function analyse_stream_type(s)
 				end
 			end
 		end
-		
+
+		-- mp3(ID3v2)
 		seek(0)
-		if cbit("syncword", 11, 0x7ff) then
+		if gbyte(3) == 0x494433 then
+			ret = ".mp3"
+			ascii = "mp3 ID3v2"
+			break
+		end
+		
+		-- mp3(ID3v1)
+		seek(get_size() - 128)
+		if gbyte(3) == 0x494433 then
+			ret = ".mp3"
+			ascii = "mp3 ID3v1"
+			break
+		end
+
+		-- mpeg audio		
+		seek(0)
+		if gbit(11) == 0x7ff then
 			local ver = lbit(2)
 			seekoff(0,2)
 			print(cur())
@@ -165,23 +179,16 @@ local function analyse_stream_type(s)
 
 		-- zip
 		seek(0)
-		if cbyte("signature", 4, 0x504b0304) then
+		if gbyte(4) == 0x504b0304 then
 			ret = ".zip"
 			ascii = "Zip"
 			break
 		end
 		
-		-- mp3
-		seek(0)
-		if cbyte("signature", 3, 0x494433) then
-			ret = ".mp3"
-			ascii = "mp3"
-			break
-		end
 		
 		-- ogg
 		seek(0)
-		if cbyte("signature", 4, 0x4f676753) then
+		if gbyte(4) == 0x4f676753 then
 			ret = ".ogg"
 			ascii = "Ogg Vorbis"
 			break
@@ -190,7 +197,7 @@ local function analyse_stream_type(s)
 		
 		-- wmv
 		seek(0)
-		if cbyte("signature", 2, 0x3026) then
+		if gbyte(2) == 0x3026 then
 			ret = ".wmv"
 			ascii = "wmv?"
 			break
@@ -198,7 +205,7 @@ local function analyse_stream_type(s)
 		
 		-- flv
 		seek(0)
-		if cbyte("signature", 3, 0x464c56) then
+		if gbyte(3) == 0x464c56 then
 			ret = ".flv"
 			ascii = "Flash Video"
 			break
@@ -206,7 +213,7 @@ local function analyse_stream_type(s)
 		
 		--mkv
 		seek(8)
-		if cstr("signature", 8, "matroska") then
+		if gstr(8) == "matroska" then
 			ret = ".mkv"
 			ascii = "MKV (matroska)"
 			break
@@ -214,7 +221,7 @@ local function analyse_stream_type(s)
 				
 		-- PDF
 		seek(0)
-		if cbyte("signature", 4, 0x25504446) then
+		if gbyte(4) == 0x25504446 then
 			ret = ".pdf"
 			ascii = "PDF"
 			break
@@ -222,7 +229,7 @@ local function analyse_stream_type(s)
 		
 		-- exe
 		seek(0)
-		if cbyte("signature", 2, 0x4d5a) then
+		if gbyte(2) == 0x4d5a then
 			ret = ".exe"
 			ascii = ".exe"
 			break
@@ -230,7 +237,7 @@ local function analyse_stream_type(s)
 		
 		-- png
 		seek(0)
-		if cbyte("signature", 4, 0x89504e47) then
+		if gbyte(4) == 0x89504e47 then
 			ret = ".png"
 			ascii = "PNG"
 			break
@@ -238,7 +245,7 @@ local function analyse_stream_type(s)
 
 		-- gif
 		seek(0)
-		if cbyte("signature", 3, 0x474946) then
+		if gbyte(3) == 0x474946 then
 			ret = ".gif"
 			ascii = "GIF"
 			break
@@ -246,7 +253,7 @@ local function analyse_stream_type(s)
 		
 		-- ショートカット
 		seek(0)
-		if cbyte("signature", 4, 0x4c000000) then
+		if gbyte(4) == 0x4c000000 then
 			ret = ".link"
 			ascii = "Link"
 			break
@@ -255,13 +262,13 @@ local function analyse_stream_type(s)
 		------------------ 
 		-- 以下、判定が難しい
 		------------------ 
-
+		
 		-- h265
 		seek(0)
 		if lbyte(3) == 1 or lbyte(4) == 1 then
 			fstr("00 00 01", true, 10)
-			if cbyte("start_code_prefix_one_3bytes", 3, 0x000001) then
-				if cbit("forbidden_zero_bit", 1, 0) then
+			if gbyte(3) == 0x000001 then
+				if gbit(1) == 0 then
 					ret = ".h265"
 					ascii = "H.265/HEVC"
 					break
@@ -301,7 +308,7 @@ local function analyse_stream_type(s)
 		seek(0)
 		if string.match(lstr(4), "%a%a%a%a") ~= nil then
 			seek(4)
-			if get_size() > rbyte("ckSize", 4) then
+			if get_size() > gbyte(4) then
 				ret = ".iff"
 				ascii = "Iff?"
 				break
@@ -341,9 +348,11 @@ function dispatch_stream(stream)
 	elseif st == ".bmp" then
 		dofile(__streamdef_dir__.."bmp.lua")
 		
-	elseif st == ".jpg"
-	or     st == ".JPG" then
+	elseif st == ".jpg" then
 		dofile(__streamdef_dir__.."jpg.lua")
+		
+	elseif st == ".mp3" then
+		dofile(__streamdef_dir__.."mp3.lua")
 		
 	elseif st == ".ts"
 	or     st == ".tts"

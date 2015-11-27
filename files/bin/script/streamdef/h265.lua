@@ -122,7 +122,6 @@ function nal_unit_header_mvc_extension()
 end
 
 function video_parameter_set_rbsp(rbsp_size)
-print("video_parameter_set_rbsp")
 	local begin = cur()
 	rbit("vps_video_parameter_set_id", 4)  -- u(4)
 	rbit("vps_base_layer_internal_flag", 1)  -- u(1)
@@ -185,7 +184,6 @@ function vps_extension()
 end
 
 function seq_parameter_set_rbsp(rbsp_size)
-print("seq_parameter_set_rbsp")
 	local begin = cur()
 	
 	rbit("sps_video_parameter_set_id", 4)
@@ -454,9 +452,8 @@ function sub_layer_hrd_parameters( subLayerId)
 		rbit("cbr_flag[i]", 1) -- u(1)
 	end
 end
-                              
+
 function pic_parameter_set_rbsp(rbsp_size) 
-print("pic_parameter_set_rbsp")
 	local begin = cur()
 	rexp("pps_pic_parameter_set_id") -- ue(v))
 	rexp("pps_seq_parameter_set_id") -- ue(v))
@@ -574,9 +571,9 @@ function access_unit_delimiter_rbsp()
 	if has_slice_header == false then
 		sprint("aud_no"..aud_no)
 		aud_no = aud_no + 1
-		if     get("pic_type") == 0 then io.write("I") sprint("AUD I")  
-		elseif get("pic_type") == 1 then io.write("P") sprint("AUD IP") 
-		elseif get("pic_type") == 2 then io.write("B") sprint("AUD IPB")
+		if     get("pic_type") == 0 then print("pic_type I") sprint("AUD I")  
+		elseif get("pic_type") == 1 then print("pic_type P") sprint("AUD IP") 
+		elseif get("pic_type") == 2 then print("pic_type B") sprint("AUD IPB")
 		else print("AUD unknown")
 		end
 	end
@@ -598,7 +595,7 @@ function filler_data_rbsp()
 end
 
 function slice_segment_layer_rbsp(nal_unit_type) 
-	-- slice_segment_header(nal_unit_type)
+	slice_segment_header(nal_unit_type)
 	--slice_segment_data(nal_unit_type)
 	--rbsp_slice_segment_trailing_bits()
 end
@@ -828,9 +825,9 @@ function slice_segment_header(nal_unit_type)
 		end
 		sprint("slice_header_no"..slice_header_no)
 		slice_header_no = slice_header_no + 1
-		if     slice_type == 0 then io.write("B")
-		elseif slice_type == 1 then io.write("P")
-		elseif slice_type == 2 then io.write("I")
+		if     slice_type == 0 then print("slice_type B")
+		elseif slice_type == 1 then print("slice_type P")
+		elseif slice_type == 2 then print("slice_type I")
 		else print("slice unknown")
 		end
 		
@@ -1632,114 +1629,115 @@ function sei_payload(payloadType, payloadSize)
 	if get("nal_unit_type") == PREFIX_SEI_NUT then
 		if payloadType == 0 then
 			print("buffering_period")
-			--buffering_period(payloadSize)
+			buffering_period(payloadSize)
 		elseif payloadType == 1 then
-			print("pic_timing( payloadSize) 5")
+			print("pic_timing( payloadSize)")
 			pic_timing( payloadSize)
 		elseif payloadType == 2 then
-			print("pan_scan_rect( payloadSize) 5")
+			print("pan_scan_rect( payloadSize)")
+			pan_scan_rect( payloadSize)
 		elseif payloadType == 3 then
-			print("filler_payload( payloadSize) 5")
+			print("filler_payload( payloadSize)")
 		elseif payloadType == 4 then
-			print("user_data_registered_itu_t_t35( payloadSize) 5")
+			print("user_data_registered_itu_t_t35( payloadSize)")
 		elseif payloadType == 5 then
-			print("user_data_unregistered( payloadSize) 5")
+			print("user_data_unregistered( payloadSize)")
 		elseif payloadType == 6 then
-			print("recovery_point( payloadSize) 5")
+			print("recovery_point( payloadSize)")
 		elseif payloadType == 7 then
-			print("dec_ref_pic_marking_repetition( payloadSize) 5")
+			print("dec_ref_pic_marking_repetition( payloadSize)")
 		elseif payloadType == 8 then
-			print("spare_pic( payloadSize) 5")
+			print("spare_pic( payloadSize)")
 		elseif payloadType == 9 then
-			print("scene_info( payloadSize) 5")
+			print("scene_info( payloadSize)")
 		elseif payloadType == 10 then
-			print("sub_seq_info( payloadSize) 5")
+			print("sub_seq_info( payloadSize)")
 		elseif payloadType == 11 then
-			print("sub_seq_layer_characteristics( payloadSize) 5")
+			print("sub_seq_layer_characteristics( payloadSize)")
 		elseif payloadType == 12 then
-			print("sub_seq_characteristics( payloadSize) 5")
+			print("sub_seq_characteristics( payloadSize)")
 		elseif payloadType == 13 then
-			print("full_frame_freeze( payloadSize) 5")
+			print("full_frame_freeze( payloadSize)")
 		elseif payloadType == 14 then
-			print("full_frame_freeze_release( payloadSize) 5")
+			print("full_frame_freeze_release( payloadSize)")
 		elseif payloadType == 15 then
-			print("full_frame_snapshot( payloadSize) 5")
+			print("full_frame_snapshot( payloadSize)")
 		elseif payloadType == 16 then
-			print("progressive_refinement_segment_start( payloadSize) 5")
+			print("progressive_refinement_segment_start( payloadSize)")
 		elseif payloadType == 17 then
-			print("progressive_refinement_segment_end( payloadSize) 5")
+			print("progressive_refinement_segment_end( payloadSize)")
 		elseif payloadType == 18 then
-			print("motion_constrained_slice_group_set( payloadSize) 5")
+			print("motion_constrained_slice_group_set( payloadSize)")
 		elseif payloadType == 19 then
-			print("film_grain_characteristics( payloadSize) 5")
+			print("film_grain_characteristics( payloadSize)")
 		elseif payloadType == 20 then
-			print("deblocking_filter_display_preference( payloadSize) 5")
+			print("deblocking_filter_display_preference( payloadSize)")
 		elseif payloadType == 21 then
-			print("stereo_video_info( payloadSize) 5")
+			print("stereo_video_info( payloadSize)")
 		elseif payloadType == 22 then
-			print("post_filter_hint( payloadSize) 5")
+			print("post_filter_hint( payloadSize)")
 		elseif payloadType == 23 then
-			print("tone_mapping_info( payloadSize) 5")
+			print("tone_mapping_info( payloadSize)")
 		elseif payloadType == 24 then
-			print("scalability_info( payloadSize)  5")
+			print("scalability_info( payloadSize) ")
 		elseif payloadType == 25 then
-			print("sub_pic_scalable_layer( payloadSize)  5")
+			print("sub_pic_scalable_layer( payloadSize) ")
 		elseif payloadType == 26 then
-			print("non_required_layer_rep( payloadSize)  5")
+			print("non_required_layer_rep( payloadSize) ")
 		elseif payloadType == 27 then
-			print("priority_layer_info( payloadSize)  5")
+			print("priority_layer_info( payloadSize) ")
 		elseif payloadType == 28 then
-			print("layers_not_present( payloadSize)  5")
+			print("layers_not_present( payloadSize) ")
 		elseif payloadType == 29 then
-			print("layer_dependency_change( payloadSize)  5")
+			print("layer_dependency_change( payloadSize) ")
 		elseif payloadType == 30 then
-			print("scalable_nesting( payloadSize)  5")
+			print("scalable_nesting( payloadSize) ")
 		elseif payloadType == 31 then
-			print("base_layer_temporal_hrd( payloadSize)  5")
+			print("base_layer_temporal_hrd( payloadSize) ")
 		elseif payloadType == 32 then
-			print("quality_layer_integrity_check( payloadSize)  5")
+			print("quality_layer_integrity_check( payloadSize) ")
 		elseif payloadType == 33 then
-			print("redundant_pic_property( payloadSize)  5")
+			print("redundant_pic_property( payloadSize) ")
 		elseif payloadType == 34 then
-			print("tl0_dep_rep_index( payloadSize)  5")
+			print("tl0_dep_rep_index( payloadSize) ")
 		elseif payloadType == 35 then
-			print("tl_switching_point( payloadSize)  5")
+			print("tl_switching_point( payloadSize) ")
 		elseif payloadType == 36 then
-			print("parallel_decoding_info( payloadSize)  5")
+			print("parallel_decoding_info( payloadSize) ")
 		elseif payloadType == 37 then
-			print("mvc_scalable_nesting( payloadSize)  5")
+			print("mvc_scalable_nesting( payloadSize) ")
 		elseif payloadType == 38 then
-			print("view_scalability_info( payloadSize)  5")
+			print("view_scalability_info( payloadSize) ")
 		elseif payloadType == 39 then
-			print("multiview_scene_info( payloadSize)  5")
+			print("multiview_scene_info( payloadSize) ")
 		elseif payloadType == 40 then
-			print("multiview_acquisition_info( payloadSize)  5")
+			print("multiview_acquisition_info( payloadSize) ")
 		elseif payloadType == 41 then
-			print("non_required_view_component( payloadSize)  5")
+			print("non_required_view_component( payloadSize) ")
 		elseif payloadType == 42 then
-			print("view_dependency_change( payloadSize)  5")
+			print("view_dependency_change( payloadSize) ")
 		elseif payloadType == 43 then
-			print("operation_points_not_present( payloadSize)  5")
+			print("operation_points_not_present( payloadSize) ")
 		elseif payloadType == 44 then
-			print("base_view_temporal_hrd( payloadSize)  5")
+			print("base_view_temporal_hrd( payloadSize) ")
 		elseif payloadType == 45 then
-			print("frame_packing_arrangement( payloadSize) 5")
+			print("frame_packing_arrangement( payloadSize)")
 		elseif payloadType == 46 then
-			print("multiview_view_position( payloadSize)  5")
+			print("multiview_view_position( payloadSize) ")
 		elseif payloadType == 47 then
-			print("display_orientation( payloadSize) 5")
+			print("display_orientation( payloadSize)")
 		elseif payloadType == 48 then
-			print("mvcd_scalable_nesting( payloadSize)  5")
+			print("mvcd_scalable_nesting( payloadSize) ")
 		elseif payloadType == 49 then
-			print("mvcd_view_scalability_info( payloadSize)  5")
+			print("mvcd_view_scalability_info( payloadSize) ")
 		elseif payloadType == 50 then
-			print("depth_representation_info( payloadSize)  5")
+			print("depth_representation_info( payloadSize) ")
 		elseif payloadType == 51 then
-			print("three_dimensional_reference_displays_info( payloadSize) 5")
+			print("three_dimensional_reference_displays_info( payloadSize)")
 		elseif payloadType == 52 then
-			print("depth_timing( payloadSize)  5")
+			print("depth_timing( payloadSize) ")
 		elseif payloadType == 53 then
-			print("depth_sampling_info( payloadSize)  5")
+			print("depth_sampling_info( payloadSize) ")
 		elseif payloadType == 128 then
 			print("structure_of_pictures_info( payloadSize)")
 		elseif payloadType == 129 then
@@ -1923,7 +1921,7 @@ function pic_timing( payloadSize)
 		CpbDpbDelaysPresentFlag = 1
 	end
 	
-	if( CpbDpbDelaysPresentFlag) == 1 then
+	if CpbDpbDelaysPresentFlag == 1 then
 		rbit("au_cpb_removal_delay_minus1", get("au_cpb_removal_delay_length_minus1") + 1) -- u(v))
 		rbit("pic_dpb_output_delay", get("dpb_output_delay_length_minus1") + 1) -- u(v))
 		if get("sub_pic_hrd_params_present_flag") == 1 then

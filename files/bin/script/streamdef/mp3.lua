@@ -31,8 +31,8 @@ function check_ID3v2()
 		return
 	end
 
+	-- タグヘッダ
 	cstr("header", 3, "ID3")
-
 	rbyte("ID3_version_major", 1)
 	rbyte("ID3_version_minor", 1)
 	if get("ID3_version_major") == 2 then
@@ -54,40 +54,45 @@ function check_ID3v2()
 		rbit("testing_flag", 1)
 		rbit("footer_flag", 1)
 		cbit("flags", 4, 0)
-	end
-	
+	end	
 	local id3v2_size = rsyncsafe_int32()
 	set("id3v2_size", id3v2_size)
 
+	-- 拡張ヘッダ
 	if version == "v2.3.0" then
-		rbyte("extended_header_size", 4)
-		rbit("crc_flag", 1)
-		cbit("reserved", 15, 0)
-		rbyte("extension_flag", 2)
-		rbyte("padding_size", 4)
-		if get("crc_flag") ~= 0 then
-			rbyte("crc_data", 4)
+		if get("extension_flag") ~= 0 then
+			rbyte("extended_header_size", 4)
+			rbit("crc_flag", 1)
+			cbit("reserved", 15, 0)
+			rbyte("extension_flag", 2)
+			rbyte("padding_size", 4)
+			if get("crc_flag") ~= 0 then
+				rbyte("crc_data", 4)
+			end
 		end
 	elseif version == "v2.4.0" then
-		set("extended_header_size", rsyncsafe_int32())
-		rbit("flag_size", 8, 1)
-		rbit("reserved", 1, 0)
-		rbit("update_flag", 1, 0)
-		rbit("crc_flag", 1, 0)
-		rbit("limitation_flag", 1, 0)
-		rbit("reserved", 4, 0)
-		if get("crc_flag") ~= 0 then
-			rbyte("crc_data", 5)
-		end
-		if get("limitation_flag") ~= 0 then
-			rbit("tagsize_limitation", 2)
-			rbit("text_code_limitation", 1)
-			rbit("text_size_limitation", 2)
-			rbit("picture_format_limitation", 2)
-			rbit("picture_size_limitation", 2)
+		if get("extension_flag") ~= 0 then
+			set("extended_header_size", rsyncsafe_int32())
+			rbit("flag_size", 8, 1)
+			rbit("reserved", 1, 0)
+			rbit("update_flag", 1, 0)
+			rbit("crc_flag", 1, 0)
+			rbit("limitation_flag", 1, 0)
+			rbit("reserved", 4, 0)
+			if get("crc_flag") ~= 0 then
+				rbyte("crc_data", 5)
+			end
+			if get("limitation_flag") ~= 0 then
+				rbit("tagsize_limitation", 2)
+				rbit("text_code_limitation", 1)
+				rbit("text_size_limitation", 2)
+				rbit("picture_format_limitation", 2)
+				rbit("picture_size_limitation", 2)
+			end
 		end
 	end
 
+	-- フレーム
 	print("====================================================")
 	print("ID3"..version)
 	while true do
@@ -104,13 +109,17 @@ function ID3_frame(version)
 	local frame_size
 
 	if version == "v2.2.0" then
-		if string.match(lstr(3), "[A-Z0-9][A-Z0-9][A-Z0-9]") == nil then
+		local tag = lstr(3)
+		--print(tag)
+		if string.match(tag, "[A-Z0-9][A-Z0-9][A-Z0-9]") == nil then
 			return false
 		end
 		frame_id = rstr("frame_id", 3)
 		frame_size = rbyte("frame_size", 3)
 	elseif version == "v2.3.0" then
-		if string.match(lstr(4), "[A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9]") == nil then
+		local tag = lstr(4)
+		--print(tag)
+		if string.match(tag, "[A-Z0-9][A-Z0-9][A-Z0-9]") == nil then
 			return false
 		end
 		frame_id = rstr("frame_id", 4)
@@ -130,7 +139,9 @@ function ID3_frame(version)
 			rbyte("enclyption_type", 1)
 		end
 	elseif version == "v2.4.0" then
-		if string.match(lstr(4), "[A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9]") == nil then
+		local tag = lstr(4)
+		--print(tag)
+		if string.match(tag, "[A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9]") == nil then
 			return false
 		end
 		frame_id = rstr("frame_id", 4)
@@ -156,22 +167,25 @@ function ID3_frame(version)
 		end
 	end
 
-	if     frame_id == "TT2" or frame_id == "TIT2" then rbyte("encode", 1) print("title       ", rstr("frame_data", frame_size-1))
-	elseif frame_id == "TP1" or frame_id == "TPE1" then rbyte("encode", 1) print("artist      ", rstr("frame_data", frame_size-1))
-	elseif frame_id == "TP2" or frame_id == "TPE2" then rbyte("encode", 1) print("album_artist", rstr("frame_data", frame_size-1))
-	elseif frame_id == "TAL" or frame_id == "TALB" then rbyte("encode", 1) print("album       ", rstr("frame_data", frame_size-1))
-	elseif frame_id == "TYE" or frame_id == "TYER" then rbyte("encode", 1) print("year        ", rstr("frame_data", frame_size-1))
-	elseif frame_id == "COM" or frame_id == "COMM" then rbyte("encode", 1) print("comment     ", rstr("frame_data", frame_size-1))	
-	elseif frame_id == "TRK" or frame_id == "TRCK" then rbyte("encode", 1) print("track       ", rstr("frame_data", frame_size-1))
-	elseif frame_id == "TCO" or frame_id == "TCON" then rbyte("encode", 1) print("genre       ", rstr("frame_data", frame_size-1))
+	if     frame_id == "TT2" or frame_id == "TIT2" then rbyte("encode", 1) print("Title        : "..rstr("frame_data", frame_size-1))
+	elseif frame_id == "TP1" or frame_id == "TPE1" then rbyte("encode", 1) print("Artist       : "..rstr("frame_data", frame_size-1))
+	elseif frame_id == "TP2" or frame_id == "TPE2" then rbyte("encode", 1) print("Album_artist : "..rstr("frame_data", frame_size-1))
+	elseif frame_id == "TAL" or frame_id == "TALB" then rbyte("encode", 1) print("Album        : "..rstr("frame_data", frame_size-1))
+	elseif frame_id == "TYE" or frame_id == "TYER" then rbyte("encode", 1) print("Year         : "..rstr("frame_data", frame_size-1))
+	elseif frame_id == "COM" or frame_id == "COMM" then rbyte("encode", 1) print("Comment      : "..rstr("frame_data", frame_size-1))	
+	elseif frame_id == "TRK" or frame_id == "TRCK" then rbyte("encode", 1) print("Track        : "..rstr("frame_data", frame_size-1))	
+	elseif frame_id == "TCO" or frame_id == "TCON" then rbyte("encode", 1) print("Genre        : "..rstr("frame_data", frame_size-1))
+	elseif frame_id == "TCM" or frame_id == "TCOM" then rbyte("encode", 1) print("Composer     : "..rstr("frame_data", frame_size-1))	
+	elseif frame_id == "TPA" or frame_id == "TPOS" then rbyte("encode", 1) print("Part of a set: "..rstr("frame_data", frame_size-1))	
+	elseif frame_id == "TEN" or frame_id == "TENC" then rbyte("encode", 1) print("Encoder      : "..rstr("frame_data", frame_size-1))
+	elseif frame_id == "TCP" or frame_id == "TCMP" then rbyte("encode", 1) print("Compilation  : "..rstr("frame_data", frame_size-1))
 	elseif frame_id == "PIC" or frame_id == "APIC" then
 		print("export picture data --> ".."pic"..hexstr(frame_size)..".jpg")
 		rbyte("header", 6)
 		tbyte("picture_data", frame_size-6, __stream_dir__.."pic"..hexstr(frame_size)..".jpg")
 	else
-		print("unknown frame_id", frame_id)
 		rbyte("encode", 1)
-		rstr("unknown_frame_data", frame_size-1)
+		print("unknown_info", frame_id, rstr("unknown_frame_data", frame_size-1))
 	end
 	return true
 end

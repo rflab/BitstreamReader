@@ -169,16 +169,20 @@ function ID3_frame(version)
 
 	if     frame_id == "TT2" or frame_id == "TIT2" then rbyte("encode", 1) print("Title        : "..rstr("frame_data", frame_size-1))
 	elseif frame_id == "TP1" or frame_id == "TPE1" then rbyte("encode", 1) print("Artist       : "..rstr("frame_data", frame_size-1))
-	elseif frame_id == "TP2" or frame_id == "TPE2" then rbyte("encode", 1) print("Album_artist : "..rstr("frame_data", frame_size-1))
+	elseif frame_id == "TP2" or frame_id == "TPE2" then rbyte("encode", 1) print("Album artist : "..rstr("frame_data", frame_size-1))
 	elseif frame_id == "TAL" or frame_id == "TALB" then rbyte("encode", 1) print("Album        : "..rstr("frame_data", frame_size-1))
 	elseif frame_id == "TYE" or frame_id == "TYER" then rbyte("encode", 1) print("Year         : "..rstr("frame_data", frame_size-1))
 	elseif frame_id == "COM" or frame_id == "COMM" then rbyte("encode", 1) print("Comment      : "..rstr("frame_data", frame_size-1))	
 	elseif frame_id == "TRK" or frame_id == "TRCK" then rbyte("encode", 1) print("Track        : "..rstr("frame_data", frame_size-1))	
 	elseif frame_id == "TCO" or frame_id == "TCON" then rbyte("encode", 1) print("Genre        : "..rstr("frame_data", frame_size-1))
 	elseif frame_id == "TCM" or frame_id == "TCOM" then rbyte("encode", 1) print("Composer     : "..rstr("frame_data", frame_size-1))	
-	elseif frame_id == "TPA" or frame_id == "TPOS" then rbyte("encode", 1) print("Part of a set: "..rstr("frame_data", frame_size-1))	
+	elseif frame_id == "TPA" or frame_id == "TPOS" then rbyte("encode", 1) print("Disk no.     : "..rstr("frame_data", frame_size-1))	
 	elseif frame_id == "TEN" or frame_id == "TENC" then rbyte("encode", 1) print("Encoder      : "..rstr("frame_data", frame_size-1))
 	elseif frame_id == "TCP" or frame_id == "TCMP" then rbyte("encode", 1) print("Compilation  : "..rstr("frame_data", frame_size-1))
+	elseif frame_id == "TBP" or frame_id == "TBPM" then rbyte("encode", 1) print("Bpm          : "..rstr("frame_data", frame_size-1))
+	elseif frame_id == "TT1" or frame_id == "TIT1" then rbyte("encode", 1) print("Group        : "..rstr("frame_data", frame_size-1))
+	
+	
 	elseif frame_id == "PIC" or frame_id == "APIC" then
 		print("export picture data --> ".."pic"..hexstr(frame_size)..".jpg")
 		rbyte("header", 6)

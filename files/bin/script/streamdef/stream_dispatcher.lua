@@ -149,7 +149,8 @@ local function analyse_stream_type(s)
 			local ver = lbit(2)
 			seekoff(0,2)
 			print(cur())
-			local layer = lbit(2)
+			local layer = gbit(2)
+			local id = gbit(1)
 			if layer == 0 then
 				if id == 0 then
 					ascii = "MPEG-4 AAC"
@@ -376,6 +377,10 @@ function dispatch_stream(stream)
 
 	elseif st == ".dat" then
 		dofile(__streamdef_dir__.."dat.lua")
+		
+	elseif st == ".aac" then
+		dofile(__streamdef_dir__.."aac.lua")
+		adts_sequence(get_size())
 		
 	elseif st == ".hextext" then
 		dofile(__streamdef_dir__.."hexconv.lua")

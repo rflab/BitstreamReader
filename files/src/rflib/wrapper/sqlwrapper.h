@@ -26,17 +26,20 @@ namespace rf
 			int prepare(const std::string& sql);
 			void reset(int stmt_ix);
 			int step(int stmt_ix);
+			
 			void bind_int(int stmt_ix, int sql_ix, int value);
 			void bind_text(int stmt_ix, int sql_ix, const std::string &text);
 			void bind_real(int stmt_ix, int sql_ix, double value);
 			void bind_blob(int stmt_ix, int sql_ix, const void* blob, int size, void(*destructor)(void*));
-			int column_count(int stmt_ix);
+			
+			int         column_count(int stmt_ix);
 			std::string column_name(int stmt_ix, int colmun);
-			int column_type(int stmt_ix, int column);
-			int column_int(int stmt_ix, int column);
+			int         column_type(int stmt_ix, int column);
+			int         column_int(int stmt_ix, int column);
 			std::string column_text(int stmt_ix, int column);
-			double column_real(int stmt_ix, int column);
+			double      column_real(int stmt_ix, int column);
 			const void* column_blob(int stmt_ix, int column);
+			
 			SqliteWrapper(const std::string& filename);
 			~SqliteWrapper();
 		};

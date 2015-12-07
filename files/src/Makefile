@@ -11,6 +11,7 @@ build: ../bin/streamreader.out
 
 ../bin/streamreader.out: streamreader.cpp
 	mkdir -p ../bin
+	g++ -std=c++14 -O2 -Wall -Wextra rflib/bighead.h
 	make a -C lua
 	make a -C sqlite
 	g++ -std=c++14 -O2 -Wall -Wextra -I./lua -I./sqlite \

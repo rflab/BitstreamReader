@@ -64,11 +64,14 @@ namespace rf
 	using std::hex;
 	using std::dec;
 
-	bool fail(bool b, int line, const std::string &fn, const std::string &exp);
+	bool        fail(bool b, int line, const std::string &fn, const std::string &exp);
 	std::string fail_msg(int line, const std::string &fn, const std::string& msg);
+	
 	bool valid_ptr(const void *p);
+	
 	uint16_t reverse_endian_16(uint16_t value);
 	uint32_t reverse_endian_32(uint32_t value);
+	
 	void dump_bytes(const char* buf, integer offset, integer size);
 	void dump_string(const char* buf, integer offset, integer size);
 	void dump(const char* buf, integer offset, integer size, integer original_address);

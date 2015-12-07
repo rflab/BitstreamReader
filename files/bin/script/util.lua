@@ -30,20 +30,23 @@ local gs_files = {}
 --------------------------------------
 -- 内部関数
 --------------------------------------
+function abort(name, byte, bit, size, value)
+	print("#########################")
+	print("#         ERROR         #")
+	print("#########################")
+	save_error_info(name, byte, bit, size, value)
+	print_status()
+	print("")
+	assert(false)
+end
 
 -- データ読み込み事に記録する処理
 local function on_set_value(name, byte, bit, size, value)
 	-- 読込結果がエラーの場合はエラー情報をシリアライズしてabort()
 	if value == false then
-		print("#########################")
-		print("#         ERROR         #")
-		print("#########################")
-		save_error_info(name, byte, bit, size, value)
-		print_status()
-		print("")
-		assert(false)
+		abort(name, byte, bit, size, value)
 	end
-
+	
 	-- get()用
 	gs_data.values[name] = value
 
@@ -329,7 +332,9 @@ end
 
 -- 相対位置シーク
 function seekoff(byte, bit)
-	return gs_cur_stream:seekoff(byte, bit)
+	if gs_cur_stream:seekoff(byte, bit) == false then
+		abort()
+	end
 end
 
 -- ビット単位読む

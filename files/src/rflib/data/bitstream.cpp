@@ -60,7 +60,14 @@ bool  Bitstream::check_pos(integer byte) const
 // ビット単位で現在位置＋offsetがストリーム内か判定
 bool  Bitstream::check_off(integer byte, integer bit) const
 {
-	integer byte_pos = (byte_pos_ + byte) + (bit_pos_ + bit) / 8;
+	// * -1 ~ 1 は割り算すると0なのでマイナスの場合は1オフセットする
+	// * size==byteのときだけbit>0がNG
+	// * byte単位->bit単位に変換すると値がintのbit数を超える場合がある。
+	// とかあるのでbyte単位でオフセット後に、bit単位でオフセットするときの範囲をチェックする
+	// シンプルな式が思いつかん
+	integer bit_off = bit_pos_ + bit;
+	integer byte_off_by_bit = (bit_off < 0 ? ((bit_off - 7) / 8) : (bit_off / 8));
+	integer byte_pos = byte_pos_ + byte + byte_off_by_bit;
 	if ((byte_pos < 0) || (size_ < byte_pos))
 		return false;
 	return true;
@@ -96,8 +103,11 @@ void  Bitstream::seekoff(integer byte, integer bit)
 		throw std::runtime_error(FAIL_STR("range error."));
 	}
 
-	byte_pos_ = (byte_pos_ + byte) + (bit_pos_ + bit) / 8;
-	bit_pos_  = (bit_pos_ + bit) % 8;
+	integer bit_off = bit_pos_ + bit;
+	integer byte_off_by_bit = (bit_off < 0 ? ((bit_off - 7) / 8) : (bit_off / 8));
+	
+	byte_pos_ = byte_pos_ + byte + byte_off_by_bit;
+	bit_pos_ = (bit_off + 8) % 8;
 	sync();
 }
 

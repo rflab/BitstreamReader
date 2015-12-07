@@ -228,7 +228,7 @@ end
 
 function _m:seekoff(byte, bit)
     -- 暫定である、byteが0ならbitシークのみ
-	self.stream:seekoff(byte or 0, bit or 0)
+	return self.stream:seekoff(byte or 0, bit or 0)
 end
 
 function _m:putc(c)

@@ -50,9 +50,11 @@ void  Bitstream::assign(std::unique_ptr<std::streambuf>&& buf, integer size)
 }
 
 // ストリーム内か判定
-bool  Bitstream::check_pos(integer byte) const
+bool  Bitstream::check_pos(integer byte, integer bit) const
 {
-	if ((byte < 0) || (size_ < byte))
+	integer byte_by_bit = (bit < 0 ? ((bit - 7) / 8) : (bit / 8));
+
+	if ((byte + byte_by_bit < 0) || (size_ < byte + byte_by_bit))
 		return false;
 	return true;
 }
@@ -74,23 +76,19 @@ bool  Bitstream::check_off(integer byte, integer bit) const
 }
 
 // 読み込みヘッダを指定位置に移動
+// せっかくなのでマイナス指定や8bit以上の許可
 void  Bitstream::seekpos(integer byte, integer bit)
 {
-	if (FAIL((0 <= bit) && (bit < 8)))
+	if (FAIL(check_pos(byte, bit)))
 	{
-		WARNING << "bit=" << hex << bit << " " << OUTPUT_POS << endl;
-		byte = byte + bit / 8;
-		bit = bit % 8;
-	}
-
-	if (FAIL(check_pos(byte)))
-	{
-		ERR << "byte=" << hex << byte << " " << OUTPUT_POS << endl;
+		ERR << "byte=" << hex << byte << " bit=" << bit << " " << OUTPUT_POS << endl;
 		throw std::runtime_error(FAIL_STR("range error."));
 	}
 
-	byte_pos_ = byte;
-	bit_pos_ = bit;
+	integer byte_by_bit = (bit < 0 ? ((bit - 7) / 8) : (bit / 8));
+
+	byte_pos_ = byte + byte_by_bit;
+	bit_pos_ = bit&0x7;
 	sync();
 }
 
@@ -107,7 +105,7 @@ void  Bitstream::seekoff(integer byte, integer bit)
 	integer byte_off_by_bit = (bit_off < 0 ? ((bit_off - 7) / 8) : (bit_off / 8));
 	
 	byte_pos_ = byte_pos_ + byte + byte_off_by_bit;
-	bit_pos_ = (bit_off + 8) % 8;
+	bit_pos_ = bit_off & 0x7;
 	sync();
 }
 
@@ -490,7 +488,7 @@ integer Bitstream::rfind_byte_string(
 	// EOSをはみ出す場合は位置バイト進めてから検索検索再開
 	if (!check_off(size, 0))
 	{
-		if (!check_pos(size_ - size))
+		if (!check_pos(size_ - size, 0))
 		{
 			if (advance)
 				seekpos(0, 0);

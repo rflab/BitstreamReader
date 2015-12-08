@@ -25,7 +25,7 @@ namespace rf
 			integer byte_pos() const;
 
 			void assign(std::unique_ptr<std::streambuf>&& buf, integer size);
-			bool check_pos(integer byte) const;
+			bool check_pos(integer byte, integer bit) const;
 			bool check_off(integer byte, integer bit) const;
 
 			void seekpos(integer byte, integer bit);

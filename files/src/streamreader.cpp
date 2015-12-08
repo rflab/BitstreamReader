@@ -175,15 +175,16 @@ namespace rf
 		}
 
 		// ちょっとどうだろう
-		uinteger read_bytes_unsafe(const char* name, integer byte, integer bit) throw(...)
+		void read_bytes_unsafe(const char* name, integer byte, integer bit) throw(...)
 		{
 			integer prev_byte = byte_pos();
 			integer prev_bit = bit_pos();
 			char buf[16];
-			integer dump_size = std::min<integer>(16, byte);
+			integer dump_size = std::min<integer>(16, byte + ((bit + prev_bit) / 8));
 
+			bs_.seekpos(prev_byte, 0);
 			bs_.look_byte_string(buf, dump_size);
-			bs_.seekoff(byte, bit);
+			bs_.seekpos(prev_byte + byte, prev_bit + bit);
 
 			if (printf_on_ || (name[0] == '#'))
 			{
@@ -200,8 +201,6 @@ namespace rf
 				else
 					printf(" ...\n");
 			}
-
-			return 0;
 		}
 
 	protected:
@@ -266,10 +265,7 @@ namespace rf
 			if (size > static_cast<integer>(sizeof(uinteger)*8))
 			{
 				// byteで読み込むがbit単位でシークする必要がある
-				integer prev_byte = byte_pos();
-				integer prev_bit = bit_pos();
 				read_bytes_unsafe(name, size / 8, size % 8);
-				seekpos(prev_byte + (size + prev_bit) / 8, (size + prev_bit) % 8);
 				return 0;
 			}
 			else
@@ -295,7 +291,8 @@ namespace rf
 
 			if (size > static_cast<integer>(sizeof(uinteger)))
 			{
-				return read_bytes_unsafe(name, size, 0);
+				read_bytes_unsafe(name, size, 0);
+				return 0;
 			}
 			else
 			{

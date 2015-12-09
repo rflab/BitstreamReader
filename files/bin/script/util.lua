@@ -461,7 +461,7 @@ end
 function tbyte(name, size, target)
 	if type(target) == "string" then
 		gs_files[target] = gs_files[target] or true 
-		return transfer_to_file(target, gs_cur_stream.stream, size, true)
+		return transfer_to_file(gs_cur_stream.stream, size, target, true)
 	else
 		return gs_cur_stream:tbyte(name, size, target, true)
 	end

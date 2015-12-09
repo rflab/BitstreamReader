@@ -18,24 +18,8 @@
 // これをC++関数内でthrowするとLua関数の戻り値をfalseになる
 // 古いコンパイラだとto_stringが使えない
 #if defined(_MSC_VER) && (_MSC_VER >= 1800)
-	#define LUA_RUNTIME_ERROR(x) std::runtime_error(std::string("c++ runtime exception. L")\
-		+ ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
-	#define LUA_DOMEIN_ERROR(x) std::domain_error(std::string("c++ domein error exception. L")\
-		+ ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
-	#define LUA_ARGUMENT_ERROR(x) std::invalid_argument(std::string("c++ invalid argument exception. L")\
-		 + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
 #elif defined(__GNUC__) && __cplusplus >= 201300L // __GNUC_PREREQ(4, 9)
-	#define LUA_RUNTIME_ERROR(x) std::runtime_error(std::string("c++ runtime exception. L")\
-		 + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
-	#define LUA_DOMEIN_ERROR(x) std::domain_error(std::string("c++ domein error exception. L")\
-		 + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
-	#define LUA_ARGUMENT_ERROR(x) std::invalid_argument(std::string("c++ invalid argument exception. L")\
-		 + ::std::to_string(__LINE__) + " " + __FUNCTION__ + ":" + x)
 #else
-	// unsupported
-	#define LUA_RUNTIME_ERROR(x) std::runtime_error("c++ runtime exception.")
-	#define LUA_DOMEIN_ERROR(x) std::domain_error("c++ omein error exception.")
-	#define LUA_ARGUMENT_ERROR(x) std::invalid_argument("c++ invalid argument exception.")
 	#define make_unique make_shared
 	#define unique_ptr shared_ptr
 	#define nullptr NULL
@@ -278,7 +262,7 @@ namespace rf
 				typename enable_if<is_number<T>::value>::type* = 0)
 			{
 				if (lua_type(L, index) != LUA_TNUMBER)
-					throw LUA_ARGUMENT_ERROR(string("not a number arg:") + std::to_string(index));
+					throw std::invalid_argument(string("not a number arg:") + std::to_string(index));
 				return static_cast<T>(lua_tonumber(L, index));
 			}
 
@@ -287,7 +271,7 @@ namespace rf
 				typename enable_if<is_boolean<T>::value>::type* = 0)
 			{
 				if (lua_type(L, index) != LUA_TBOOLEAN)
-					throw LUA_ARGUMENT_ERROR(string("not a boolean arg:") + std::to_string(index));
+					throw std::invalid_argument(string("not a boolean arg:") + std::to_string(index));
 				return lua_toboolean(L, index) == 0 ? false : true;
 			}
 
@@ -297,10 +281,10 @@ namespace rf
 				typename enable_if<is_string<T>::value>::type* = 0)
 			{
 				if (lua_type(L, index) != LUA_TSTRING)
-					throw LUA_ARGUMENT_ERROR(string("not a string arg:") + std::to_string(index));
+					throw std::invalid_argument(string("not a string arg:") + std::to_string(index));
 				const char* str = lua_tostring(L, index);
 				if (str == nullptr)
-					throw LUA_RUNTIME_ERROR("nil ptr");
+					throw std::runtime_error("nil ptr");
 				return str;
 			}
 			
@@ -309,7 +293,7 @@ namespace rf
 				typename enable_if<!is_basic_type<T>::value>::type* = 0)
 			{
 				if (lua_type(L, index) != LUA_TUSERDATA)
-					throw LUA_ARGUMENT_ERROR(string("not a userdata arg:") + std::to_string(index));
+					throw std::invalid_argument(string("not a userdata arg:") + std::to_string(index));
 				typedef typename std::remove_reference<T>::type type;
 				auto obj = static_cast<type*>(lua_touserdata(L, index));
 				return *obj;
@@ -443,7 +427,7 @@ namespace rf
 					auto self = static_cast<T*>(lua_touserdata(L, 1));
 					if (self == nullptr){
 						cout << "no self specified" << endl;
-						throw LUA_RUNTIME_ERROR("self is nil");// 多分ありえない
+						throw std::runtime_error("self is nil");// 多分ありえない
 					}
 
 					typedef typename std::remove_reference<Ret(T::*)(Args...)>::type mf_type;
@@ -488,7 +472,7 @@ namespace rf
 					auto self = static_cast<T*>(lua_touserdata(L, 1));
 					if (self == nullptr){
 						cout << "no self specified" << endl;
-						throw LUA_RUNTIME_ERROR("self is nil");// 多分ありえない
+						throw std::runtime_error("self is nil");// 多分ありえない
 					}
 			
 					typedef typename std::remove_reference<void(T::*)(Args...)>::type mf_type;
@@ -718,7 +702,7 @@ namespace rf
 				(void)i;
 				bool ret = luaresult(lua_pcall(L_, sizeof...(Args), 1, 0));
 				if (!ret)
-					throw LUA_RUNTIME_ERROR("call_function() error");
+					throw std::runtime_error("call_function() error");
 
 				return get_stack<Ret>(L_, -1);
 			}
@@ -737,7 +721,7 @@ namespace rf
 				auto i = { (push_stack(L_, args), 0)... };
 				bool ret = luaresult(lua_pcall(L_, sizeof...(Args), 1, 0));
 				if (!ret)
-					throw LUA_RUNTIME_ERROR("call_function() error");
+					throw std::runtime_error("call_function() error");
 
 				return;
 			}

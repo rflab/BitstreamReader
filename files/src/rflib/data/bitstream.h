@@ -41,10 +41,10 @@ namespace rf
 			void     look_expgolomb(uinteger &ret_val, integer &ret_size);
 			void     look_byte_string(char* address, integer size);
 			
-			integer find_byte(char sc, bool advance, integer end_offset = integer_max);
-			integer find_byte_string(const char* address, integer size, bool advance, integer end_offset = integer_max);
-			integer rfind_byte(char sc, bool advance, integer end_offset = integer_max);
-			integer rfind_byte_string(const char* address, integer size, bool advance, integer end_offset = integer_max);
+			integer find_byte        (char sc, integer end_offset, bool advance);
+			integer rfind_byte       (char sc, integer end_offset, bool advance);
+			integer find_byte_string (const char* address, integer size, integer end_offset, bool advance);
+			integer rfind_byte_string(const char* address, integer size, integer end_offset, bool advance);
 			
 			void write(const char *buf, integer size);
 			void put_char(char c);

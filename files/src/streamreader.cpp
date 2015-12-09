@@ -3,6 +3,8 @@
 #include "rflib/wrapper/sqlwrapper.h"
 #include "rflib/wrapper/luabinder.hpp"
 
+#define noexcept(x) throw(...)
+
 namespace rf
 {
 	using namespace wrapper;
@@ -117,7 +119,7 @@ namespace rf
 		// 現状オーバーヘッド多め
 		// メンバ関数にすべきだったかも。
 		static void transfer_to_file(
-			const char* file_name, LuaGlueBitstream &stream, integer size, bool advance = false)
+			LuaGlueBitstream &stream, integer size, const char* file_name, bool advance)
 		{
 			if (FAIL(size >= 0))
 				throw runtime_error((stream.print_status(), "size"));
@@ -142,7 +144,7 @@ namespace rf
 		enum { MAX_DUMP = 1024 };
 
 		// ちょっとどうだろう
-		uinteger read_bits_unsafe(const char* name, integer size) throw(...)
+		uinteger read_bits_unsafe(const char* name, integer size) noexcept( false )
 		{
 			uinteger v;
 			integer prev_byte = byte_pos();
@@ -175,7 +177,7 @@ namespace rf
 		}
 
 		// ちょっとどうだろう
-		void read_bytes_unsafe(const char* name, integer byte, integer bit) throw(...)
+		void read_bytes_unsafe(const char* name, integer byte, integer bit) noexcept( false )
 		{
 			integer prev_byte = byte_pos();
 			integer prev_bit = bit_pos();
@@ -254,7 +256,7 @@ namespace rf
 		// ビット単位で読み込み
 		// 32/64bit以上はread_bytesをコール
 		// integerサイズ以上は0を返す
-		uinteger read_bits(const char* name, integer size) throw(...)
+		uinteger read_bits(const char* name, integer size) noexcept( false )
 		{
 			if (FAIL(size >= 0))
 				throw runtime_error((print_status(), string(name) + " size < 0, size = " + to_string(size)));
@@ -277,7 +279,7 @@ namespace rf
 		// バイト単位で読みとばし
 		// 32/64bit以下ははread_bitsをコール
 		// integerサイズ以上は0を返す
-		uinteger read_bytes(const char* name, integer size) throw(...)
+		uinteger read_bytes(const char* name, integer size) noexcept( false )
 		{
 			if (FAIL(bs_.check_off(size, 0)))
 				throw runtime_error((print_status(), 
@@ -302,7 +304,7 @@ namespace rf
 
 		// バイト単位で文字列として読み込み
 		// むちゃくちゃ長い文字列はまずい。
-		string read_string(const char* name, integer size) throw(...)
+		string read_string(const char* name, integer size) noexcept( false )
 		{
 			if (FAIL(bs_.check_off(size, 0)))
 				throw runtime_error((print_status(), string(name) + " overflow, size = " + to_string(size)));
@@ -324,7 +326,7 @@ namespace rf
 		}
 
 		// 指数ゴロムとして読み込み
-		uinteger read_expgolomb(const char* name) throw(...)
+		uinteger read_expgolomb(const char* name) noexcept( false )
 		{
 			integer prev_byte = bs_.byte_pos();
 			integer prev_bit = bs_.bit_pos();
@@ -350,7 +352,7 @@ namespace rf
 		}
 
 		// ビット単位で先読み
-		uinteger look_bits(integer size) throw(...)
+		uinteger look_bits(integer size) noexcept( false )
 		{
 			if (FAIL(bs_.check_off(size, 0)))
 				throw runtime_error((print_status(), string("overflow, size=") + to_string(size)));
@@ -359,7 +361,7 @@ namespace rf
 		}
 
 		// バイト単位で先読み
-		uinteger look_bytes(integer size) throw(...)
+		uinteger look_bytes(integer size) noexcept( false )
 		{
 			if (FAIL(bs_.check_off(size, 0)))
 				throw runtime_error((print_status(), string("overflow, size=") + to_string(size)));
@@ -368,7 +370,7 @@ namespace rf
 		}
 
 #if 1
-		string look_byte_string(integer size) throw(...)
+		string look_byte_string(integer size) noexcept( false )
 		{
 			if (FAIL(bs_.check_off(size, 0)))
 				throw runtime_error((print_status(), string("overflow, size=") + to_string(size)));
@@ -386,7 +388,7 @@ namespace rf
 		}
 #endif
 		// 指数ゴロムで先読み
-		uinteger look_expgolomb() throw(...)
+		uinteger look_expgolomb() noexcept( false )
 		{
 			uinteger val;
 			integer size;
@@ -395,7 +397,7 @@ namespace rf
 		}
 
 		// ビット単位で比較
-		bool compare_bits(const char* name, integer size, uinteger compvalue) throw(...)
+		bool compare_bits(const char* name, integer size, uinteger compvalue) noexcept( false )
 		{
 			if (FAIL(bs_.check_off(0, size)))
 				throw runtime_error((print_status(), string("overflow, size=") + to_string(size)));
@@ -416,7 +418,7 @@ namespace rf
 		}
 
 		// バイト単位で比較
-		bool compare_bytes(const char* name, integer size, uinteger compvalue) throw(...)
+		bool compare_bytes(const char* name, integer size, uinteger compvalue) noexcept( false )
 		{
 			if (FAIL(bs_.check_off(size, 0)))
 				throw runtime_error((print_status(), string(name) + " overflow"));
@@ -425,7 +427,7 @@ namespace rf
 		}
 
 		// バイト単位で文字列として比較
-		bool compare_string(const char* name, integer max_length, const char* comp_str) throw(...)
+		bool compare_string(const char* name, integer max_length, const char* comp_str) noexcept( false )
 		{
 			if (FAIL(bs_.check_off(max_length, 0)))
 				throw runtime_error((print_status(), string(name) + " overflow, size=" + to_string(max_length)));
@@ -440,7 +442,7 @@ namespace rf
 		}
 
 		// 指数ゴロムとして比較
-		bool compare_expgolomb(const char* name, uinteger compvalue) throw(...)
+		bool compare_expgolomb(const char* name, uinteger compvalue) noexcept( false )
 		{
 			uinteger value = read_expgolomb(name);
 			if (value != compvalue)
@@ -458,10 +460,10 @@ namespace rf
 		}
 
 		// １バイトの一致を検索
-		integer find_byte(char c, bool advance, integer end_offset) throw(...)
+		integer find_byte(char c, integer end_offset, bool advance) noexcept( false )
 		{
 			integer prev_byte = bs_.byte_pos();
-			integer offset = bs_.find_byte(c, advance, end_offset);
+			integer offset = bs_.find_byte(c, end_offset, advance);
 
 			if (printf_on_)
 			{
@@ -482,14 +484,14 @@ namespace rf
 		}
 
 		// 数バイト分の一致を検索
-		integer find_byte_string(const char* address, integer size, bool advance, integer end_offset) throw(...)
+		integer find_byte_string(const char* address, integer size, integer end_offset, bool advance) noexcept( false )
 		{
 			if (FAIL(valid_ptr(address)))
 				throw logic_error((print_status(), "invalid address"));
 
 			string s(address, static_cast<int>(size));
 			integer prev_byte = bs_.byte_pos();
-			integer offset = bs_.find_byte_string(address, size, advance, end_offset);
+			integer offset = bs_.find_byte_string(address, size, end_offset, advance);
 
 			if (printf_on_)
 			{
@@ -519,10 +521,10 @@ namespace rf
 		}
 
 		// １バイトの一致を検索
-		integer rfind_byte(char c, bool advance, integer end_offset) throw(...)
+		integer rfind_byte(char c, integer end_offset, bool advance) noexcept( false )
 		{
 			integer prev_byte = bs_.byte_pos();
-			integer offset = bs_.rfind_byte(c, advance, end_offset);
+			integer offset = bs_.rfind_byte(c, end_offset, advance);
 
 			if (printf_on_)
 			{
@@ -543,14 +545,14 @@ namespace rf
 		}
 
 		// 数バイト分の一致を検索
-		integer rfind_byte_string(const char* address, integer size, bool advance, integer end_offset) throw(...)
+		integer rfind_byte_string(const char* address, integer size, integer end_offset, bool advance) noexcept( false )
 		{
 			if (FAIL(valid_ptr(address)))
 				throw logic_error((print_status(), "invalid address"));
 
 			string s(address, static_cast<int>(size));
 			integer prev_byte = bs_.byte_pos();
-			integer offset = bs_.rfind_byte_string(address, size, advance, end_offset);
+			integer offset = bs_.rfind_byte_string(address, size, end_offset, advance);
 
 			if (printf_on_)
 			{
@@ -580,7 +582,7 @@ namespace rf
 		}
 
 		// ストリームに書き込み
-		void write(const char *buf, integer size)
+		void write(const char *buf, integer size) noexcept(false)
 		{
 			if (FAIL(valid_ptr(buf)))
 			{
@@ -603,7 +605,7 @@ namespace rf
 		}
 
 		// ストリームに追記
-		void append(const char *buf, integer size)
+		void append(const char *buf, integer size) noexcept(false)
 		{
 			if (FAIL(valid_ptr(buf)))
 			{
@@ -638,7 +640,7 @@ namespace rf
 
 		// 別のストリームに転送
 		// 現状オーバーヘッド多め
-		void transfer_bytes(const char* name, LuaGlueBitstream &stream, integer size, bool advance)
+		void transfer_bytes(const char* name, integer size, LuaGlueBitstream &stream, bool advance) noexcept(false)
 		{
 			if (FAIL(bs_.check_off(size, 0)))
 			{

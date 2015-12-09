@@ -199,27 +199,27 @@ end
 function _m:fbyte(char, advance, end_offset)	
 	if advance == nil then advance = true end
 	if end_offset == nil then end_offset = 0x7fffffff end
-	return self.stream:find_byte(char, advance, end_offset)
+	return self.stream:find_byte(char, end_offset, advance)
 end
 
 function _m:fstr(pattern, advance, end_offset)
 	if advance == nil then advance = true end
 	if end_offset == nil then end_offset = 0x7fffffff end
 	local str = pat2str(pattern)
-	return self.stream:find_byte_string(str, #str, advance, end_offset)
+	return self.stream:find_byte_string(str, #str, end_offset, advance)
 end
 
 function _m:rfbyte(char, advance, end_offset)	
 	if advance == nil then advance = true end
 	if end_offset == nil then end_offset = -0x7fffffff - 1 end
-	return self.stream:rfind_byte(char, advance, end_offset)
+	return self.stream:rfind_byte(char, end_offset, advance)
 end
 
 function _m:rfstr(pattern, advance, end_offset)
 	if advance == nil then advance = true end
 	if end_offset == nil then end_offset = -0x7fffffff - 1 end
 	local str = pat2str(pattern)
-	return self.stream:rfind_byte_string(str, #str, advance, end_offset)
+	return self.stream:rfind_byte_string(str, #str, end_offset, advance)
 end
 
 function _m:seek(byte, bit)
@@ -250,9 +250,9 @@ end
 function _m:tbyte(name, size, target, advance)
 	if advance == nil then advance = true end	
 	if type(target) == "string" then
-		return transfer_to_file(target, self.stream, size, advance)
+		return transfer_to_file(self.stream, size, target, advance)
 	else
-		self.stream:transfer_bytes(name, target.stream, size, advance)
+		self.stream:transfer_bytes(name, size, target.stream, advance)
 	end
 end
 

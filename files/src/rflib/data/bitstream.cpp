@@ -170,7 +170,7 @@ uinteger Bitstream::read_bits(integer size)
 // バイト単位で読み込み
 uinteger Bitstream::read_bytes(integer size)
 {
-	if (FAIL(0 <= size && size <= 4))
+	if (FAIL(0 <= size && size <= static_cast<integer>(sizeof(uinteger))))
 	{
 		ERR << "read byte > 4. size=" << hex << size << OUTPUT_POS << endl;
 		throw std::logic_error(FAIL_STR("out of range."));
@@ -216,6 +216,12 @@ void  Bitstream::read_expgolomb(uinteger &ret_value, integer &ret_size)
 // NULL文字が見つからなかった場合は最大max_lengthの長さ文字列として終端にNULL文字を入れる
 string Bitstream::read_string(integer size)
 {
+	if (FAIL(0 <= size))
+	{
+		ERR << "minus read string. size=" << hex << size << OUTPUT_POS << endl;
+		throw std::logic_error(FAIL_STR("out of range."));
+	}
+
 	if (FAIL(check_off(size, 0)))
 	{
 		ERR << "size=" << hex << size << OUTPUT_POS << endl;
@@ -280,7 +286,7 @@ uinteger Bitstream::look_bits(integer size)
 // バイト単位で先読み
 uinteger Bitstream::look_bytes(integer size)
 {
-	if (FAIL(0 <= size && size <= 4))
+	if (FAIL(0 <= size && size <= static_cast<integer>(sizeof(uinteger))))
 	{
 		ERR << "look byte size > 4. size=" << hex << size << OUTPUT_POS << endl;
 		throw std::logic_error(FAIL_STR("out of range"));
@@ -337,7 +343,7 @@ void  Bitstream::look_byte_string(char* address, integer size)
 
 // 特定の１バイトの値を検索
 // 見つからなければファイル終端を返す
-integer Bitstream::find_byte(char sc, bool advance, integer end_offset)
+integer Bitstream::find_byte(char sc, integer end_offset, bool advance)
 {
 	integer offset = 0;
 	int c;
@@ -367,7 +373,7 @@ integer Bitstream::find_byte(char sc, bool advance, integer end_offset)
 	return offset;
 }
 
-integer Bitstream::rfind_byte(char sc, bool advance, integer end_offset)
+integer Bitstream::rfind_byte(char sc, integer end_offset, bool advance)
 {
 	integer offset = 0;
 	int c;
@@ -400,21 +406,22 @@ integer Bitstream::rfind_byte(char sc, bool advance, integer end_offset)
 // 特定のバイト列を検索
 // 見つからなければファイル終端を返す
 integer Bitstream::find_byte_string(
-	const char* address, integer size, bool advance, integer end_offset)
+	const char* address, integer size, integer end_offset, bool advance)
 {
-	//char* contents = new char[size];
-	char contents[256];
-	if (FAIL(sizeof(contents) >= static_cast<size_t>(size)))
-	{
-		ERR << "too long search string. size=" << hex << size << OUTPUT_POS << endl;
-		throw std::logic_error(FAIL_STR("out of range"));
-	}
-
 	if (FAIL(valid_ptr(address)))
 	{
 		ERR << "invalid address address=" << hex << address << OUTPUT_POS << endl;
 		throw std::logic_error(FAIL_STR("invalid argument"));
 	}
+
+	//char* contents = new char[size];
+	char contents[256];
+	if (FAIL(sizeof(contents) >= static_cast<size_t>(size)))
+	{
+		ERR << "too long search string. size=" << hex << size << OUTPUT_POS << endl;
+		throw std::logic_error(FAIL_STR("too long byte string"));
+	}
+
 
 	integer offset = 0;
 	integer end_offset_remain = end_offset;
@@ -422,7 +429,7 @@ integer Bitstream::find_byte_string(
 	for (;;)
 	{
 		// 先頭1バイトを検索
-		offset = find_byte(address[0], true, end_offset_remain);
+		offset = find_byte(address[0], end_offset_remain, true);
 
 		// 見つからなかった
 		if (offset >= end_offset_remain)
@@ -465,20 +472,20 @@ integer Bitstream::find_byte_string(
 // 特定のバイト列を検索
 // 見つからなければファイル終端を返す
 integer Bitstream::rfind_byte_string(
-	const char* address, integer size, bool advance, integer end_offset)
+	const char* address, integer size, integer end_offset, bool advance)
 {
+	if (FAIL(valid_ptr(address)))
+	{
+		ERR << "invalid address address=" << hex << address << OUTPUT_POS << endl;
+		throw std::logic_error(FAIL_STR("invalid argument"));
+	}
+
 	//char* contents = new char[size];f
 	char contents[256];
 	if (FAIL(sizeof(contents) >= static_cast<size_t>(size)))
 	{
 		ERR << "too long search string. size=" << hex << size << OUTPUT_POS << endl;
 		throw std::logic_error(FAIL_STR("out of range"));
-	}
-
-	if (FAIL(valid_ptr(address)))
-	{
-		ERR << "invalid address address=" << hex << address << OUTPUT_POS << endl;
-		throw std::logic_error(FAIL_STR("invalid argument"));
 	}
 
 	integer offset = 0;
@@ -500,7 +507,7 @@ integer Bitstream::rfind_byte_string(
 	for (;;)
 	{
 		// 先頭位置バイトを検索
-		offset = rfind_byte(address[0], true, end_offset_remain);
+		offset = rfind_byte(address[0], end_offset_remain, true);
 		if (offset <= 0)
 		{
 			seekpos(prev_byte_pos, 0);
@@ -551,43 +558,16 @@ void  Bitstream::put_char(char c)
 	seekpos(byte_pos_+1, bit_pos_);
 }
 
+RingBuf::RingBuf()
+	: std::streambuf(), size_(0)
+{
+}
+
+// オーバーライド
 int RingBuf::overflow(int c)
 {
 	setp(buf_.get(), buf_.get() + size_);
 	return sputc(static_cast<char>(c));
-}
-
-int RingBuf::underflow()
-{
-	setg(buf_.get(), buf_.get(), buf_.get() + size_);
-	return buf_[0];
-}
-
-std::ios::pos_type RingBuf::seekoff(
-	std::ios::off_type off, std::ios::seekdir way, std::ios::openmode)
-{
-	char* pos;
-	switch (way)
-	{
-	case std::ios::beg: pos = eback() + (off % size_); break;
-	case std::ios::end: pos = egptr() + (off % size_); break;
-	case std::ios::cur: default: pos = eback() + (((gptr() - eback()) + off) % size_); break;
-	}
-
-	setg(buf_.get(), pos, buf_.get() + size_);
-	return pos - eback(); // 先頭を返す必要あり
-}
-
-std::ios::pos_type RingBuf::seekpos(
-	std::ios::pos_type pos, std::ios::openmode which)
-{
-	return seekoff(pos, std::ios::beg, which);
-}
-
-//-----------------------------------------------
-RingBuf::RingBuf()
-	: std::streambuf(), size_(0)
-{
 }
 
 // リングバッファのサイズを指定する
@@ -603,5 +583,35 @@ void RingBuf::reserve(integer size)
 	size_ = size;
 	setp(buf_.get(), buf_.get() + size);
 	setg(buf_.get(), buf_.get(), buf_.get() + size);
+}
+
+// オーバーライド
+int RingBuf::underflow()
+{
+	setg(buf_.get(), buf_.get(), buf_.get() + size_);
+	return buf_[0];
+}
+
+// オーバーライド
+std::ios::pos_type RingBuf::seekoff(
+	std::ios::off_type off, std::ios::seekdir way, std::ios::openmode)
+{
+	char* pos;
+	switch (way)
+	{
+	case std::ios::beg: pos = eback() + (off % size_); break;
+	case std::ios::end: pos = egptr() + (off % size_); break;
+	case std::ios::cur: default: pos = eback() + (((gptr() - eback()) + off) % size_); break;
+	}
+
+	setg(buf_.get(), pos, buf_.get() + size_);
+	return pos - eback(); // 先頭を返す必要あり
+}
+
+// オーバーライド
+std::ios::pos_type RingBuf::seekpos(
+	std::ios::pos_type pos, std::ios::openmode which)
+{
+	return seekoff(pos, std::ios::beg, which);
 }
 

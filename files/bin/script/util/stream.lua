@@ -19,12 +19,7 @@ local perf = profiler:new() -- 性能計測
 -- private
 ------------------------------------------------
 
-local function check(_self, result, msg)
-	if result == false then
-		print_table(_self.tbl)
-		_self:dump()
-		assert(false, "assertion failed! msg=".. msg)
-	end
+local function private_func_example(_self)
 end
 
 ------------------------------------------------
@@ -62,22 +57,17 @@ function _m:new(param, openmode)
 		obj.file_name = "no_file_name"
 	end
 
-	obj.stream:little_endian(false)
-	obj.is_little_endian = false
+	obj:enable_print(false)
+	obj:little_endian(false)
+
 	return obj
 end
 
-function _m:print(...)
-	if self.print_enabled then
-		print(...)
-	end
-end
-
 function _m:print_status()	
-	printf("name    : %s", self.file_name)
-	printf("size    : 0x%08x", self:get_size())
-	printf("cursor  : 0x%08x(%d)", self:cur(), self:cur())
-	printf("remain  : 0x%08x", self:get_size() - self:cur())
+	printf(" name    : %s", self.file_name)
+	printf(" size    : 0x%08x", self:get_size())
+	printf(" cursor  : 0x%08x(%d)", self:cur(), self:cur())
+	printf(" remain  : 0x%08x", self:get_size() - self:cur())
 	perf:print()
 end
 
@@ -91,24 +81,6 @@ end
 
 function _m:cur()	
 	return self.stream:byte_pos(), self.stream:bit_pos()
-end
-
-function _m:get(name)
-	assert(false, "unsupported")
-	local val = self.tbl[name]
-	assert(val, "get nil value \""..name.."\"")
-	return val
-end
-
-function _m:peek(name)
-	assert(false, "unsupported")
-	local val = self.tbl[name]
-	return val
-end
-
-function _m:reset(name, value)	
-	assert(false, "unsupported")
-	self.tbl[name] = value
 end
 
 function _m:gbit(size)
@@ -128,31 +100,19 @@ function _m:gexp()
 end
 
 function _m:rbit(name, size)
-	local val = self.stream:read_bit(name, size)
-	-- check(self, val, "rbit:"..name)
-	-- self.tbl[name] = val
-	return val
+	return self.stream:read_bit(name, size)
 end
 
 function _m:rbyte(name, size)
-	local val = self.stream:read_byte(name, size)
-	-- check(self, val, "rbyte:"..name)
-	-- self.tbl[name] = val
-	return val
+	return self.stream:read_byte(name, size)
 end
 
 function _m:rstr(name, size)	
- 	local val = self.stream:read_string(name, size)
-	-- check(self, val, "rstr:"..name)
-	-- self.tbl[name] = val
-	return val
+	return self.stream:read_string(name, size)
 end
 
 function _m:rexp(name)
-	local val = self.stream:read_expgolomb(name)
-	-- check(self, val, "rexp:"..name)
-	-- self.tbl[name] = val
-	return val
+	return self.stream:read_expgolomb(name)
 end
 
 function _m:cbit(name, size, comp)	
@@ -173,49 +133,41 @@ function _m:cexp(name, size, comp)
 end
 
 function _m:lbyte(size)	
- 	local val = self.stream:look_byte(size)
-	-- check(self, val, "lbyte:")
-	return val
+ 	return self.stream:look_byte(size)
 end
 
 function _m:lbit(size)	
- 	local val = self.stream:look_bit(size)
-	-- check(self, val, "lbit:")
-	return val
+	return self.stream:look_bit(size)
 end
 
 function _m:lstr(size)	
- 	local val = self.stream:look_byte_string(size)
-	-- check(self, val, "lstr:")
-	return val
+	return self.stream:look_byte_string(size)
 end
 
 function _m:lexp(size)	
- 	local val = self.stream:look_expgolomb(size)
-	-- check(self, val, "lbit:")
-	return val
+	return self.stream:look_expgolomb(size)
 end
 
-function _m:fbyte(char, advance, end_offset)	
+function _m:fbyte(char, end_offset, advance)	
 	if advance == nil then advance = true end
 	if end_offset == nil then end_offset = 0x7fffffff end
 	return self.stream:find_byte(char, end_offset, advance)
 end
 
-function _m:fstr(pattern, advance, end_offset)
+function _m:fstr(pattern, end_offset, advance)
 	if advance == nil then advance = true end
 	if end_offset == nil then end_offset = 0x7fffffff end
 	local str = pat2str(pattern)
 	return self.stream:find_byte_string(str, #str, end_offset, advance)
 end
 
-function _m:rfbyte(char, advance, end_offset)	
+function _m:rfbyte(char, end_offset, advance)	
 	if advance == nil then advance = true end
 	if end_offset == nil then end_offset = -0x7fffffff - 1 end
 	return self.stream:rfind_byte(char, end_offset, advance)
 end
 
-function _m:rfstr(pattern, advance, end_offset)
+function _m:rfstr(pattern, end_offset, advance)
 	if advance == nil then advance = true end
 	if end_offset == nil then end_offset = -0x7fffffff - 1 end
 	local str = pat2str(pattern)
@@ -223,16 +175,15 @@ function _m:rfstr(pattern, advance, end_offset)
 end
 
 function _m:seek(byte, bit)
-	self.stream:seekpos(byte, bit or 0)
+	return self.stream:seekpos(byte, bit or 0)
 end
 
 function _m:seekoff(byte, bit)
-    -- 暫定である、byteが0ならbitシークのみ
 	return self.stream:seekoff(byte or 0, bit or 0)
 end
 
 function _m:putc(c)
-	self.stream:put_char(c)
+	return self.stream:put_char(c)
 end
 
 function _m:write(pattern)
@@ -244,13 +195,13 @@ function _m:write(pattern)
 	else
 		str = pattern
 	end
-	self.stream:write(str, #str)
+	return self.stream:write(str, #str)
 end
 
 function _m:tbyte(name, size, target, advance)
 	if advance == nil then advance = true end	
 	if type(target) == "string" then
-		return transfer_to_file(self.stream, size, target, advance)
+		return transfer_to_file(target, self.stream, size, advance)
 	else
 		self.stream:transfer_bytes(name, size, target.stream, advance)
 	end
@@ -274,18 +225,9 @@ end
 
 function _m:little_endian(enable)
 	if type(enable) ~= "boolean" then 
-		return self.stream.is_little_endian
+		return self.is_little_endian
 	else
 		self.is_little_endian = enable
 		self.stream:little_endian(enable)
 	end
 end
-
---function progress()
---	local p = math.modf(cur()/get_size() * 100)
---	if math.modf(p % 10) == 0 and progress <= p then
---		gs_prev_progress = gs_prev_progress + 10
---		print(progress.."%", os.clock().."sec.")
---		profiler:print()
---	end
---end

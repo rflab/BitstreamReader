@@ -262,10 +262,9 @@ end
 function start_scan()
 	-- データを転送
 	local scan, prev = open()
-	enable_print(false)
 	swap(prev)
 	while true do
-		local ofs = fbyte(0xff, false)
+		local ofs = fbyte(0xff, 0x7fffffff, false)
 		tbyte("scan", ofs, scan, true)
 		local segment = lbyte(2)
 		if segment == 0xffd0
@@ -409,7 +408,7 @@ function start_scan()
 		print("Done")
 		
 		-- ファイル・コンソール出力
-		bmp:write(__stream_dir__.."out.bmp")
+		bmp:write(__out_dir__.."out.bmp")
 		local sb = bmp:create_scaled_bmp(120, nil)
 		sb:print_ascii(120, nil)
 	until true
@@ -1320,7 +1319,6 @@ function jpg()
 	end
 end
 
---open(__stream_path__)
-enable_print(false)
+-- enable_print(false)
 jpg()
 

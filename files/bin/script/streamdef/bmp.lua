@@ -52,8 +52,7 @@ function BITMAPINFOHEADER()
 	elseif get("biCompression") == 2 then assert(false, "unsupported RunLength4")
 	elseif get("biCompression") == 3 then assert(false, "unsupported Bitfields")
 	end
-		
-	enable_print(false)
+
 	local begin = cur()
 	local aligned_x = info.width + info.width%4
 	local ascii_w = math.min(120, info.width)
@@ -93,8 +92,6 @@ function bmp()
 	
 end
 
---open(__stream_path__)
-enable_print(false)
 little_endian(true)
 bmp()
 

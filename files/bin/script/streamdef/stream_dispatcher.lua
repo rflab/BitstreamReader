@@ -29,7 +29,20 @@ local function analyse_stream_type(s)
 			ascii = "Unknown"
 			break;
 		end
-
+		
+		-- hextext
+		if gstr(3):find("^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
+			if gstr(3):find("^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
+				if gstr(3):find("^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
+					if gstr(3):find("^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
+						ret = ".hextext"
+						ascii = "Hex Convert"
+						break
+					end
+				end
+			end
+		end
+		
 		-- txt
 		if __stream_ext__ == ".txt" then
 			seek(0)
@@ -46,18 +59,7 @@ local function analyse_stream_type(s)
 			break
 		end
 		
-		-- text2dat
-		if gstr(3):find("^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
-			if gstr(3):find("^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
-				if gstr(3):find("^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
-					if gstr(3):find("^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
-						ret = ".hextext"
-						ascii = "Hex Convert"
-						break
-					end
-				end
-			end
-		end
+
 		
 		-- RIFFのほうが正確
 		-- -- wav
@@ -110,7 +112,7 @@ local function analyse_stream_type(s)
 		-- ts, tts, m2ts, mpg
 		seek(0)
 		if get_size() > 384 then
-			if fbyte(0x47, true, 192) ~= 192 then
+			if fbyte(0x47, 192, true) ~= 192 then
 				seekoff(188)
 				if lbyte(1) == 0x47 then
 					ret = ".ts"
@@ -126,7 +128,7 @@ local function analyse_stream_type(s)
 				end
 			end
 		end
-
+		
 		-- mp3(ID3v2)
 		seek(0)
 		if gbyte(3) == 0x494433 then
@@ -137,7 +139,7 @@ local function analyse_stream_type(s)
 		
 		-- mp3(ID3v1)
 		seek(get_size() - 128)
-		if gbyte(3) == 0x494433 then
+		if gbyte(3) == 0x544147 then
 			ret = ".mp3"
 			ascii = "mp3 ID3v1"
 			break
@@ -146,11 +148,8 @@ local function analyse_stream_type(s)
 		-- mpeg audio		
 		seek(0)
 		if gbit(11) == 0x7ff then
-			local ver = lbit(2)
-			seekoff(0,2)
-			print(cur())
-			local layer = gbit(2)
 			local id = gbit(1)
+			local layer = gbit(2)
 			if layer == 0 then
 				if id == 0 then
 					ascii = "MPEG-4 AAC"
@@ -172,7 +171,7 @@ local function analyse_stream_type(s)
 		
 		-- mp4
 		seek(0)
-		if fstr("ftyp", true, 5) == 4 then
+		if fstr("ftyp", 5, true) == 4 then
 			ret = ".mp4"
 			ascii = "MPEG-4 Part 14"
 			break
@@ -209,6 +208,14 @@ local function analyse_stream_type(s)
 		if gbyte(3) == 0x464c56 then
 			ret = ".flv"
 			ascii = "Flash Video"
+			break
+		end
+		
+		-- ac3
+		seek(0)
+		if gbyte(2) == 0x0b77 then
+			ret = ".ac3"
+			ascii = "AC-3/E-AC-3"
 			break
 		end
 		
@@ -263,11 +270,11 @@ local function analyse_stream_type(s)
 		------------------ 
 		-- 以下、判定が難しい
 		------------------ 
-		
+
 		-- h265
 		seek(0)
 		if lbyte(3) == 1 or lbyte(4) == 1 then
-			fstr("00 00 01", true, 10)
+			fstr("00 00 01", 10, true)
 			if gbyte(3) == 0x000001 then
 				if gbit(1) == 0 then
 					ret = ".h265"
@@ -285,11 +292,15 @@ local function analyse_stream_type(s)
 			break
 		end
 		
-		-- pes
+		-- ps/pes
 		seek(0)
 		if lbyte(3) == 1 then
 			seek(3)
-			if lbyte(1) == 0xe0 then
+			if lbyte(1) == 0xba then
+				ret = ".ps"
+				ascii = "PS"
+				break
+			elseif lbyte(1) == 0xe0 then
 				ret = ".pes"
 				ascii = "Video PES"
 				break
@@ -297,12 +308,16 @@ local function analyse_stream_type(s)
 				ret = ".pes"
 				ascii = "Audio PES"
 				break
-			end
-			seek(6)
-			if lbit(2) == 1 then
+			else
 				ret = ".pes"
-				ascii = "PES?"
+				ascii = "PS"
+				break
 			end
+			--seek(6)
+			--if lbit(2) == 1 then
+			--	ret = ".pes"
+			--	ascii = "PES?"
+			--end
 		end
 
 		-- 当てずっぽう
@@ -317,13 +332,14 @@ local function analyse_stream_type(s)
 		end
 
 		-- unknown
-		ret= ".dat"
-		ascii = "Unknown"
+		ret= __stream_ext__
+		ascii = "Unknown ["..__stream_ext__.."]"
 
 	until true 
 
 	print()
 	print_ascii(ascii)
+	-- print(ascii)
 	print("====================================================================================================================")
 
 	seek(begin_byte, begin_bit)
@@ -365,6 +381,9 @@ function dispatch_stream(stream)
 	elseif st == ".pes" then
 		dofile(__streamdef_dir__.."pes.lua")
 		pes_stream(get_size())
+		
+	elseif st == ".ps" then
+		dofile(__streamdef_dir__.."ps.lua")
 
 	elseif st == ".h264" then
 		dofile(__streamdef_dir__.."h264.lua")
@@ -382,8 +401,16 @@ function dispatch_stream(stream)
 		dofile(__streamdef_dir__.."aac.lua")
 		adts_sequence(get_size())
 		
+	elseif st == ".ac3" then
+		dofile(__streamdef_dir__.."ac3.lua")
+		ac3_bitstream(get_size())
+		
+	elseif st == ".flv" then
+		dofile(__streamdef_dir__.."flv.lua")
+		flv_file(get_size())
+		
 	elseif st == ".hextext" then
-		dofile(__streamdef_dir__.."hexconv.lua")
+		dofile(__streamdef_dir__.."hextext.lua")
 
 	elseif string.match(argv[1], "^[0-9a-fA-F][0-9a-fA-F] ") ~= nil then
 		dofile(__streamdef_dir__.."hexarg.lua")

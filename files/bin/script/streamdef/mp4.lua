@@ -4,6 +4,60 @@ local trak_no = 0
 local trak_data = {}
 local nal_offset = {}
 local nal_size = {}
+local box_tree = {}
+
+function push_box()
+	seekoff(4)
+	local box_name = gstr(4)
+	table.insert(box_tree, box_name)
+	push(box_name)
+	seekoff(-8)
+end
+
+function pop_box()
+	pop(box_tree[#box_tree])
+	table.remove(box_tree)
+end
+
+local tree_depth = 1
+function child_boxes(list, size)
+	local begin = cur()
+	local total_size = 0
+	while total_size < size do
+		local child_begin = cur()
+	
+		-- boxをプッシュ
+		seekoff(4)
+		local box_name = gstr(4)
+		seekoff(-8)
+		push(box_name)
+		tree_depth = tree_depth + 1
+		
+		-- boxを解析
+		local box_begin = cur()
+		local header, box_size, header_size = BOXHEADER()
+		printf("adr=0x%08x, siz=0x%08x "..string.rep("     ", tree_depth).."%s", box_begin, get("boxsize"), get("BOXHEADER"))
+		if list[header] ~= nil then
+			list[header](box_size-header_size)
+		else
+			unsupported_box(header, box_size, header_size)
+		end
+
+		-- たまにサイズが合わないけどよくわからない
+		unknown_data(box_size, child_begin, header)
+
+		-- boxをポップ
+		pop(header)
+		tree_depth = tree_depth - 1
+
+		total_size = total_size + box_size
+	end
+
+	-- サイズチェック
+	if cur() - begin ~= size then
+		assert(false, "box size error")
+	end
+end
 
 function BOXHEADER()
 	rbyte("boxsize",                     4)
@@ -12,18 +66,16 @@ function BOXHEADER()
 	if get("boxsize") == 1 then
 		rbyte("boxsize_upper32bit",      4)
 		rbyte("boxsize",                 4)
-		printf("adr=0x%08x, siz=0x%08x      %s", cur(), get("boxsize"), get("BOXHEADER"))
 		return get("BOXHEADER"), get("boxsize"), 16
 	else
-		printf("adr=0x%08x, siz=0x%08x      %s", cur(), get("boxsize"), get("BOXHEADER"))
 		return get("BOXHEADER"), get("boxsize"), 8
 	end
 end
 
-function unknown_data(size, begin)
+function unknown_data(size, begin, str)
 	local remain = size - (cur() - begin)
 	if remain ~= 0 then
-		print("#unknown data at"..hexstr(cur()), "size="..hexstr(remain))
+		print("#unknown data at"..hexstr(cur()), "size="..hexstr(remain), "\""..str.."\"")
 		rbyte("#unknown data", remain)
 	end
 end
@@ -59,27 +111,8 @@ function afrt(size)
 	rbyte("afrt", size)
 end
 
-function moov(size)
-	local total_size = 0;
-	while total_size < size do
-		local header, box_size, header_size = BOXHEADER()
-
-		if header == "mvhd" then
-			mvhd(box_size-header_size)
-		elseif header == "trak" then
-			trak(box_size-header_size)
-		elseif header == "mvex" then
-			mvex(box_size-header_size)
-		elseif header == "udta" then
-			udta(box_size-header_size)
-		elseif header == "auth" then
-			auth(box_size-header_size)
-		else
-			unsupported_box(header, box_size, header_size)
-		end
-
-		total_size = total_size + box_size
-	end
+function moov(size)	
+	child_boxes({mvhd=mvhd, trak=trak, mvex=mvex, udta=udta, auth=auth, titl=titl, dscp=dscp, cprt=cprt}, size)
 end
 
 function mvhd(size)
@@ -103,31 +136,23 @@ end
 function trak(size, header)
 	cur_trak = {}
 
-	local total_size = 0;
-	while total_size < size do
-		local header, box_size, header_size = BOXHEADER()
-
-		if header == "mdia" then
-			mdia(box_size-header_size)
-		elseif header == "edts" then
-			edts(box_size-header_size)
-		else
-			unsupported_box(header, box_size, header_size)
-		end
-
-		total_size = total_size + box_size
-	end
+	child_boxes({mdia=mdia, tref=tref, tkhd=tkhd, edts=edts}, size)
 
 	analyse_trak(cur_trak)
 end
 
 function tkhd(size)
+	print(" --> unsupported")
+	rbyte("tkhd", size)
+end
+
+function tref(size)
+	print(" --> unsupported")
 	rbyte("tkhd", size)
 end
 
 function edts(size)
-	local header, box_size, header_size = BOXHEADER()
-	elst(box_size)
+	child_boxes({elst=elst}, size)
 end
 
 function elst(size)
@@ -147,20 +172,7 @@ function elst(size)
 end
 
 function mdia(size)
-	local total_size = 0;
-	while total_size < size do
-		local header, box_size, header_size = BOXHEADER()
-
-		if header == "mdhd" then
-			mdhd(box_size-header_size)
-		elseif header == "minf" then
-			minf(box_size-header_size)
-		else
-			unsupported_box(header, box_size, header_size)
-		end
-
-		total_size = total_size + box_size
-	end
+	child_boxes({mdhd=mdhd, minf=minf, hdlr=hdlr}, size)
 end
 
 function mdhd(size)
@@ -178,77 +190,51 @@ function mdhd(size)
 end
 
 function hdlr(size)
+	print(" --> unsupported")
 	rbyte("hdlr", size)
 end
 
 function minf(size)
-	local total_size = 0;
-	while total_size < size do
-		local header, box_size, header_size = BOXHEADER()
-
-		if header == "stbl" then
-			stbl(box_size-header_size)
-		else
-			unsupported_box(header, box_size, header_size)
-		end
-
-		total_size = total_size + box_size
-	end
+	child_boxes({stbl=stbl, vmhd=vmhd, smhd=smhd, hmhd=hmhd, nmhd=nmhd, dinf=dinf}, size)
 end
 
 function vmhd(size)
+	print(" --> unsupported")
 	rbyte("vmhd", size)
 end
 
 function smhd(size)
+	print(" --> unsupported")
 	rbyte("smhd", size)
 end
 
 function hmhd(size)
+	print(" --> unsupported")
 	rbyte("hmhd", size)
 end
 
 function nmhd(size)
+	print(" --> unsupported")
 	rbyte("nmhd", size)
 end
 
 function dinf(size)
-	rbyte("dinf", 0)
+	print(" --> unsupported")
+	rbyte("dinf", size)
+	-- child_boxes({dref=dref}, size)
 end
 
 function dref(size)
-	rbyte("dref", size)
+	child_boxes({url=url}, size)
 end
 
 function url (size)
+	print(" --> unsupported")
 	rbyte("url ", size)
 end
 
 function stbl(size)
-	local total_size = 0;
-	while total_size < size do
-		local header, box_size, header_size = BOXHEADER()
-
-		if header == "stsd" then
-			stsd(box_size-header_size)
-		elseif header == "stts" then
-			stts(box_size-header_size)
-		elseif header == "stsc" then
-			stsc(box_size-header_size)
-		elseif header == "stsz" then
-			stsz(box_size-header_size)
-		elseif header == "stco" then
-			stco(box_size-header_size)
-		elseif header == "stss" then
-			stss(box_size-header_size)
-		elseif header == "ctts" then
-			ctts(box_size-header_size)
-		else
-			unsupported_box(header, box_size, header_size)
-		end
-
-		total_size = total_size + box_size
-	end
+	child_boxes({stsd=stsd, stts=stts, stsc=stsc, stsz=stsz, stco=stco, stss=stss, ctts=ctts}, size)
 end
 
 function HEVCDecoderConfigurationRecord()
@@ -296,25 +282,11 @@ function HEVCSampleEntry(size)
 	local hvcC_exists = false
 	VisualSampleEntryBox()
 
-	local total_size = cur() - begin;
-	while total_size < size do
-		local header, box_size, header_size = BOXHEADER()
-
-		if header == "m4ds" then
-			MPEG4ExtensionDescriptorsBox(box_size - header_size)
-		elseif header == "hvcC" then
-			HEVCDecoderConfigurationRecord()
-			hvcC_exists = true
-		elseif header == "btrt" then
-			MPEG4BitRateBox()
-		else
-			unsupported_box(header, box_size, header_size)
-		end
-
-		total_size = total_size + box_size
-	end
-
-	assert(hvcC_exists, "hvcC not exists")
+	child_boxes({
+		m4ds=MPEG4ExtensionDescriptorsBox,
+		hvcC=HEVCDecoderConfigurationRecord,
+		btrt=MPEG4BitRateBox},
+		size - (cur() - begin))
 end
 
 function MPEG4BitRateBox()
@@ -332,25 +304,11 @@ function AVCSampleEntry(size)
 
 	VisualSampleEntryBox()
 
-	local total_size = cur() - begin;
-	while total_size < size do
-		local begin = cur()
-		local header, box_size, header_size = BOXHEADER()
-
-		if header == "m4ds" then
-			MPEG4ExtensionDescriptorsBox(box_size - header_size)
-		elseif header == "avcC" then
-			AVCConfigurationBox()
-		elseif header == "btrt" then
-			MPEG4BitRateBox()
-		else
-			unsupported_box(header, box_size, header_size)
-		end
-	
-		unknown_data(box_size, begin)
-
-		total_size = total_size + box_size
-	end
+	child_boxes({
+		m4ds=MPEG4ExtensionDescriptorsBox,
+		avcC=AVCConfigurationBox,
+		btrt=MPEG4BitRateBox},
+		size - (cur() - begin))
 end
 
 
@@ -400,19 +358,23 @@ function AVCDecoderConfigurationRecord()
 end
 
 function DESCRIPTIONRECORD()
+	push_box()
 	local header, box_size, header_size = BOXHEADER()
 
 	cur_trak.descriptor = header
 
 	if header == "avc1" then
 		AVCSampleEntry(box_size - header_size)
-	elseif header == "hvc1" then
+	elseif header == "hvc1"
+	or     header == "hev1"
+	or     header == "hvcC" then
 		HEVCSampleEntry(box_size - header_size)
 	elseif header == "mp4a" then
 		rbyte("some data", box_size - header_size)
 	else
 		unsupported_box(header, box_size, header_size)
 	end
+	pop_box()
 end
 
 function stsd(size)
@@ -425,82 +387,99 @@ function stsd(size)
 		DESCRIPTIONRECORD()
 	end
 
-	unknown_data(size, begin)
+	--sample entry boxes
+	child_boxes({rtmp=rtmp, rtmp=rtmp, encv=encv, enca=enca, encr=encr}, size - (cur() - begin))
+	unknown_data(size, begin, "stsd")
 end
 
 function rtmp(size)
-	rbyte("rtmp", size)
+	child_boxes({amhp=amhp, amto=amto}, size)
 end
 
 function amhp(size)
+	print(" --> unsupported")
 	rbyte("amhp", size)
 end
 
 function amto(size)
+	print(" --> unsupported")
 	rbyte("amto", size)
 end
 
 function encv(size)
+	print(" --> unsupported")
 	rbyte("encv", size)
 end
 
 function enca(size)
+	print(" --> unsupported")
 	rbyte("enca", size)
 end
 
 function encr(size)
-	rbyte("encr", size)
+	child_boxes({sinf=sinf}, size)
 end
 
 function sinf(size)
-	rbyte("sinf", size)
+	child_boxes({frma=frma, schm=schm, schi=schi}, size)
 end
 
 function frma(size)
+	print(" --> unsupported")
 	rbyte("frma", size)
 end
 
 function schm(size)
+	print(" --> unsupported")
 	rbyte("schm", size)
 end
 
 function schi(size)
-	rbyte("schi", size)
+	child_boxes({adkm=adkm}, size)
 end
 
 function adkm(size)
+	print(" --> unsupported")
 	rbyte("adkm", size)
 end
 
 function ahdr(size)
+	print(" --> unsupported")
 	rbyte("ahdr", size)
 end
 
 function aprm(size)
+	print(" --> unsupported")
 	rbyte("aprm", size)
 end
 
 function aeib(size)
+	print(" --> unsupported")
 	rbyte("aeib", size)
 end
 
 function akey(size)
+	print(" --> unsupported")
 	rbyte("akey", size)
 end
 
 function aps (size)
+	print(" --> unsupported")
 	rbyte("aps ", size)
 end
 
 function flxs(size)
+	print(" --> unsupported")
 	rbyte("flxs", size)
 end
 
 function asig(size)
+	print(" --> unsupported")
 	rbyte("asig", size)
 end
 
 function adaf(size)
+	print(" --> unsupported")
 	rbyte("adaf", size)
 end
 
@@ -536,7 +515,7 @@ function stsc(size)
 	rbyte("Flags",                                          3)
 	rbyte("Count",                                          4)
 	for i=1, get("Count") do
-		STSCRECORD()
+		nest_call("STSCRECORD", STSCRECORD)
 	end
 end
 
@@ -566,7 +545,7 @@ function stco(size)
 end
 
 function co64(size)
-	assert("unsupported size")
+	assert(false, "unsupported size")
 	rbyte("Version",                                        4)
 	rbyte("Flags",                                          4)
 	rbyte("OffsetCount",                                    4)
@@ -589,155 +568,196 @@ function sdtp(size)
 end
 
 function mvex(size)
-	rbyte("mvex", size)
+	child_boxes({mehd=mehd, trex=trex}, size)
 end
 
 function mehd(size)
+	print(" --> unsupported")
 	rbyte("mehd", size)
 end
 
 function trex(size)
+	print(" --> unsupported")
 	rbyte("trex", size)
 end
 
 function auth(size)
+	print(" --> unsupported")
 	rbyte("auth", size)
 end
 
 function titl(size)
+	print(" --> unsupported")
 	rbyte("titl", size)
 end
 
 function dscp(size)
+	print(" --> unsupported")
 	rbyte("dscp", size)
 end
 
 function cprt(size)
+	print(" --> unsupported")
 	rbyte("cprt", size)
 end
 
 function udta(size)
+	print(" --> unsupported")
 	rbyte("udta", size)
 end
 
 function uuid(size)
+	print(" --> unsupported")
 	rbyte("uuid", size)
 end
 
 function moof(size)
-	local total_size = 0;
-	while total_size < size do
-		local header, box_size, header_size = BOXHEADER()
-
-		if header == "mfhd" then
-			mfhd(box_size-header_size)
-		elseif header == "traf" then
-			traf(box_size-header_size)
-		else
-			unsupported_box(header, box_size, header_size)
-		end
-
-		total_size = total_size + box_size
-	end
+	child_boxes({mfhd=mfhd, traf=traf}, size)
 end
 
 function mfhd(size)
-	rbyte("mfhd", size)
+	rbyte("Version",                      1)
+	rbyte("Flags",                        3)
+	rbyte("SequenceNumber",               4)
 end
 
 function traf(size)
-	local total_size = 0;
-	while total_size < size do
-		local header, box_size, header_size = BOXHEADER()
-
-		if header == "mfhd" then
-			mfhd(box_size-header_size)
-		elseif header == "traf" then
-			traf(box_size-header_size)
-		else
-			unsupported_box(header, box_size, header_size)
-		end
-
-		total_size = total_size + box_size
-	end
+	--enable_print(true)
+	child_boxes({tfhd=tfhd, trun=trun, tfdt=tfdt}, size)
 end
 
+local SampleDependOn
 function SAMPLEFLAGS()
-	rbit("Reserved",                  6)
-	rbit("SampleDependsOn",           2)
-	rbit("SampleIsDependedOn",        2)
-	rbit("SampleHasRedundancy",       2)
-	rbit("SamplePaddingValue",        3)
-	rbit("SampleIsDifferenceSample",  1)
+	rbit("Reserved", 6)
+	SampleDependOn = rbit("SampleDependsOn", 2)
+	rbit("SampleIsDependedOn", 2)
+	rbit("SampleHasRedundancy", 2)
+	rbit("SamplePaddingValue", 3)
+	rbit("SampleIsDifferenceSample", 1)
 	rbit("SampleDegradationPriority", 16)
 end
 
+local DefaultSampleDependOn
+local DefaultBaseDataOffset
+local DefaultSampleSize
+local DefaultSampleDuration
 function tfhd(size)
 	rbyte("Version",                      1)
 	rbyte("Flags",                        3)
 	rbyte("TrackID",                      4)
-	if get("Flags") & 0x000001 then
+	if get("Flags") & 0x000001 ~= 0 then
 		rbyte("BaseDataOffset",           8)
 	end
-	if get("Flags") & 0x000002 then
+	if get("Flags") & 0x000002 ~= 0 then
 		rbyte("SampleDescriptionIndex",   4)
 	end
-	if get("Flags") & 0x000008 then
-		rbyte("DefaultSampleDuration",    4)
+	if get("Flags") & 0x000008 ~= 0 then
+		DefaultSampleDuration = rbyte("DefaultSampleDuration",    4)
 	end
-	if get("Flags") & 0x000010 then
-		rbyte("DefaultSampleSize",        4)
+	if get("Flags") & 0x000010 ~= 0 then
+		DefaultSampleSize = rbyte("DefaultSampleSize",        4)
 	end
-	if get("Flags") & 0x000020 then
-		-- DefaultSampleFlags
-		SAMPLEFLAGS()
+	if get("Flags") & 0x000020 ~= 0 then
+		nest_call("DefaultSampleFlags", SAMPLEFLAGS)
+		DefaultSampleDependOn = get("SampleDependsOn")
 	end
 end
 
+local SampleDuration
+local SampleSize
+local SampleCompositionTimeOffset
 function SampleInformationStructure(Flags)
-	-- SampleInformation
-	if Flags & 0x000100 then
-		rbyte("SampleDuration",               4)
+	if Flags & 0x000100 ~= 0 then
+		SampleDuration = rbyte("SampleDuration", 4)
 	end
-	if Flags & 0x000200 then
-		rbyte("SampleSize",                   4)
+	if Flags & 0x000200 ~= 0 then
+		SampleSize = rbyte("SampleSize", 4)
 	end
-	if Flags & 0x000400 then
-		-- SampleFlags
-		SAMPLEFLAGS()
+	if Flags & 0x000400 ~= 0 then
+		nest_call("SampleFlags", SAMPLEFLAGS)
 	end
-	if Flags & 0x000800 then
-		rbyte("SampleCompositionTimeOffset",  4)
+	if Flags & 0x000800 ~= 0 then
+		SampleCompositionTimeOffset = rbyte("SampleCompositionTimeOffset", 4)
 	end
 end
 
+local FirstSampleDependOn
+local FirstDataOffset
+local sample_count = 0
+local current_tick = 0
 function trun(size)
-	rbyte("Version",                              1)
-	rbyte("Flags",                                3)
-	rbyte("SampleCount",                          4)
-	if get("Flags") & 0x000001 then
+	rbyte("Version", 1)
+	local flags = rbyte("Flags", 3)
+	local count = rbyte("SampleCount", 4)
+
+	if flags & 0x000001 ~= 0 then
 		rbyte("DataOffset",                       4)
 	end
-	if get("Flags") & 0x000004 then
-		-- SampleFlags
-		SAMPLEFLAGS()
+	if flags & 0x000004 ~= 0 then
+		nest_call("FirstSampleFlags", SAMPLEFLAGS)
+		FirstSampleDependOn = get("SampleDependsOn")
 	end
-	local Flags = get("Flags")
-	for i=1, get("SampleCount") do
-		-- SampleInformation
-		SampleInformationStructure(Flags)
+	for i=1, count do
+		SampleDependOn = DefaultSampleDependOn
+		SampleDuration = DefaultSampleDuration
+		SampleCompositionTimeOffset = 0
+		if i==1 then
+			SampleDependOn = FirstSampleDependOn or SampleDependOn
+		end
+
+		nest_call("SampleInformation", SampleInformationStructure, flags)
+		
+		if cur_trak.descriptor == "avcC"
+		or cur_trak.descriptor == "avc1"
+		or cur_trak.descriptor == "hvc1" then
+			if SampleDependOn == 1 then
+				io.write("x")
+			elseif SampleDependOn == 2 then 
+				io.write("I")
+			else
+				io.write("?")
+			end
+				
+			if i%50 == 0 then
+				io.write("\n")
+			end
+		end
+			
+		sample_count = sample_count + 1
+		current_tick = current_tick + SampleDuration
+		if SampleCompositionTimeOffset then
+			set("PTS[ms]", decstr((current_tick + SampleCompositionTimeOffset) / get("TimeScale")*1000))
+			set("DTS[ms]", decstr(current_tick / get("TimeScale")*1000))
+		else
+			set("PTS[ms]", decstr((current_tick + SampleCompositionTimeOffset) / get("TimeScale")*1000))
+		end
+	end
+	io.write("\n")
+end
+
+function tfdt(size)
+	local version = rbyte("Version", 1)
+	rbyte("Flags", 3)
+
+	if version==1 then
+		rbyte("baseMediaDecodeTime", 8)
+	else
+		rbyte("baseMediaDecodeTime", 4)
 	end
 end
 
 function mdat(size)
+	-- print(" data only")
 	rbyte("mdat", size)
 end
 
 function meta(size)
+	print(" --> unsupported")
 	rbyte("meta", size)
 end
 
 function ilst(size)
+	print(" --> unsupported")
 	rbyte("ilst", size)
 end
 
@@ -753,49 +773,38 @@ function free(size)
 end
 
 function skip(size)
+	print(" --> unsupported")
 	rbyte("skip", size)
 end
 
 function mfra(size)
+	print(" --> unsupported")
 	rbyte("mfra", size)
 end
 
 function tfra(size)
+	print(" --> unsupported")
 	rbyte("tfra", size)
 end
 
 function mfro(size)
+	print(" --> unsupported")
 	rbyte("mfro", size)
 end
 
 function mp4(size)
-	local total_size = 0
-	while total_size < size do
-		local header, box_size, header_size = BOXHEADER()
-
-		if header == "ftyp" then
-			ftyp(box_size-header_size)
-		elseif header == "free" then
-			free(box_size-header_size)
-		elseif header == "moov" then
-			moov(box_size-header_size)
-		elseif header == "moof" then
-			moof(box_size-header_size)
-		elseif header == "mdat" then
-			mdat(box_size-header_size)
-		else
-			unsupported_box(header, box_size, header_size)
-		end
-
-		total_size = total_size + box_size
-	end
-	return total_size
+	child_boxes({ftyp=ftyp, free=free, moov=moov, moof=moof, mdat=mdat}, size)
 end
 
 ----------------------------------------
 -- 解析用util
 ----------------------------------------
 function analyse_trak(trak)
+	if get("SizeCount") == 0 then
+		print("no stsc, maybe fragmented.", trak.descriptor)
+		return
+	end
+	
 	local result = {}
 
 	local time_scale = get("TimeScale")
@@ -859,8 +868,8 @@ function analyse_trak(trak)
 	end
 	for i=1, #DTS_in_tick do
 		table.insert(DTS, DTS_in_tick[i]/time_scale)
-		set(trak.descriptor.."_DTS[ms]", DTS_in_tick[i]/time_scale*1000)
-		set(trak.descriptor.."_DTS[90kHz]", DTS_in_tick[i]/time_scale*90000)
+		set(trak.descriptor.."_DTS[ms]", decstr(DTS_in_tick[i]/time_scale*1000))
+		set(trak.descriptor.."_DTS[90kHz]", hexstr(math.ceil(DTS_in_tick[i]/time_scale*90000)))
 	end
 	store(trak.descriptor.."DTS", DTS)
 
@@ -879,8 +888,8 @@ function analyse_trak(trak)
 		end
 		for i=1, #PTS_in_tick do
 			table.insert(PTS, PTS_in_tick[i]/time_scale)
-			set(trak.descriptor.."_PTS[ms]", PTS_in_tick[i]/time_scale*1000)
-			set(trak.descriptor.."_PTS[90kHz]", PTS_in_tick[i]/time_scale*90000)
+			set(trak.descriptor.."_PTS[ms]", decstr(PTS_in_tick[i]/time_scale*1000))
+			set(trak.descriptor.."_PTS[90kHz]", hexstr(math.ceil(PTS_in_tick[i]/time_scale*90000)))
 		end
 		store(trak.descriptor.."PTS", PTS)
 	else
@@ -888,8 +897,9 @@ function analyse_trak(trak)
 	end
 
 	-- ES書き出し
-	-- Videoであれば解析
-	print(cur_trak.descriptor)
+	print("================================")
+	print("trak.descriptor = \""..cur_trak.descriptor.."\"")
+
 	local prev = cur()
 	local out_file_name = __out_dir__..trak.descriptor..".es"
 	if trak.descriptor == "avc1"
@@ -899,10 +909,11 @@ function analyse_trak(trak)
 			write(out_file_name, val2str(nal_size[i], get("lengthSizeMinusOne")+1))
 			tbyte("nal", nal_size[i], out_file_name)
 		end
-	end
-	for i = 1, #Offset do
-		seek(Offset[i])
-		tbyte("es", Size[i], out_file_name)
+	else
+		for i = 1, #Offset do
+			seek(Offset[i])
+			tbyte("es", Size[i], out_file_name)
+		end
 	end
 	
 	
@@ -917,13 +928,23 @@ function analyse_trak(trak)
 			local stream, prev = open(out_file_name)
 			length_stream(get("lengthSizeMinusOne")+1)
 			swap(prev)
-		elseif trak.descriptor == "hvc1" then
+		elseif trak.descriptor == "hvc1"
+		or     trak.descriptor == "hev1" then
 			dofile(__streamdef_dir__.."h265.lua")
 			local stream, prev = open(out_file_name)
 			length_stream(get("lengthSizeMinusOne")+1)
 			swap(prev)
+		--elseif trak.descriptor == "mp4a" then
+		--	dofile(__streamdef_dir__.."aac.lua")
+		--	local stream, prev = open(out_file_name)
+		--	adts_sequence(get_size())
+		--	swap(prev)
+		else
+			print("unsupported es type ".. trak.descriptor)
 		end
 	end
+
+	print("================================")
 	seek(prev)
 	
 	
@@ -989,10 +1010,8 @@ function analyse_mp4()
 end
 
 --reset("lengthSizeMinusOne", 3)
-
 --open(__stream_path__)
 enable_print(false)
 mp4(get_size())
-save_as_csv(__out_dir__.."mp4.csv")
 analyse_mp4()
 

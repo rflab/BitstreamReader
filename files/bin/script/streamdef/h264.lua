@@ -82,14 +82,14 @@ end
 
 local ScalingList4x4 = {}
 local ScalingList8x8 = {}
-function scaling_list(scalingList, sizeOfScalingList, useDefaultScalingMatrixFlag)
+function scaling_list(scalingList, sizeOfScalingList, useDefaultScalingMatrixFlag, flag_ix)
 	local lastScale = 8
 	local nextScale = 8
 	for j = 0, sizeOfScalingList - 1 do
 		if nextScale ~= 0 then
 			rexp("delta_scale")
-			nextScale = ( lastScale + delta_scale + 256 ) % 256
-			useDefaultScalingMatrixFlag = ((j == 0) and (nextScale == 0))
+			nextScale = ( lastScale + get("delta_scale") + 256 ) % 256
+			useDefaultScalingMatrixFlag[flag_ix] = ((j == 0) and (nextScale == 0))
 		end
 		scalingList[j] = (nextScale == 0) and lastScale or nextScale
 		lastScale = scalingList[j]
@@ -231,6 +231,8 @@ function profile_tier_level(profilePresentFlag, maxNumSubLayersMinus1 )
 	end
 end
 
+local UseDefaultScalingMatrix8x8Flag = {}
+local UseDefaultScalingMatrix4x4Flag = {}
 function seq_parameter_set_rbsp()
 sprint("seq_parameter_set_rbsp")
 	rbit("profile_idc",                                    8)
@@ -270,10 +272,10 @@ sprint("seq_parameter_set_rbsp")
 				if get("seq_scaling_list_present_flag") == 1then
 					if i <= 6 then
 						ScalingList4x4[i] = ScalingList4x4[i] or {}
-						scaling_list(ScalingList4x4[i], 16, UseDefaultScalingMatrix4x4Flag[i])
+						scaling_list(ScalingList4x4[i], 16, UseDefaultScalingMatrix4x4Flag, i)
 					else
 						ScalingList8x8[i] = ScalingList8x8[i] or {}
-						scaling_list(ScalingList8x8[i-6], 64, UseDefaultScalingMatrix8x8Flag[i-6])
+						scaling_list(ScalingList8x8[i-6], 64, UseDefaultScalingMatrix8x8Flag, i-6)
 					end
 				end
 			end	
@@ -445,10 +447,10 @@ sprint("pic_parameter_set_rbsp")
 				if pic_scaling_list_present_flag[i] == 1 then
 					if i < 6 then
 						ScalingList4x4[i] = ScalingList4x4[i] or {}
-						scaling_list(ScalingList4x4[i], 16, UseDefaultScalingMatrix4x4Flag[i])
+						scaling_list(ScalingList4x4[i], 16, UseDefaultScalingMatrix4x4Flag, i)
 					else
 						ScalingList8x8[i] = ScalingList8x8[i] or {}
-						scaling_list(ScalingList8x8[i-6], 64, UseDefaultScalingMatrix8x8Flag[i-6])
+						scaling_list(ScalingList8x8[i-6], 64, UseDefaultScalingMatrix8x8Flag, i-6)
 					end
 				end
 			end
@@ -640,7 +642,7 @@ function nal_unit(rbsp, NumBytesInNALunit)
 	local NumBytesInRbsp = 0
 	local ofs
 	while true do
-		ofs = fstr("00 00 03", false, NumBytesInNALunit-i)
+		ofs = fstr("00 00 03", NumBytesInNALunit-i, false)
 		if ofs+2 < NumBytesInNALunit-i then
 			tbyte("rbsp", ofs+2, rbsp)
 			cbyte("emulation_prevention_three_byte", 1, 3) -- equal to 0x03
@@ -692,7 +694,7 @@ function nal_unit_payload(rbsp, NumBytesInRbsp)
 	or     nal_unit_type == 4
 	or     nal_unit_type == 5 then
 		if has_slice_header == false then
-			print(" -> slice_header_found")
+			print(" -> slice_header found.")
 			has_slice_header = true
 		end
 		slice_header()
@@ -711,7 +713,7 @@ function nal_unit_payload(rbsp, NumBytesInRbsp)
 end
 
 
-function byte_stream_nal_unit(rbsp, NumBytesInNALunit)
+function byte_stream_nal_unit(rbsp, remain_size)
 sprint("------------"..hexstr(cur()).."------------")
 
 	local begin = cur()
@@ -726,10 +728,15 @@ sprint("------------"..hexstr(cur()).."------------")
 	end
 	cbyte("start_code_prefix_one_3bytes",               3, 0x000001)
 	
-	NumBytesInNALunit = math.min(fstr("00 00 00", false), fstr("00 00 01", false), NumBytesInNALunit)
+	local NumBytesInNALunit = math.min(fstr("00 00 00", 0x7fffffff, false), fstr("00 00 01", 0x7fffffff, false), remain_size)
+	if NumBytesInNALunit == remain_size then
+		print("return big size to exit")
+		return 100000
+	end
 	nal_unit(rbsp, NumBytesInNALunit)
 	
 	while more_data_in_byte_stream()
+	and cur()+4 < get_size()
 	and lbyte(3) ~= 0x000001
 	and lbyte(4) ~= 0x00000001 do
 		cbit("trailing_zero_8bits",                     8, 0)
@@ -741,10 +748,8 @@ end
 function byte_stream(max_length)
 	local rbsp, prev = open(1024*1024*3)
 	swap(prev)
-	rbsp:enable_print(false)
-	prev:enable_print(false)
 	local total_size = 0;
-	while total_size < max_length do
+	while total_size < max_length - 10 do
 		total_size = total_size + byte_stream_nal_unit(rbsp, max_length-total_size)
 	end
 end
@@ -753,8 +758,6 @@ end
 function length_stream(lenght_size)
 	local rbsp, prev = open(1024*1024*3)
 	swap(prev)
-	rbsp:enable_print(false)
-	prev:enable_print(false)
 
 	local total_size = 0;
 	local nal_size = 0
@@ -767,8 +770,6 @@ function length_stream(lenght_size)
 end
 
 if __stream_ext__ == ".h264" then
-	--open(__stream_path__)
-	enable_print(false)
+	-- enable_print(false)
 	byte_stream(get_size() / 100)
-	print_status()
 end

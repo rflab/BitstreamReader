@@ -1,8 +1,7 @@
 -- Riffの一種だけど簡単なので別ファイルにしてみた
 
---open(__stream_path__)
---enable_print(false)
---ask_debug()
+-- open(__stream_path__)
+-- enable_print(false)
 
 little_endian(true)
 cstr ("RIFF",                         4, "RIFF")

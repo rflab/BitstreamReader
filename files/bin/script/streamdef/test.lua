@@ -75,7 +75,7 @@ function test_sql()
 	-- マルチバイトでハング
 		db = SQLite:new(__stream_name__..".db")
 	else
-		db = SQLite:new(__stream_dir__..__stream_name__..".db")
+		db = SQLite:new(__out_dir__..__stream_name__..".db")
 	end
 	db:exec("drop table if exists mytable");
 	db:exec("create table mytable (id integer primary key, name text)");
@@ -150,7 +150,7 @@ function test_wav()
 		tmp_sample = math.sin(i * freq * math.pi/sampling_rate)
 		w:append_sample(tmp_sample, tmp_sample)
 	end
-	w:write(__stream_dir__.."out.wav")
+	w:write(__out_dir__.."out.wav")
 end
 
 

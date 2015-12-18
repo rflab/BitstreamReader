@@ -26,7 +26,8 @@ function chunk()
 	elseif id == "COMM" then
 		comm_chunk_data()
 	else
-		rbyte("ckData", size)
+		-- rbyte("ckData", size)
+		tbyte("ckData", size, __out_dir__.."iff_ckdata.dat")
 	end
 
 	align_chunk()
@@ -34,7 +35,7 @@ end
 
 function riff_chunk_data(size)
 	local name = rstr("riff_name", 4)
-	print("  "..name)
+	sprint("  riff-"..name)
 	
 	local ed = cur() + size - 4
 	while ed > cur() do
@@ -44,7 +45,7 @@ end
 
 function form_chunk_data(size)
 	local name = rstr("form_name", 4)
-	print("  "..name)
+	sprint("  form-"..name)
 	
 	local ed = cur() + size -4
 	while ed > cur() do
@@ -54,7 +55,7 @@ end
 
 function list_chunk_data(size)
 	local name = rstr("list_name", 4)
-	print("  "..name)
+	sprint("  list-"..name)
 	
 	local ed = cur() + size - 4
 	while ed > cur() do
@@ -63,7 +64,7 @@ function list_chunk_data(size)
 end
 
 function idx1_chunk_data(size)
-	print("idx1")
+	sprint("  idx1")
 	local ed = cur() + size
 	while cur() < ed do
 		rstr ("dwChunkId", 4)
@@ -84,11 +85,13 @@ end
 
 function comm_chunk_data(size)
 	if get("form_name") == "AIFF" then
+		print("this stream is AIFF")
 		rbyte("numChannels",     2)  -- /* # audio channels */
 		rbyte("numSampleFrames", 4)  -- /* # sample frames = samples/channel */
 		rbyte("sampleSize",      2)  -- /* # bits/sample */
 		rbit ("sampleRate",      80) -- /* sample_frames/sec */
 	elseif get("form_name") == "AIFC" then
+		print("this stream is AIFF-C")
 		rbyte("numChannels",     2)  -- /* # audio channels */
 		rbyte("numSampleFrames", 4)  -- /* # sample frames = samples/channel */
 		rbyte("sampleSize",      2)  -- /* # bits/sample */
@@ -101,6 +104,7 @@ function comm_chunk_data(size)
 	end
 end
 
---open(__stream_path__)
-enable_print(false)
-chunk()
+--enable_print(true)
+while cur() < get_size() do
+	chunk()
+end

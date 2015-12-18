@@ -24,7 +24,7 @@ function adts_sequence(size)
 	while cur() < size do
 		check_progress(false)
 		if lbit(12) == syncword then
-			adts_frame()
+			nest_call("adts_frame", adts_frame)
 		else
 			byte_alignment()
 			seekoff(1)
@@ -34,40 +34,39 @@ function adts_sequence(size)
 end
 
 function adts_frame()
-	print("adts_frame")
 	adts_begin = cur()
 
-	adts_fixed_header()
-	adts_variable_header();
+	nest_call("adts_fixed_header", adts_fixed_header)
+	nest_call("adts_variable_header", adts_variable_header)
 	if get("number_of_raw_data_blocks_in_frame") == 0 then
 		adts_error_check()
 
 
-		--raw_data_block()
-		rbyte("payload", get("aac_frame_lenght")-7)
-		if cur() ~= adts_begin+get("aac_frame_lenght") then
-			print("######size error", begin+size, cur())
-			seek(adts_begin+get("aac_frame_lenght"))
-		else
-			print(" - frame size ok")
-		end
+		-- むりげー
+		-- print("skip raw_data_block")
+		seek(adts_begin+get("aac_frame_lenght"))
+		-- raw_data_block()
 
 
 
 	else
 		adts_header_error_check()
-		for i = 0, get("number_of_raw_data_blocks_in_frame") -1 do
-			raw_data_block();
-			adts_raw_data_block_error_check();
-		end
+
+		-- むりげー
+		-- print("skip raw_data_blocks")
+		seek(adts_begin+get("aac_frame_lenght"))
+		-- for i = 0, get("number_of_raw_data_blocks_in_frame") -1 do
+		-- 	raw_data_block()
+		-- 	adts_raw_data_block_error_check()
+		-- end
 	end
 end
 
 function adts_fixed_header(size)
-	rbit("sync", 12)
+	cbit("sync", 12, syncword)
 	rbit("id", 1)
-	rbit("layer", 2)
-	rbit("protection_bit", 1)
+	rbit("layer", 2, 0)
+	rbit("protection_absent", 1)
 	rbit("profile", 2)
 	rbit("sampling_freq", 4)
 	rbit("private_Bit", 1)
@@ -83,9 +82,9 @@ function adts_variable_header()
 	rbit("adts_buffer_fullness", 11)
 	rbit("number_of_raw_data_blocks_in_frame", 2)
 end
-
+	
 function adts_error_check()
-	if get("protection_bit") == 0 then
+	if get("protection_absent") == 0 then
 		rbit("crc_check", 16) -- bits rpchof
 	end
 end
@@ -95,27 +94,27 @@ function raw_data_stream()
 		raw_data_block();
 	end
 end
-
+	
 function raw_data_block()
 	local id
 	while true do
 		id = rbit("id_syn_ele", 3)
-		if id == ID_SCE then
+		if id == ID_END then
 			break
 		elseif id == ID_SCE then
-			--single_channel_element()
+			single_channel_element()
 		elseif id == ID_CPE then
-			--channel_pair_element()
+			channel_pair_element()
 		elseif id == ID_CCE then
-			-- coupling_channel_element()
+			coupling_channel_element()
 		elseif id == ID_LFE then
-			-- lfe_channel_element()
+			lfe_channel_element()
 		elseif id == ID_DSE then
-			-- data_stream_element()
+			data_stream_element()
 		elseif id == ID_PCE then
-			-- program_config_element()
+			program_config_element()
 		elseif id == ID_FIL then
-			-- fill_element()
+			fill_element()
 		else
 			print("error")
 			break
@@ -124,10 +123,10 @@ function raw_data_block()
 
 		-- とりあえず
 		break
-	end
+		end
 
 	byte_alignment()
-end
+	end
 
 function single_channel_element()
 	rbit("element_instance_tag", 4) -- uimsbf
@@ -153,6 +152,45 @@ function channel_pair_element()
 	individual_channel_stream(common_window);
 end
 
+-- 未
+function EIGHT_SHORT_SEQUENCE()
+	assert(false)
+	return 2
+end
+
+-- 未
+function PRED_SFB_MAX()
+	assert(false)
+	return 40
+end
+
+function individual_channel_stream(common_window)
+print("individual_channel_stream")
+	rbit("global_gain", 8) -- uimsbf
+	if common_window == 0 then
+		ics_info()
+	end
+	section_data()
+	scale_factor_data()
+	
+	rbit("pulse_data_present", 1) -- uismbf
+	if get("pulse_data_present") ~= 0 then
+		pulse_data()
+	end
+
+	rbit("tns_data_present", 1) -- uimsbf
+	if get("tns_data_present") ~= 0 then
+		tns_data();
+	end
+
+	rbit("gain_control_data_present", 1) -- uimsbf
+	if get("gain_control_data_present") ~= 0 then
+		gain_control_data();
+	end
+	
+	spectral_data();
+end
+
 function ics_info()
 	rbit("ics_reserved_bit", 1) -- bslbf
 	rbit("window_sequence", 2) -- uimsbf
@@ -160,7 +198,7 @@ function ics_info()
 	if get("window_sequence") == EIGHT_SHORT_SEQUENCE() then
 		rbit("max_sfb", 4) -- uimsbf
 		rbit("scale_factor_grouping", 7) -- uimsbf
-	else
+			else
 		rbit("max_sfb", 6) -- uimsbf
 		rbit("predictor_data_present", 1) -- uimsbf
 		if get("predictor_data_present") then
@@ -176,36 +214,31 @@ function ics_info()
 	end
 end
 
--- 未
-function EIGHT_SHORT_SEQUENCE()
-	return 2
+function section_data()
+	assert(false)
 end
 
--- 未
-function PRED_SFB_MAX()
-	return 40
+function scale_factor_data()
+	assert(false)
 end
 
-function individual_channel_stream(common_window)
-print("individual_channel_stream")
-	-- global_gain; 8 uimsbf
-	-- if (!common_window)
-	-- ics_info();
-	-- section_data();
-	-- scale_factor_data();
-	-- pulse_data_present; 1 uismbf
-	-- if (pulse_data_present) {
-	-- pulse_data();
-	-- }
-	-- tns_data_present; 1 uimsbf
-	-- if (tns_data_present) {
-	-- tns_data();
-	-- }
-	-- gain_control_data_present; 1 uimsbf
-	-- if (gain_control_data_present) {
-	-- gain_control_data();
-	-- }
-	-- spectral_data();
-	-- }
+function tns_data()
+	assert(false)
 end
+
+function gain_control_data()
+	assert(false)
+end
+
+
+
+
+
+
+
+
+
+
+
+
 

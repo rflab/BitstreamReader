@@ -193,10 +193,10 @@ function adaptation_field()
 		    rbit("marker_bit",                              1)
 	    end
 
-		rbyte("reserved", get("adaptation_field_extension_length") + 1 - (cur()-begin))
+		seek(begin + get("adaptation_field_extension_length") + 1)
 	end
 
-	rbyte("stuffing_byte", get("adaptation_field_length") + 1 - (cur() - begin))
+	seek(begin + get("adaptation_field_length") + 1)
 end
 
 function pat()
@@ -277,7 +277,6 @@ function get_stream_type(stream_type, format_identifire)
 	elseif stream_type == 0x21 then ret1 = "Video stream conforming to one or more profiles as defined in Rec. ITU-T T.800 | ISO/IEC 15444-1"
 	elseif stream_type == 0x22 then ret1 = "Additional view Rec. ITU-T H.262 | ISO/IEC 13818-2 video stream for service-compatible stereoscopic 3D services (see Notes 3 and 4)"
 	elseif stream_type == 0x23 then ret1 = "Additional view Rec. ITU-T H.264 | ISO/IEC 14496-10 video stream conforming to one or more profiles defined in Annex A for service-compatible stereoscopic 3D services (see Notes 3 and 4)"
-	elseif stream_type == 0x24 then ret1 = "[H.265 / HEVC]"; ret2 = ES_H265
 	elseif stream_type == 0x24 then ret1 = "[H.265 / HEVC]"; ret2 = ES_H265
 	elseif stream_type == 0x2A then ret1 = "[H.265 / HEVC]"; ret2 = ES_H265
 	elseif 0x24 <= stream_type and stream_type <= 0x7E then
@@ -372,7 +371,7 @@ function ts(size, target)
 	-- 初期TSパケット長
 	while total < size do
 		no = no + 1
-		check_progress()
+		check_progress(false)
 		
 		-- ATSの場合
 		if lbyte(1) ~= 0x47 then
@@ -381,7 +380,7 @@ function ts(size, target)
 			-- printf("  ATS = %x(%fsec)", get("ATS"), get("ATS")/90000)
 		end
 		
-		local ofs = fbyte(0x47, true, 188+4)
+		local ofs = fbyte(0x47, 188+4, true)
 		if ofs ~= 0 then
 			print("# discontinuous syncbyte")
 		end
@@ -515,6 +514,7 @@ function analyze_payload(pid)
 		local size, PTS, DTS
 		if get_size() ~= cur() then
 			size, PTS, DTS = pes(pid, get_size() - cur(), pes_array[pid].es_file_name)
+			--size, PTS, DTS = nest_call("PES", pes, pid, get_size() - cur(), pes_array[pid].es_file_name)
 			if get_size() ~= cur() then
 				rbyte("#unknown remain data", get_size() - cur())
 			end
@@ -542,26 +542,21 @@ end
 function analyze()
 	print("analyze PAT")
 	seek(0)
-	enable_print(false)
 	ts(math.min(get_size(), 1024*1024), TYPE_PAT)
 
 	print("analyze PMT")
 	seek(0)
-	enable_print(false)
 	ts(math.min(get_size(), 1024*1024), TYPE_PMT)
 
 	print("analyze PES")
 	analyse_data_byte = true
 	seek(0)
-	enable_print(false)
 	local analyse_size = math.min(3*1024*1024, get_size()-192)
-	--local analyse_size = get_size()/8
 	ts(analyse_size, TYPE_PES)
 	print("short analyse size="..analyse_size)
 	
 	print("analyze more? [y/n (default:n)]")
 	if io.read() == "y" then
-	--if false then
 		ts(get_size()-(cur())-192, TYPE_PES)
 	end
 	
@@ -570,24 +565,20 @@ function analyze()
 		if v.es_type == ES_H264 then
 			dofile(__streamdef_dir__.."h264.lua")
 			open(v.es_file_name)
-			print_status()
-			enable_print(false)
 			byte_stream(get_size())
 		elseif v.es_type == ES_H265 then
 			dofile(__streamdef_dir__.."h265.lua")
 			open(v.es_file_name)
-			print_status()
-			enable_print(false)
 			byte_stream(get_size())
+		else
+			print("unsupported ES:", v.es_type)
 		end
 		print("[EOS]")
 	end
 end
 
---open(__stream_path__)
-enable_print(false)
+-- enable_print(true)
 analyze()
-save_as_csv(__out_dir__.."ts.csv")
 
 
 

@@ -11,6 +11,11 @@ local previous_syncword
 
 local val_0__4
 
+function curbit()
+	local byte, bit = cur()
+	return byte * 8 + bit
+end
+
 function rsyncsafe_int32()
 	local val = 0
 	rbit("marker", 1)
@@ -30,7 +35,7 @@ function check_ID3v2()
 	if lstr(3) ~= "ID3" then
 		return
 	end
-
+	
 	-- タグヘッダ
 	cstr("header", 3, "ID3")
 	rbyte("ID3_version_major", 1)
@@ -167,6 +172,8 @@ function ID3_frame(version)
 		end
 	end
 
+	push("ID3v2_frame")
+
 	if     frame_id == "TT2" or frame_id == "TIT2" then rbyte("encode", 1) print("Title        : "..rstr("frame_data", frame_size-1))
 	elseif frame_id == "TP1" or frame_id == "TPE1" then rbyte("encode", 1) print("Artist       : "..rstr("frame_data", frame_size-1))
 	elseif frame_id == "TP2" or frame_id == "TPE2" then rbyte("encode", 1) print("Album artist : "..rstr("frame_data", frame_size-1))
@@ -181,26 +188,42 @@ function ID3_frame(version)
 	elseif frame_id == "TCP" or frame_id == "TCMP" then rbyte("encode", 1) print("Compilation  : "..rstr("frame_data", frame_size-1))
 	elseif frame_id == "TBP" or frame_id == "TBPM" then rbyte("encode", 1) print("Bpm          : "..rstr("frame_data", frame_size-1))
 	elseif frame_id == "TT1" or frame_id == "TIT1" then rbyte("encode", 1) print("Group        : "..rstr("frame_data", frame_size-1))
-	
-	
 	elseif frame_id == "PIC" or frame_id == "APIC" then
 		print("export picture data --> ".."pic"..hexstr(frame_size)..".jpg")
-		rbyte("header", 6)
-		tbyte("picture_data", frame_size-6, __stream_dir__.."pic"..hexstr(frame_size)..".jpg")
+		local ofs = fstr("FF D8", 100, false)
+		if ofs ~= 100 then
+			rbyte("header", ofs)
+			tbyte("picture_data", frame_size-ofs, __out_dir__.."pic"..hexstr(frame_size)..".jpg")
+		end
 	else
 		rbyte("encode", 1)
 		print("unknown_info", frame_id, rstr("unknown_frame_data", frame_size-1))
 	end
+	
+	pop("ID3v2_frame")
+	
 	return true
 end
 
 function check_ID3v1()
 	local begin = cur()
 	seek(get_size() - 128)
-	if gstr(3) ~= "TAG" then
+	if lstr(3) ~= "TAG" then
 		seek(begin)
 		return
 	end
+
+	push("ID3v1")
+	print("Header     : ", rstr("Header", 3))
+	print("Title      : ", rstr("Title", 30))
+	print("Artist     : ", rstr("Artist", 30))
+	print("Album      : ", rstr("Album", 30))
+	print("Year       : ", rstr("Year", 4))
+	print("Comment    : ", rstr("Comment", 28))
+	print("Track_flag : ", rbyte("Track_flag", 1))
+	print("Track      : ", rbyte("Track", 1))
+	print("Genru      : ", rbyte("Genru", 1))
+	pop("ID3v1")
 
 	seek(begin)
 end
@@ -218,29 +241,60 @@ end
 function sequence(size)
 	while cur() < size do
 		check_progress(false)
+		seek(cur(), 0)
 		if lbit(12) == syncword then
 			frame()
 		else
-			seekoff(1)
+			print("# syncword not found.", hexstr(cur()))
+			seek(cur()+1, 0)
 			fbyte(0xff)
 		end
 	end
 end
 
+local bitrate_table = {
+    false,
+	32  * 1000,
+	40  * 1000,
+	48  * 1000,
+	56  * 1000,
+	64  * 1000,
+	80  * 1000,
+	96  * 1000,
+	112 * 1000,
+	128 * 1000,
+	160 * 1000,
+	192 * 1000,
+	224 * 1000,
+	256 * 1000,
+	320 * 1000}
+local sampling_freq_table = {
+	44100,
+	48000,
+	32000
+}
 function frame()
-	header()
+	local begin = cur()
+	nest_call("header", header)
+	
+	-- mp3は計算でサイズ取得が必要orz
+	local frame_size = math.floor(144 * bitrate_table[get("bitrate_index")+1] / sampling_freq_table[get("sampling_frequency")+1]) 
+    if get("padding_bit") ~= 0 then
+    	frame_size = frame_size + 1
+    end
+	
+	nest_call("error_check", error_check)
+	nest_call("audio_data", audio_data)
+	-- nest_call("ancillary_data", ancillary_data)
 
-	error_check()
-
-	sprint("skip audio_data and ancillary_data")
-	-- audio_data()
-	-- ancillary_data()
+	seek(begin + frame_size)
 end
+
 
 function header()
 	cbit("syncword", 12, syncword) -- bits bslbf
 	rbit("ID", 1) -- bit bslbf
-	rbit("layer", 2) -- bits bslbf
+	cbit("layer", 2, 1) -- bits bslbf
 	rbit("protection_bit", 1) -- bit bslbf
 	rbit("bitrate_index", 4) -- bits bslbf
 	rbit("sampling_frequency", 2) -- bits bslbf
@@ -260,6 +314,8 @@ function error_check()
 end
 
 -- 各種テーブル[ch][gr]は配列の次元を入れ替えて[gr][ch]として保存
+local cblimit_short = 12
+local cblimit = 21
 local scfsi = {}
 local blocksplit_flag = {}
 local block_type = {}
@@ -269,9 +325,11 @@ local switch_point_s = {}
 local scalefac_compress = {}
 local part2_3_length = {}
 
-function audio_data()
-	print("audio_data - return")
-	
+local slen_table = {
+	slen1={0, 0, 0, 0, 3, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4},
+	slen2={0, 1, 2, 3, 0, 1, 2, 3, 1, 2, 3, 1, 2, 3, 2, 3}}
+
+function audio_data()	
 	if get("mode") == single_channel then
 		rbit("main_data_end", 9) -- bits uimsbf
 		rbit("private_bits",  5) -- bits bslbf
@@ -312,26 +370,35 @@ function audio_data()
 			rbit("scalefac_scale[gr]",  1) -- bitbslbf
 			rbit("count1table_select[gr]",  1) -- bitbslbf
 		end
-		--[[
-			The main_data follows. It does not follow the above side information in
-			the bitstream. The main_data ends at a location in the main_data
-			bitstream preceding the frame header of the following frame at an offset
-			given by the value of main_data_end (see definition of main_data_end and
-			3-Annex Fig.3-A.7.1)
-		--]]
+		
+		-- The main_data follows. It does not follow the above side information in
+		-- the bitstream. The main_data ends at a location in the main_data
+		-- bitstream preceding the frame header of the following frame at an offset
+		-- given by the value of main_data_end (see definition of main_data_end and
+		-- 3-Annex Fig.3-A.7.1)
+		
+		
+		
+		if true then
+			seekoff(0, get("main_data_end"))
+			return
+		end
+		
+		
+		
 		for gr=0, 2-1 do
 			if blocksplit_flag[gr] == 1
 			and block_type[gr] == 2 then
 				for cb=0, switch_point_l[gr]-1 do
 					if scfsi[cb]==0 or gr==0 then
-						rbit("scalefac[cb][gr]", val_0__4) -- bits uimsbf
+						rbit("scalefac[cb][gr]", slen_table.slen1[scalefac_compress[gr][ch]+1]) -- bits uimsbf
 					end
 				end
 
 				for cb=switch_point_s[gr], cblimit_short-1 do
 					for window=0, 3-1 do
 						if (scfsi[cb]==0) or (gr==0) then
-							rbit("scalefac[cb][window][gr]", val_0__4) -- bits uimsbf
+							rbit("scalefac[cb][window][gr]", slen_table.slen2[scalefac_compress[gr][ch]+1]) -- bits uimsbf
 						end
 					end
 				end
@@ -350,77 +417,126 @@ function audio_data()
 		end
 	end
 
-	if (mode==stereo) or (mode==dual_channel) or (mode==ms_stereo) then
+	if (get("mode") == stereo) or (get("mode") == dual_channel) or (get("mode") == joint_stereo) then
 		rbit("main_data_end", 9) -- bits uimsbf
 		rbit("private_bits", 3) -- bits bslbf
 		for ch=0, 2-1 do
+			scfsi[ch] = {}
 			for scfsi_band=0, 4-1 do
-				rbit("scfsi[scfsi_band][ch]", 1) -- bits bslbf
+				scfsi[ch][scfsi_band] = rbit("scfsi[scfsi_band][ch]", 1) -- bits bslbf
 			end
 		end
 		for gr=0, 2-1 do
+			part2_3_length[gr] = {}
+			blocksplit_flag[gr] = {}
+			scalefac_compress[gr] = {}
+			block_type[gr] = {}
+			switch_point[gr] = {}
+			switch_point_l[gr] = {}
+			switch_point_s[gr] = {}
 			for ch=0, 2-1 do
-				part2_3_length[ch] = {}
-				part2_3_length[ch][gr] = rbit("part2_3_length[gr][ch]", 12) -- bits uimsbf
+				-- スケールファクタービット列(part2)とハフマン符号ビット列（part3）のビット長の合計
+				part2_3_length[gr][ch] = rbit("part2_3_length[gr][ch]", 12) -- bits uimsbf
+
 				rbit("big_values[gr][ch]", 9) -- bits uimsbf
 				rbit("global_gain[gr][ch]", 8) -- bits uimsbf
-				rbit("scalefac_compress[gr][ch]", 4) -- bits bslbf
-				rbit("blocksplit_flag[gr][ch]", 1) -- bitbslbf
+				scalefac_compress[gr][ch] = rbit("scalefac_compress[gr][ch]", 4) -- bits bslbf
+				blocksplit_flag[gr][ch] = rbit("blocksplit_flag[gr][ch]", 1) -- bitbslbf
+				if blocksplit_flag[gr][ch] ~= 0 then
+					block_type[gr][ch] = rbit("block_type[gr][ch]", 2) -- bits bslbf 
+					switch_point[gr][ch] = rbit("switch_point[gr][ch]", 1) -- bits uimsbf
+					if switch_point[gr] == 0 then
+						switch_point_l[gr][ch] = 0
+						switch_point_s[gr][ch] = 0
+					else 
+						switch_point_l[gr][ch] = 8
+						switch_point_s[gr][ch] = 3
+					end
+					for region=0, 2-1 do
+						rbit("table_select[region][gr][ch]", 5) -- bits bslbf
+					end
+					for window=0, 3-1 do
+						rbit("subblock_gain[window][gr][ch]", 3) -- bits uimsbf
+					end
+				else
+					for region=0, 3-1 do
+						rbit("table_select[region][gr][ch]", 5) -- bits bslbf
+					end
+					rbit("region_address1[gr][ch]", 4) -- bits bslbf
+					rbit("region_address2[gr][ch]", 3) -- bits bslbf
+				end
+				rbit("preflag[gr][ch]", 1) -- bitbslbf
+				rbit("scalefac_scale[gr][ch]", 1) -- bitbslbf
+				rbit("count1table_select[gr][ch]", 1) -- bitbslbf
 			end
 		end
-		if blocksplit_flag[gr][ch] then
-			rbit("block_type[gr][ch]", 2) -- bits bslbf
-			rbit("switch_point[gr][ch]", 1) -- bits uimsbf
-			for region=0, 2-1 do
-				rbit("table_select[region][gr][ch]", 5) -- bits bslbf
-			end
-			for window=0, 3-1 do
-				rbit("subblock_gain[window][gr][ch]", 3) -- bits uimsbf
-			end
-		else
-			for region=0, 3-1 do
-				rbit("table_select[region][gr][ch]", 5) -- bits bslbf
-			end
-			rbit("region_address1[gr][ch]", 4) -- bits bslbf
-			rbit("region_address2[gr][ch]", 3) -- bits bslbf
+
+		-- The main_data follows. It does not follow the above side information in
+		-- the bitstream. The main_data ends at a location in the main_data
+		-- bitstream preceding the frame header of the following frame at an offset
+		-- given by the value of main_data_end.
+        -- 
+		
+		
+		
+		if true then
+			seekoff(0, get("main_data_end"))
+			return
 		end
-		rbit("preflag[gr][ch]", 1) -- bitbslbf
-		rbit("scalefac_scale[gr][ch]", 1) -- bitbslbf
-		rbit("count1table_select[gr][ch]", 1) -- bitbslbf
-		--[[
-			The main_data follows. It does not follow the above side information in
-			the bitstream. The main_data ends at a location in the main_data
-			bitstream preceding the frame header of the following frame at an offset
-			given by the value of main_data_end.
-		--]]
+		
+		
+		
+		local main_data_beg = curbit()
 		for gr=0, 2-1 do
 			for ch=0, 2-1 do
+				print("gr", gr, "ch", ch)
+				if block_type[gr][ch] == 0 then print("reserved")
+				elseif block_type[gr][ch] == 1 then print("start block")
+				elseif block_type[gr][ch] == 2 then print("3 short windows")
+				elseif block_type[gr][ch] == 3 then print("end block")
+				end
+				if switch_point[gr][ch] == 0 then print("not_mixed")
+				elseif switch_point[gr][ch] == 1 then print("mixed")
+				end
+
 				if blocksplit_flag[gr][ch] == 1 and block_type[gr][ch] == 2 then
 					for cb=0, switch_point_l[gr][ch]-1 do
 						if (scfsi[cb]==0) or (gr==0) then
-							rbit("scalefac[cb][gr][ch]", val_0__4) -- bits uimsbf
+							rbit("scalefac[cb][gr][ch]", slen_table.slen1[scalefac_compress[gr][ch]+1]) -- bits uimsbf
 						end
 					end
-					for cb=switch_point_s[gr][ch], cb<cblimit_short-1 do
+					for cb=switch_point_s[gr][ch], cblimit_short-1 do
 						for window=0, 3-1 do
 							if (scfsi[cb]==0) or (gr==0) then
-								rbit("scalefac[cb][window][gr][ch]", val_0__4) -- bits uimsbf
+								rbit("scalefac[cb][window][gr][ch]", slen_table.slen2[scalefac_compress[gr][ch]+1]) -- bits uimsbf
 							end
 						end
 					end
 				else
 					for cb=0, cblimit-1 do
 						if (scfsi[cb]==0) or (gr==0) then
-							rbit("scalefac[cb][gr][ch]", val_0__4) -- bits uimsbf
+							if cb <= 10 then
+								rbit("scalefac[cb][gr][ch]", slen_table.slen1[scalefac_compress[gr][ch]+1]) -- bits uimsbf
+							else
+								rbit("scalefac[cb][gr][ch]", slen_table.slen2[scalefac_compress[gr][ch]+1]) -- bits uimsbf
+							end
 						end
 					end
 				end
-				rbit("Huffmancodebits", (part2_3_lengthpart2_length)) -- bits bslbf 
-				while position ~= main_data_end do
-					rbit("ancillary_bit", 1) -- bitbslbf
-				end
+	
+	
+	
+				-- seekoff(0, get("main_data_end") - (curbit() - main_data_beg))
+				-- break
+				-- rbit("Huffmancodebits", part2_3_length[gr][ch]) -- bits bslbf 
+
+
 			end
 		end
+
+		-- while curbit() - main_data_begin ~= get("main_data_end") do
+		-- 	rbit("ancillary_bit", 1) -- bitbslbf
+		-- end
 	end
 end
 
@@ -431,22 +547,12 @@ function ancillary_data()
 end
 
 function mp3(size)
-	check_ID3v2()
-	check_ID3v1()
+	nest_call("check_ID3v2", check_ID3v2)
+	nest_call("check_ID3v1", check_ID3v1)
 	sequence(size)
 end
 
-enable_print(false)
 
-
--- バグ、lbitを挟むとrbitがマイナスになる
---enable_print(true)
---rbit("hoge", 1) -- bitbslbf
---lbit(12)
---rbit("hoge", 1) -- bitbslbf
---rbit("hoge", 1) -- bitbslbf
---rbit("hoge", 1) -- bitbslbf
---rbit("hoge", 1) -- bitbslbf
-
+-- enable_print(true)
 mp3(get_size())
 

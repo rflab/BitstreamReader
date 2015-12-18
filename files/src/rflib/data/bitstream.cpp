@@ -345,6 +345,10 @@ void  Bitstream::look_byte_string(char* address, integer size)
 // 見つからなければファイル終端を返す
 integer Bitstream::find_byte(char sc, integer end_offset, bool advance)
 {
+	if (FAIL(end_offset >= 0))
+		throw std::invalid_argument(FAIL_STR("range error."));
+
+
 	integer offset = 0;
 	int c;
 	auto buf = buf_.get(); // パフォーマンス改善のためキャスト
@@ -375,6 +379,9 @@ integer Bitstream::find_byte(char sc, integer end_offset, bool advance)
 
 integer Bitstream::rfind_byte(char sc, integer end_offset, bool advance)
 {
+	if (FAIL(end_offset <= 0))
+		throw std::invalid_argument(FAIL_STR("range error."));
+
 	integer offset = 0;
 	int c;
 	auto buf = buf_.get(); // パフォーマンス改善のためキャスト
@@ -405,9 +412,14 @@ integer Bitstream::rfind_byte(char sc, integer end_offset, bool advance)
 
 // 特定のバイト列を検索
 // 見つからなければファイル終端を返す
+// 見つかったかの判定をend_offset==retvalで行いたいので、とりあえずend_offsetはバイト列の先頭位置として、
+// バイト列の後半がend_offsetを超えて比較することにした。
 integer Bitstream::find_byte_string(
 	const char* address, integer size, integer end_offset, bool advance)
 {
+	if (FAIL(end_offset >= 0))
+		throw std::invalid_argument(FAIL_STR("range error."));
+
 	if (FAIL(valid_ptr(address)))
 	{
 		ERR << "invalid address address=" << hex << address << OUTPUT_POS << endl;
@@ -440,6 +452,7 @@ integer Bitstream::find_byte_string(
 		}
 
 		// EOSをはみ出す場合
+		// バイト列終端含めてend_offsetとするなら、if (!check_off(size, 0))をif (!check_off(size+end_offset, 0))とする
 		if (!check_off(size, 0))
 		{
 			if (!advance)
@@ -474,6 +487,9 @@ integer Bitstream::find_byte_string(
 integer Bitstream::rfind_byte_string(
 	const char* address, integer size, integer end_offset, bool advance)
 {
+	if (FAIL(end_offset <= 0))
+		throw std::invalid_argument(FAIL_STR("range error."));
+
 	if (FAIL(valid_ptr(address)))
 	{
 		ERR << "invalid address address=" << hex << address << OUTPUT_POS << endl;
@@ -508,10 +524,21 @@ integer Bitstream::rfind_byte_string(
 	{
 		// 先頭位置バイトを検索
 		offset = rfind_byte(address[0], end_offset_remain, true);
-		if (offset <= 0)
+		if (offset <= end_offset_remain)
 		{
-			seekpos(prev_byte_pos, 0);
-			return 0;
+			if (!advance)
+				seekpos(prev_byte_pos, 0);
+			return end_offset;
+		}
+
+		// 先頭をはみ出す場合
+		if (!check_off(-1, 0))
+		{
+			if (!advance)
+				seekpos(prev_byte_pos, 0);
+			else
+				seekpos(0, 0);
+			return 0 - prev_byte_pos;
 		}
 
 		end_offset_remain -= offset;

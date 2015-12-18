@@ -1,18 +1,15 @@
--- 全ストリーム共通
+-- ローカル
 local gs_global = {
-	main_stream  = nil,
-	all_streams  = {},
-	abort_offset = 0xfffffffff,
-	print_offset = 0xfffffffff,
-	store_lua    = false,
-	store_sql    = true}	
-
--- 解析中のストリーム
+	main_stream    = nil,
+	all_streams    = {},
+	print_enabled  = false,
+	abort_id       = 0xfffffffff,
+	print_start_id = 0xfffffffff,
+	print_end_id   = 0xfffffffff,
+	store_lua      = false,
+	store_sql      = true}
 local gs_cur_stream
-
--- その他グローバル
 local gs_perf = profiler:new()
-local gs_csv = csv:new()
 local gs_progress
 local gs_data = {
 	skipcnt={},
@@ -22,82 +19,71 @@ local gs_data = {
 	bits={},
 	sizes={},
 	streams={},
+	tree_stack={},
 	ignore_nil=false}
-	
--- 暫定
 local gs_files = {}
 
 --------------------------------------
 -- 内部関数
 --------------------------------------
-function abort(name, byte, bit, size, value)
-	print("#########################")
-	print("#         ERROR         #")
-	print("#########################")
-	save_error_info(name, byte, bit, size, value)
-	print_status()
-	print("")
-	assert(false)
+-- データ表示
+local function print_record(name, main_byte, main_bit, size, value)
+	-- ログ表示
+	if gs_global.print_enabled then
+		if gs_cur_stream == gs_global.main_stream then
+			printf(" adr=0x%010x(+%d)| siz=0x%010x(+%d)| %-40s | val=%s %s",
+				main_byte, main_bit, size>>3, size&0x7, name, value, little_endian() and "le" or "be");
+		else
+			printf("                  -  | siz=0x%010x(+%d)| - %-38s | val=%s %s",
+				size>>3, size&0x7, name, value, little_endian() and "le" or "be");
+		end
+	end
 end
 
--- データ読み込み事に記録する処理
-local function on_set_value(name, byte, bit, size, value)
-	-- 読込結果がエラーの場合はエラー情報をシリアライズしてabort()
-	if value == false then
-		abort(name, byte, bit, size, value)
-	end
-	
-	-- get()用
-	gs_data.values[name] = value
-
-	-- Lua用もう使わないかも
-	if gs_global.store_lua == true then
-		if gs_data.tables[name] == nil then
-			gs_data.tables[name]  = {}
-			gs_data.bytes[name]   = {}
-			gs_data.bits[name]    = {}
-			gs_data.sizes[name]   = {}
-			gs_data.streams[name] = {}
-		end
-		
-		table.insert(gs_data.bytes[name], byte)
-		table.insert(gs_data.bits[name], bit)
-		table.insert(gs_data.tables[name], value)
-		table.insert(gs_data.sizes[name], size)
-		table.insert(gs_data.streams[name], gs_cur_stream)
-	else
-		local cnt = gs_data.skipcnt[name] or 0
-		gs_data.skipcnt[name] = cnt + 1 
-	end
-
-	-- SQL用お試し
-	if gs_global.store_sql == true then
-		sql_insert_record(name, byte, bit, size, value, (gs_global.main_stream:cur()))
-	end
-
-	-- デバッグ用
+-- デバッグ機能ポーリング
+local function check_debug()
+	-- デバッグ
 	-- プリント出力開始チェック
-	if gs_global.main_stream:cur() >= gs_global.print_offset then
-		for i, v in ipairs(gs_global.all_streams) do
-			v:enable_print(true)
-		end
-		print("====================================================")
-		print("enable print offset="..hexstr(gs_global.print_offset))
+	if sql_cur() >= gs_global.print_start_id then
+		enable_print(true)
+		print("=======================================================================================")
+		print("enable print offset="..hexstr(gs_global.print_start_id))
 		gs_global.main_stream:print_status()
-		print("====================================================")
-		gs_global.print_offset = 0xfffffffff
+		print("=======================================================================================")
+		gs_global.print_start_id = 0xfffffffff
+	elseif sql_cur() > gs_global.print_end_id then
+		enable_print(false)
+		print("=======================================================================================")
+		print("pass.")
+		print("disable print offset="..hexstr(gs_global.print_start_id))
+		gs_global.main_stream:print_status()
+		print("=======================================================================================")
+		gs_global.print_end_id = 0xfffffffff
 	end
 	
-	-- デバッグ用
+	-- デバッグ
 	-- 中断チェック
-	if gs_global.main_stream:cur() >= gs_global.abort_offset then
+	if sql_cur() >= gs_global.abort_id then
 		print("")
-		print("====================================================")
-		print("abort point offset="..hexstr(gs_global.abort_offset))
+		print("=======================================================================================")
+		print("abort point offset="..hexstr(gs_global.abort_id))
 		gs_global.main_stream:print_status()
-		print("====================================================")
+		print("=======================================================================================")
 		assert(false)
 	end
+end
+
+-- データ保存
+local function store_record(name, byte, bit, size, value, main_byte)
+	-- 読込結果がエラーの場合はエラー情報をシリアライズしてabort()
+	if value == false then
+		abort("read data failed [".. name.."] at "..hexstr(main_byte))
+	end
+
+	-- SQLレコード保存
+	sql_insert_record(name, byte, bit, size, value, main_byte)
+
+	check_debug()
 end
 
 --------------------------------------------
@@ -122,6 +108,7 @@ function open(arg1, openmode)
 	end
 
 	gs_cur_stream = stream:new(arg1, openmode)
+	gs_cur_stream:enable_print(gs_global.print_enabled)
 	table.insert(gs_global.all_streams, gs_cur_stream) 
 
 	-- 初回はデバッグ用メインストリームとして強制的に登録
@@ -150,93 +137,16 @@ function swap(stream)
 	return prev
 end
 
--- デバッグ用設定
-function set_debug(main_stream, abort_offset, print_offset)	
-	gs_global.main_stream  = main_stream
-	gs_global.abort_offset = abort_offset
-	gs_global.print_offset = print_offset
-end
-
--- デバッグ用設定問い合わせ
-function ask_debug(main_stream)	
-	main_stream = main_stream or gs_cur_stream
-	main_stream:print_status()
-	print("set debug? [y/n (default:n)]")
-	if io.read() == "y" then
-		print("please enter abort_offset..")
-		local abort_offset = tonumber(io.read()) or 0xfffffffff
-		print("please enter print_offset..")
-		local print_offset = tonumber(io.read()) or 0xfffffffff
-		set_debug(main_stream, abort_offset, print_offset)
-	else
-		print("cancel")
-	end
-end
-
--- エラー情報を__error_info_path__に書き込む
-function save_error_info(name, byte, bit, size, value)
-	local error_info = {}
-	error_info.file_name = __stream_path__
-	error_info.byte = gs_global.main_stream:cur()
-	local f = io.open(__error_info_path__, "w")
-	if f == nil then
-		--abort(false, "save_error_info failed")
-		print("#save_error_info failed")
-		return false
-	end
-	local s = serialize(error_info)
-	print(s)
-	f:write(s)
-	f:close()
-end
-
--- __error_info_path__を読み込み、デバッグを登録する
-function load_error_info()
-	local f = io.open(__error_info_path__, "r")
-	if f == nil then 
-		print("no previous error.")
-		return
-	end
-	
-	local length = f:seek("end")
-	if length > 0x10000 then
-		abort(false, "#too big error file")
-	end 
-	
-	f:seek("set")
-	local s = f:read("*a")
-	f:close()
-
-	local error_info = deserialize(s) or {file_name = "", byte = 0}
-	if error_info.file_name ~= __stream_path__ then
-		print("no previous error.")
-		return
-	end
-
-	print("previous error log exists.")
-	print("set debug by previous error info? [y/n/start_offset (default:y)]")
-	local input = io.read()
-	if input == "n" then
-		print("cancel")
-	elseif type(tonumber(input)) == "number" then
-		set_debug(
-			gs_global.main_stream,
-			0xffffffff,
-			math.max(0, error_info.byte+tonumber(input)))
-	else 
-		set_debug(
-			gs_global.main_stream,
-			0xffffffff,
-			math.max(0, error_info.byte-256))
-	end
-
-end
-
 -- ストリーム状態表示
 function print_status()
-	print("<main_stream>")
+	print("-----------")
+	print("main_stream")
+	print("-----------")
 	gs_global.main_stream:print_status()
-	print("<current_stream>")
+	print("")
+	print("--------------")
+	print("current_stream")
+	print("--------------")
 	if gs_global.main_stream ~= gs_cur_stream then
 		gs_cur_stream:print_status()
 	else
@@ -249,7 +159,7 @@ function get_size()
 	return gs_cur_stream:get_size()
 end
 
--- ストリームを最大256バイト出力
+-- バイナリダンプ表示
 function dump(size)
 	return gs_cur_stream:dump(size or 128)
 end
@@ -257,15 +167,20 @@ end
 -- 解析結果表示のON/OFF
 function enable_print(b)
 	if b == nil then
-		return gs_cur_stream:enable_print(nil)
+	 	return gs_global.print_enabled 
 	else
-		gs_cur_stream:enable_print(b)
+--		for i, v in ipairs(gs_global.all_streams) do
+--			v:enable_print(b)
+--		end
+		gs_global.print_enabled = b
 	end
 end
 
 -- 解析結果表示のON/OFFに応じてprint
 function sprint(...)
-	return gs_cur_stream:print(...)
+	if gs_global.print_enabled then
+		print(...)
+	end
 end
 
 -- ファイルに出力、fpが指定されてなければただのprint
@@ -299,7 +214,7 @@ function get(name)
 			gs_data.ignore_nil = true
 			return 0
 		else
-			assert(false, "abort");
+			abort("get("..name..")");
 		end
 	else
 		print("# set 0", name)
@@ -312,17 +227,49 @@ function peek(name)
 	return gs_data.values[name]
 end
 
+-- ツリー構造 プッシュ
+function push(name)
+	-- print("push "..name)
+	table.insert(gs_data.tree_stack, name)
+	store_record("_"..name, cur(), select(2, cur()), 0, "push", gs_global.main_stream:cur())
+	return #gs_data.tree_stack
+end
+
+-- ツリー構造 ポップ
+function pop(comp_name)
+	if gs_data.tree_stack[#gs_data.tree_stack] ~= comp_name then
+		print("pop", comp_name, gs_data.tree_stack[#gs_data.tree_stack])
+		assert(false)
+	end
+	-- print("pop "..comp_name)
+	table.remove(gs_data.tree_stack)
+	store_record("_"..comp_name, cur(), select(2, cur()), 0, "pop", gs_global.main_stream:cur())
+	return #gs_data.tree_stack
+end
+
+-- ツリー構造 プッシュ→関数コール→ポップ
+function nest_call(name, func, ...)
+	push(name)
+	local ret = table.pack(func(...))
+	pop(name)
+	return table.unpack(ret)
+end
+
 -- 値をセットする
 function set(name, value)
 	local byte, bit = cur()
-	on_set_value(name, byte, bit, 0, value)
+	local main_byte = gs_global.main_stream:cur()
+	store_record(name, byte, bit, 0, value, main_byte)
+	gs_data.values[name] = value
 end
 
 -- 値をセットする
 -- こちらは廃止したい
 function reset(name, value)
 	local byte, bit = cur()
-	on_set_value(name, byte, bit, 0, value)
+	local main_byte, main_bit = gs_global.main_stream:cur()
+	store_record(name, byte, bit, 0, value, main_byte)
+	gs_data.values[name] = value
 end
 
 -- 絶対位置シーク
@@ -332,9 +279,7 @@ end
 
 -- 相対位置シーク
 function seekoff(byte, bit)
-	if gs_cur_stream:seekoff(byte, bit) == false then
-		abort()
-	end
+	return gs_cur_stream:seekoff(byte, bit)
 end
 
 -- ビット単位読む
@@ -360,53 +305,89 @@ end
 -- ビット単位読み込み
 function rbit(name, size)
 	local byte, bit = cur()
-	local value = gs_cur_stream:rbit(name, size)
-	on_set_value(name, byte, bit, size, value)
+	local main_byte, main_bit = gs_global.main_stream:cur()
+	local value = gs_cur_stream:rbit("", size)
+	store_record(name, byte, bit, size, hexstr(value), main_byte)
+	gs_data.values[name] = value
+	print_record(name, main_byte, main_bit, size, value)
 	return value
 end
 
 -- バイト単位読み込み
 function rbyte(name, size)
 	local byte, bit = cur()
-	local value = gs_cur_stream:rbyte(name, size)
-	on_set_value(name, byte, bit, size*8, value)
+	local main_byte, main_bit = gs_global.main_stream:cur()
+	local value = gs_cur_stream:rbyte("", size)
+	store_record(name, byte, bit, size*8, hexstr(value), main_byte)
+	gs_data.values[name] = value
+	print_record(name, main_byte, main_bit, size, value)
 	return value
 end
 
 -- 文字列として読み込み
 function rstr(name, size)
 	local byte, bit = cur()
-	local value = gs_cur_stream:rstr(name, size)
-	on_set_value(name, byte, bit, size*8, value)
+	local main_byte, main_bit = gs_global.main_stream:cur()
+	local value = gs_cur_stream:rstr("", size)
+	store_record(name, byte, bit, size*8, value, main_byte)
+	gs_data.values[name] = value
+	print_record(name, main_byte, main_bit, size, value)
 	return value
 end
 
 -- 指数ゴロムとして読み込み
 function rexp(name)
 	local byte, bit = cur()
-	local value = gs_cur_stream:rexp(name)
-	on_set_value(name, byte, bit, 0, value)
+	local main_byte, main_bit = gs_global.main_stream:cur()
+	local value = gs_cur_stream:rexp("")
+	store_record(name, byte, bit, 0, hexstr(value), main_byte)
+	gs_data.values[name] = value
+	print_record(name, main_byte, main_bit, 0, value)
 	return value
 end
 
 -- ビット単位で読み込み、compとの一致を確認
 function cbit(name, size, comp)
-	return gs_cur_stream:cbit(name, size, comp)
+	local byte, bit = cur()
+	local main_byte, main_bit = gs_global.main_stream:cur()
+	local value = (gs_cur_stream:cbit("", size, comp) and hexstr(comp))
+	store_record(name, byte, bit, size*8, value, main_byte)
+	gs_data.values[name] = comp
+	print_record(name, main_byte, main_bit, size, value)
+	return value
 end
 
 -- バイト単位で読み込み、compとの一致を確認
 function cbyte(name, size, comp)
-	return gs_cur_stream:cbyte(name, size, comp)
+	local byte, bit = cur()
+	local main_byte, main_bit = gs_global.main_stream:cur()
+	local value = gs_cur_stream:cbyte("", size, comp) and hexstr(comp)
+	store_record(name, byte, bit, size, value, main_byte)
+	gs_data.values[name] = comp
+	print_record(name, main_byte, main_bit, size, value)
+	return value
 end
 
 -- 文字列として読み込み、compとの一致を確認
 function cstr(name, size, comp)
-	return gs_cur_stream:cstr(name, size, comp)
+	local byte, bit = cur()
+	local main_byte, main_bit = gs_global.main_stream:cur()
+	local value = gs_cur_stream:cstr("", size, comp) and comp
+	store_record(name, byte, bit, size, value, main_byte)
+	gs_data.values[name] = comp
+	print_record(name, main_byte, main_bit, size, value)
+	return value
 end
 
 -- 指数ゴロムとして読み込み
 function cexp(name, comp)
-	return gs_cur_stream:cexp(name, comp)
+	local byte, bit = cur()
+	local main_byte, main_bit = gs_global.main_stream:cur()
+	local value = gs_cur_stream:cexp("", comp) and hexstr(comp)
+	store_record(name, byte, bit, 0, value, main_byte)
+	gs_data.values[name] = comp
+	print_record(name, main_byte, main_bit, size, value)
+	return value
 end
 
 function skip(size, begin)
@@ -438,27 +419,41 @@ function lexp(size)
 end
 
 -- １バイト検索
-function fbyte(char, advance, end_offset)
-	return gs_cur_stream:fbyte(char, advance, end_offset)
+function fbyte(char, end_offset, advance)
+	local byte, bit = cur()
+	local main_byte, main_bit = gs_global.main_stream:cur()
+	local ofs = gs_cur_stream:fbyte(char, end_offset, advance)
+	return ofs
 end
 
 -- 文字列を検索、もしくは"00 11 22"のようなバイナリ文字列で検索
-function fstr(pattern, advance, end_offset)
-	return gs_cur_stream:fstr(pattern, advance, end_offset)
+function fstr(pattern, end_offset, advance)
+	local byte, bit = cur()
+	local main_byte, main_bit = gs_global.main_stream:cur()
+	local ofs = gs_cur_stream:fstr(pattern, end_offset, advance)
+	return ofs
 end
 
 -- １バイト逆検索
-function rfbyte(char, advance, end_offset)
-	return gs_cur_stream:rfbyte(char, advance, end_offset)
+function rfbyte(char, end_offset, advance)
+	local byte, bit = cur()
+	local main_byte, main_bit = gs_global.main_stream:cur()
+	local ofs = gs_cur_stream:rfbyte(char, end_offset, advance)
+	return ofs
 end
 
 -- 文字列を検索、もしくは"00 11 22"のようなバイナリ文字列で逆検索
-function rfstr(pattern, advance, end_offset)
-	return gs_cur_stream:rfstr(pattern, advance, end_offset)
+function rfstr(pattern, end_offset, advance)
+	local byte, bit = cur()
+	local main_byte, main_bit = gs_global.main_stream:cur()
+	local ofs = gs_cur_stream:rfstr(pattern, end_offset, advance)
+	return ofs
 end
 
 -- ストリームからファイルにデータを追記
 function tbyte(name, size, target)
+	local byte, bit = cur()
+	local main_byte, main_bit = gs_global.main_stream:cur()
 	if type(target) == "string" then
 		gs_files[target] = gs_files[target] or true 
 		return transfer_to_file(gs_cur_stream.stream, size, target, true)
@@ -470,6 +465,7 @@ end
 -- 文字列、もしくは"00 11 22"のようなバイナリ文字列をファイルに追記
 function write(target, pattern)
 	if type(target) == "string" then
+		gs_files[target] = gs_files[target] or true
 		local str = pat2str(pattern)
 		return write_to_file(target, str, #str)
 	else
@@ -492,49 +488,142 @@ function do_until(closure, offset)
 	end
 end
 
---------------------------------------
--- ストリーム解析用ユーティリティ
---------------------------------------
--- csv保存用に値を記憶
--- 引数はcbyte()等の戻り値に合わせてあるのでstore(cbyte())という書き方も可能
--- valueにはテーブル等を指定することも可
-function store(key, value)
-	gs_csv:insert(key, value)
-end
-
--- store()した値をcsvに書き出す
-function save_as_csv(file_name)
-	return gs_csv:save(file_name)
-end
 
 --------------------------------------------
 -- その他ユーティリティ
 --------------------------------------------
--- 性能計測用
+
+-- デバッグ用設定
+function set_debug(abort_id, print_start_id, print_end_id)
+	gs_global.abort_id = abort_id
+	gs_global.print_start_id = print_start_id
+	gs_global.print_end_id = print_end_id
+end
+
+-- 中断してエラー情報を__error_info_path__に残す
+function abort(what)
+	what = what or ""
+	print("##########################################")
+	print("# ABORT")
+	print("#")
+	print("#  !! "..what.." !!")
+	print("#")
+	print("##########################################")
+	print("saveinfo to \""..__error_info_path__.."\"")
+	save_error_info()
+	-- print_status()
+	print("")
+	assert(false)
+end
+
+-- デバッグ設定用に エラー情報を__error_info_path__に書き込む
+function save_error_info()
+	local error_info = {}
+	error_info.file_name = __stream_path__
+	error_info.id = sql_cur()
+	local f = io.open(__error_info_path__, "w")
+	if f == nil then
+		print("#save_error_info failed")
+		return false
+	end
+	local s = serialize(error_info)
+	print(s)
+	f:write(s)
+	f:close()
+end
+
+-- デバッグ設定用に __error_info_path__を読み込み、デバッグを登録する
+function load_error_info()
+	local f = io.open(__error_info_path__, "r")
+	if f == nil then 
+		print("no previous error.")
+		return
+	end
+	
+	local length = f:seek("end")
+	if length > 0x10000 then
+		abort(false, "#too big error file")
+	end 
+	
+	f:seek("set")
+	local s = f:read("*a")
+	f:close()
+
+	local error_info = deserialize(s) or {file_name = "", byte = 0}
+	if error_info.file_name ~= __stream_path__ then
+		print("no previous error.")
+		return
+	end
+
+	print("previous error log is found.")
+	print("set debug by previous error info? [y/n/num (default:y)]")
+	local input = io.read()
+	if input == "n" then
+		print("cancel")
+	elseif type(tonumber(input)) == "number" then
+		set_debug(
+			0xffffffff,
+			math.max(0, error_info.id-tonumber(input)),
+			error_info.id)
+	else 
+		set_debug(
+			0xffffffff,
+			math.max(0, error_info.id-25),
+			error_info.id)
+	end
+end
+
+-- 進捗表示
 gs_progress = {
 	prev = 10,
 	check = function (self, detail)
-		local cur = math.modf(cur()/get_size() * 100)
-		if math.abs(self.prev - cur) >= 10 then
-			self.prev = cur
+		local pos = math.modf(cur()/get_size() * 100)
+		if math.abs(self.prev - pos) >= 10 then
+			self.prev = pos
 			if detail == true then
 				print("--------------------------")
-				print(cur.."%", os.clock().."sec.\n")
+				print(pos.."%", os.clock().."sec.\n")
 				print_status()
 				gs_perf:print()
 				print("--------------------------")
 			else
-				print(cur.."%", os.clock().."sec.")
+				print(pos.."%", os.clock().."sec.")
 			end
 		end
 	end
 }
 
+-- 進捗表示
 function check_progress(detail)
 	if detail == nil then detail = true end
 	gs_progress:check(detail)
 end
-	
+
+-- タイムスタンプ評価
+function get_duration_checker(name, threshold_coef)
+	threshold_coef = threshold_coef or 10
+	return {
+		name = name,
+		threshold_coef = threshold_coef,
+		prev = nil,
+		max_duration = nil,
+		check = function (self, current)
+			if self.prev == nil then
+				self.prev = current
+				return
+			end
+			--とりあえず初回の差分を基準にする
+			if self.max_duration == nil then
+				self.max_duration = math.abs(current - self.prev)
+				return
+			end
+			if current - self.prev > self.max_duration * self.threshold_coef then
+				abort("Discontinuity ["..name.."] prev="..self.prev.." cur="..current)
+			end
+			
+			self.prev = current
+		end}
+end
 
 -- ファイルパスを path = dir..name..ext に分解して
 -- path, dir, name, extの順に返す
@@ -557,11 +646,17 @@ end
 
 -- 16進数をHHHH(DDDD)な感じの文字列にする
 function hexstr(value)
-	if type(value) == "number" then
-		return string.format("0x%x(%d)", value, value)
-	else
+	if type(value) == "string" then
+		assert(false)
 		return value
+	else
+		return string.format("0x%x(%d)", value, value)
 	end
+end
+
+-- 少数を文字列にする
+function decstr(number)
+	return string.format("%.3f", number)
 end
 
 -- 16進数を1001010な感じの文字列にする
@@ -736,7 +831,10 @@ end
 function sql_insert_record() assert(false, "sql is not started.") end
 function sql_print() assert(false, "sql is not started.") end
 function sql_commit() assert(false, "sql is not started.") end
-function sql_get_value() assert(false, "sql is not started.") end
+function sql_prepare() assert(false, "sql is not started.") end
+function sql_step() assert(false, "sql is not started.") end
+function sql_column() assert(false, "sql is not started.") end
+function sql_cur() assert(false, "sql is not started.") end
 function sql_rollback() assert(false, "sql is not started.") end
 function get_sql() assert(false, "sql is not started.") end
 function sql_begin()
@@ -746,10 +844,9 @@ function sql_begin()
 		print("# can not create .db in exe dir!! #")
 		print("#      create in-memory db.       #")
 		print("###################################")
-	 	-- sql = SQLite:new(__stream_name__..".db")
 	 	sql = SQLite:new(":memory:")
 	else
-	 	sql = SQLite:new(__out_dir__..__stream_name__..".db")
+	 	sql = SQLite:new(__database_dir__..__stream_name__.."_database.db")
 	end	
 
 	-------------
@@ -830,7 +927,7 @@ function sql_begin()
 		end	
 		-- offset	
 		sql:reset(insert_offset_table_stmt)
-		--sql:bind_int(insert_offset_table_stmt, 1, id)
+		-- sql:bind_int(insert_offset_table_stmt, 1, id)
 		sql:bind_int(insert_offset_table_stmt, 1, byte)
 		sql:bind_int(insert_offset_table_stmt, 2, bit)
 		sql:bind_int(insert_offset_table_stmt, 3, main_byte)
@@ -838,9 +935,10 @@ function sql_begin()
 		
 		-- 値
 		sql:reset(insert_value_table_stmt)
-		--sql:bind_int(insert_value_table_stmt, 1, id)
+		-- sql:bind_int(insert_value_table_stmt, 1, id)
 		sql:bind_int (insert_value_table_stmt, 1, param_ids[name])
-		sql:bind_text(insert_value_table_stmt, 2, tostring(value))
+		-- sql:bind_text(insert_value_table_stmt, 2, tostring(value))
+		sql:bind_text(insert_value_table_stmt, 2, value)
 		sql:step(insert_value_table_stmt)
 		
 		if id%100000 == 0 then
@@ -850,11 +948,39 @@ function sql_begin()
 		end
 	end
 	
+	function sql_cur()
+		return id
+	end
+
 	-------------
 	-- レコード取得クエリ
 	-------------
-	function sql_print(stmt, format, fp)
+	local function sql_print_step(stmt, format, fp)
 		local str={}
+		for i=0, sql:column_count(stmt)-1 do
+			local ty = sql:column_type(stmt, i) 
+			if ty == SQLITE_NULL then
+				-- null
+			elseif ty == SQLITE_INTEGER then
+				str[i+1] = tostring(sql:column_int(stmt, i))
+			elseif ty == SQLITE_TEXT then
+				str[i+1] = sql:column_text(stmt, i)
+			else
+				str[i+1] = "unsupported sql type"
+			end
+			
+			if format == nil then
+				str[i+1] = str[i+1]:sub(1, 10)
+			end
+		end
+		if format == nil then
+			fprint(fp, string.format(string.rep("%-12s  ", sql:column_count(stmt)), table.unpack(str)))
+		else
+			fprint(fp, string.format(format, table.unpack(str)))
+		end
+	end
+	
+	function sql_print(stmt, format, fp)
 		local count=0
 	
 		-- 先頭にカラムを出力
@@ -870,51 +996,43 @@ function sql_begin()
 		
 		-- 取得値を出力
 		while SQLITE_ROW == sql:step(stmt) do
-			for i=0, sql:column_count(stmt)-1 do
-				local ty = sql:column_type(stmt, i) 
-				if ty == SQLITE_NULL then
-				elseif ty == SQLITE_INTEGER then
-					str[i+1] = tostring(sql:column_int(stmt, i))
-				elseif ty == SQLITE_TEXT then
-					str[i+1] = sql:column_text(stmt, i)
-				else
-					str[i+1] = "unsupported type"
-				end
-				
-				if format == nil then
-					str[i+1] = str[i+1]:sub(1, 10)
-				end
-			end
-			if format == nil then
-				fprint(fp, string.format(string.rep("%-12s  ", sql:column_count(stmt)), table.unpack(str)))
-			else
-				fprint(fp, string.format(format, table.unpack(str)))
-			end
+			sql_print_step(stmt, format, fp)
 		end
+	end	
+	
+	function sql_prepare(command)
+		return sql:prepare(command)
 	end
+	
+	function sql_step(stmt)
+		return SQLITE_ROW == sql:step(stmt)
+	end
+	
+	function sql_column(stmt_or_command, index)
+		local stmt
+		index = index or 1
 		
-	function sql_get_value(command)
-		local command = [[select max(id) from bitstream]]
-		local stmt = sql:prepare(command)
+		-- いいんかいな?
+		if type(stmt_or_command) == "string" then
+			stmt = sql:prepare(stmt_or_command)
+			sql_step(stmt)
+		else
+			stmt = stmt_or_command
+		end
 
-		if SQLITE_ROW == sql:step(stmt) then
-			if sql:column_count(stmt) == 1 then
-				local ty = sql:column_type(stmt, 0) 
-				if ty == SQLITE_NULL then
-				elseif ty == SQLITE_INTEGER then
-					return sql:column_int(stmt, 0)
-				elseif ty == SQLITE_TEXT then
-					return sql:column_text(stmt, 0)
-				else
-					print("sql error:", command)
-					return 0
-				end
+		if sql:column_count(stmt) > index then
+			local ty = sql:column_type(stmt, index) 
+			if ty == SQLITE_NULL then
+			elseif ty == SQLITE_INTEGER then
+				return sql:column_int(stmt, index)
+			elseif ty == SQLITE_TEXT then
+				return sql:column_text(stmt, index)
 			else
-				print("sql error:", command)
+				print("sql error stmt_or_command 1:", stmt_or_command)
 				return 0
 			end
 		else
-			print("sql error:", command)
+			print("sql error stmt_or_command 2:", stmt_or_command)
 			return 0
 		end
 	end
@@ -932,13 +1050,32 @@ function sql_begin()
 	end
 end
 
-
-
 function get_data()
 	return gs_data
 end
 
 function get_streams()
 	return gs_global.all_streams
+end
+
+function get_main_stream()
+	return gs_global.main_stream
+end
+
+--------------------------------------
+-- 古い、使わない
+--------------------------------------
+local gs_csv = csv:new()
+
+-- csv保存用に値を記憶
+-- 引数はcbyte()等の戻り値に合わせてあるのでstore(cbyte())という書き方も可能
+-- valueにはテーブル等を指定することも可
+function store(key, value)
+	gs_csv:insert(key, value)
+end
+
+-- store()した値をcsvに書き出す
+function save_as_csv(file_name)
+	return gs_csv:save(file_name)
 end
 

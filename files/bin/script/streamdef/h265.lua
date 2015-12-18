@@ -122,6 +122,8 @@ function nal_unit_header_mvc_extension()
 end
 
 function video_parameter_set_rbsp(rbsp_size)
+ print("video_parameter_set_rbsp")
+	
 	local begin = cur()
 	rbit("vps_video_parameter_set_id", 4)  -- u(4)
 	rbit("vps_base_layer_internal_flag", 1)  -- u(1)
@@ -160,7 +162,7 @@ function video_parameter_set_rbsp(rbsp_size)
 			if i > 1 then
 				rbit("cprms_present_flag[i]", 1)  -- u(1)
 			end
-			hrd_parameters( get("cprms_present_flag[i]"), get("vps_max_sub_layers_minus1"))
+			nest_call("hrd_parameters", hrd_parameters, get("cprms_present_flag[i]"), get("vps_max_sub_layers_minus1"))
 		end
 	end
 	rbit("vps_extension_flag", 1)  -- u(1)
@@ -168,7 +170,7 @@ function video_parameter_set_rbsp(rbsp_size)
 		while byte_aligned() ~= true do
 			rbit("vps_extension_alignment_bit_equal_to_one", 1)  -- u(1)
 		end
-		vps_extension()
+		nest_call("vps_extension", vps_extension)
 		rbit("vps_extension2_flag", 1)  -- u(1)
 		if get("vps_extension2_flag") == 1 then
 			while more_rbsp_data(rbsp_size, begin) do
@@ -177,6 +179,7 @@ function video_parameter_set_rbsp(rbsp_size)
 		end
 	end
 	rbsp_trailing_bits()
+
 end
 
 function vps_extension()
@@ -184,12 +187,16 @@ function vps_extension()
 end
 
 function seq_parameter_set_rbsp(rbsp_size)
+ print("seq_parameter_set_rbsp")
+
 	local begin = cur()
 	
 	rbit("sps_video_parameter_set_id", 4)
 	rbit("sps_max_sub_layers_minus1", 3)
 	rbit("sps_temporal_id_nesting_flag", 1)
-	profile_tier_level(1, get("sps_max_sub_layers_minus1"))
+	
+	nest_call("profile_tier_level", profile_tier_level, 1, get("sps_max_sub_layers_minus1"))
+	
 	rexp("sps_seq_parameter_set_id")
 	rexp("chroma_format_idc")
 	if get("chroma_format_idc") == 3 then
@@ -236,7 +243,7 @@ function seq_parameter_set_rbsp(rbsp_size)
 	if get("scaling_list_enabled_flag") == 1 then
 		rbit("sps_scaling_list_data_present_flag", 1)
 		if get("sps_scaling_list_data_present_flag") == 1 then
-			scaling_list_data()
+			nest_call("scaling_list_data", scaling_list_data)
 		end
 	end
 	
@@ -254,7 +261,7 @@ function seq_parameter_set_rbsp(rbsp_size)
 	rexp("num_short_term_ref_pic_sets")
 
 	for  i = 0, get("num_short_term_ref_pic_sets") - 1 do
-		st_ref_pic_set( i)
+		nest_call("st_ref_pic_set", st_ref_pic_set, i)
 	end
 	rbit("long_term_ref_pics_present_flag", 1) -- u(1))
 	if get("long_term_ref_pics_present_flag") == 1 then 
@@ -270,7 +277,7 @@ function seq_parameter_set_rbsp(rbsp_size)
 	rbit("vui_parameters_present_flag", 1) -- u(1))
 	
 	if get("vui_parameters_present_flag") == 1 then
-		vui_parameters()
+		nest_call("vui_parameters", vui_parameters)
 	end
 	
 	rbit("sps_extension_present_flag", 1) -- u(1))
@@ -286,7 +293,9 @@ function seq_parameter_set_rbsp(rbsp_size)
 	end
 	
 	if get("sps_multilayer_extension_flag") == 1 then
-		sps_multilayer_extension() -- specified in Annex F 
+		-- sps_multilayer_extension() -- specified in Annex F 
+		print("sps_multilayer_extension() unsupported")
+		return
 	end
 	
 	if get("sps_extension_6bits") == 1 then
@@ -295,10 +304,11 @@ function seq_parameter_set_rbsp(rbsp_size)
 		end   
 	end
 	rbsp_trailing_bits()
+	
 end
 
 function sps_range_extension()
-	rbit("transform_skip_rotation_enabled_flag", 1) -- u(1))
+ 	rbit("transform_skip_rotation_enabled_flag", 1) -- u(1))
 	rbit("transform_skip_context_enabled_flag", 1) -- u(1))
 	rbit("implicit_rdpcm_enabled_flag", 1) -- u(1))
 	rbit("explicit_rdpcm_enabled_flag", 1) -- u(1))
@@ -311,7 +321,7 @@ end
 
 function vui_parameters()
 print("vui_parameters")
-	rbit("aspect_ratio_info_present_flag", 1)
+ 	rbit("aspect_ratio_info_present_flag", 1)
 	if get("aspect_ratio_info_present_flag") == 1 then     
 		rbit("aspect_ratio_idc", 8)
 		if get("aspect_ratio_idc") == 255 then  
@@ -365,7 +375,7 @@ print("vui_parameters")
 		end
 		rbit("vui_hrd_parameters_present_flag", 1) -- u(1)
 		if get("vui_hrd_parameters_present_flag") ~= 0 then
-			hrd_parameters(1, get("sps_max_sub_layers_minus1"))
+			nest_call("hrd_parameters", hrd_parameters, 1, get("sps_max_sub_layers_minus1"))
 		end
 	end
 	
@@ -380,11 +390,12 @@ print("vui_parameters")
 		rexp("max_num_reorder_frames")
 		rexp("max_dec_frame_buffering")
 	end
+	
 end
 
 local cpb_cnt_minus1 = {}
 function hrd_parameters( commonInfPresentFlag, maxNumSubLayersMinus1)
-print("hrd_parameters")
+ print("hrd_parameters")
 
 	if commonInfPresentFlag == 1 then
 		rbit("nal_hrd_parameters_present_flag", 1) -- u(1))
@@ -441,6 +452,7 @@ print("hrd_parameters")
 end
 
 function sub_layer_hrd_parameters( subLayerId) 
+ 
 	local CpbCnt = cpb_cnt_minus1[subLayerId]
 	for i = 0, CpbCnt do
 		rexp("bit_rate_value_minus1[i]")  -- ue(v)
@@ -451,9 +463,11 @@ function sub_layer_hrd_parameters( subLayerId)
 		end
 		rbit("cbr_flag[i]", 1) -- u(1)
 	end
-end
 
+end
+                              
 function pic_parameter_set_rbsp(rbsp_size) 
+ print("pic_parameter_set_rbsp")
 	local begin = cur()
 	rexp("pps_pic_parameter_set_id") -- ue(v))
 	rexp("pps_seq_parameter_set_id") -- ue(v))
@@ -509,7 +523,7 @@ function pic_parameter_set_rbsp(rbsp_size)
 	
 	rbit("pps_scaling_list_data_present_flag", 1) -- u(1))
 	if get("pps_scaling_list_data_present_flag") == 1 then
-		scaling_list_data()
+		nest_call("scaling_list_data", scaling_list_data)
 	end
 
 	rbit("lists_modification_present_flag", 1) -- u(1))
@@ -534,10 +548,11 @@ function pic_parameter_set_rbsp(rbsp_size)
 			rbit("pps_extension_data_flag", 1) -- u(1))
 		end
 	end
+
 end
 
 function pps_range_extension()	
-	if get("transform_skip_enabled_flag") == 1 then
+ 	if get("transform_skip_enabled_flag") == 1 then
 		rexp("log2_max_transform_skip_block_size_minus2") -- ue(v))
 	end
 
@@ -557,8 +572,7 @@ function pps_range_extension()
 end
 
 function sei_rbsp(rbsp_size)
-enable_print(true)
-	local begin = cur()
+ 	local begin = cur()
 	repeat
 		sei_message()
 	until more_rbsp_data(rbsp_size, begin) == false
@@ -567,13 +581,13 @@ end
 
 local aud_no = 0
 function access_unit_delimiter_rbsp()
-	rbit("pic_type", 3)
+ 	rbit("pic_type", 3)
 	if has_slice_header == false then
 		sprint("aud_no"..aud_no)
 		aud_no = aud_no + 1
-		if     get("pic_type") == 0 then print("pic_type I") sprint("AUD I")  
-		elseif get("pic_type") == 1 then print("pic_type P") sprint("AUD IP") 
-		elseif get("pic_type") == 2 then print("pic_type B") sprint("AUD IPB")
+		if     get("pic_type") == 0 then io.write("I") sprint("AUD I")  
+		elseif get("pic_type") == 1 then io.write("P") sprint("AUD IP") 
+		elseif get("pic_type") == 2 then io.write("B") sprint("AUD IPB")
 		else print("AUD unknown")
 		end
 	end
@@ -595,7 +609,7 @@ function filler_data_rbsp()
 end
 
 function slice_segment_layer_rbsp(nal_unit_type) 
-	slice_segment_header(nal_unit_type)
+	-- slice_segment_header(nal_unit_type)
 	--slice_segment_data(nal_unit_type)
 	--rbsp_slice_segment_trailing_bits()
 end
@@ -623,7 +637,7 @@ function byte_alignment()
 end
 
 function profile_tier_level(profilePresentFlag, maxNumSubLayersMinus1)
-	if profilePresentFlag == 1 then
+ 	if profilePresentFlag == 1 then
 		rbit("general_profile_space", 2) -- u(2)
 		rbit("general_tier_flag", 1) -- u(1)
 		rbit("general_profile_idc", 5) -- u(5)
@@ -739,7 +753,7 @@ function profile_tier_level(profilePresentFlag, maxNumSubLayersMinus1)
 end
 
 function scaling_list_data() 
-	local ScalingList = {}
+ 	local ScalingList = {}
 	for sizeId = 0, 4-1 do
 		ScalingList[sizeId] = {}
 		for matrixId = 0, 6-1, (sizeId == 3 and 3 or 1) do 
@@ -766,7 +780,7 @@ function scaling_list_data()
 end
 
 function sei_message()
-	local payloadType = 0
+ 	local payloadType = 0
 	while lbyte(1) == 0xff do
 		cbit("ff_byte", 8, 0xff) -- f(8)
 		payloadType = payloadType + 255
@@ -787,7 +801,7 @@ end
 
 local slice_header_no = 0
 function slice_segment_header(nal_unit_type)
-	reset("collocated_from_l0_flag", 1)
+ 	reset("collocated_from_l0_flag", 1)
 
 	rbit("first_slice_segment_in_pic_flag", 1) -- u(1))
 	if nal_unit_type >= BLA_W_LP and nal_unit_type <= RSV_IRAP_VCL23 then
@@ -820,14 +834,14 @@ function slice_segment_header(nal_unit_type)
 		local slice_type = rexp("slice_type") -- ue(v))
 
 		if has_slice_header == false then
-			print(" -> slice_header_found")
+			print(" -> slice_header found")
 			has_slice_header = true
 		end
 		sprint("slice_header_no"..slice_header_no)
 		slice_header_no = slice_header_no + 1
-		if     slice_type == 0 then print("slice_type B")
-		elseif slice_type == 1 then print("slice_type P")
-		elseif slice_type == 2 then print("slice_type I")
+		if     slice_type == 0 then io.write("B")
+		elseif slice_type == 1 then io.write("P")
+		elseif slice_type == 2 then io.write("I")
 		else print("slice unknown")
 		end
 		
@@ -1019,7 +1033,7 @@ function slice_segment_header(nal_unit_type)
 end
 
 function st_ref_pic_set( stRpsIdx) 
-sprint("st_ref_pic_set", stRpsIdx)
+ sprint("st_ref_pic_set", stRpsIdx)
 
 	UsedByCurrPicS0[stRpsIdx] = {}
 	UsedByCurrPicS1[stRpsIdx] = {}
@@ -1140,7 +1154,7 @@ sprint("st_ref_pic_set", stRpsIdx)
 end
 
 function ref_pic_lists_modification() 
-	rbit("ref_pic_list_modification_flag_l0", 1) -- u(1))
+ 	rbit("ref_pic_list_modification_flag_l0", 1) -- u(1))
 	if get("ref_pic_list_modification_flag_l0") == 1 then
 		for  i = 0, num_ref_idx_l0_active_minus1  do
 			rbit("list_entry_l0[i]", v) -- u(v))
@@ -1158,7 +1172,7 @@ end
 
 local chroma_weight_l0_flag = {}
 function pred_weight_table()
-	rexp("luma_log2_weight_denom") -- ue(v))
+ 	rexp("luma_log2_weight_denom") -- ue(v))
 	if ChromaArrayType ~= 0 then
 		rexp("delta_chroma_log2_weight_denom") -- se(v))
 	end
@@ -1207,7 +1221,7 @@ function pred_weight_table()
 end
 
 function slice_segment_data() 
-	repeat 
+ 	repeat 
 		coding_tree_unit()
 		rexp("end_of_slice_segment_flag") -- ae(v))
 		CtbAddrInTs = CtbAddrInTs + 1
@@ -1221,7 +1235,7 @@ function slice_segment_data()
 end
 
 function coding_tree_unit() 
-	xCtb = ( CtbAddrInRs % PicWidthInCtbsY) << CtbLog2SizeY
+ 	xCtb = ( CtbAddrInRs % PicWidthInCtbsY) << CtbLog2SizeY
 	yCtb = ( CtbAddrInRs / PicWidthInCtbsY) << CtbLog2SizeY
 	if get("slice_sao_luma_flag") == 1 or get("slice_sao_chroma_flag") == 1 then
 		sao( xCtb >> CtbLog2SizeY, yCtb >> CtbLog2SizeY)
@@ -1231,7 +1245,7 @@ end
 	
 	
 function sao( rx, ry)
-	if rx > 0 then 
+ 	if rx > 0 then 
 		leftCtbInSliceSeg = CtbAddrInRs > SliceAddrRs
 		leftCtbInTile = TileId[CtbAddrInTs] == TileId[CtbAddrRsToTs[CtbAddrInRs - 1]]
 		if ( leftCtbInSliceSeg and leftCtbInTile) == true then
@@ -1629,115 +1643,114 @@ function sei_payload(payloadType, payloadSize)
 	if get("nal_unit_type") == PREFIX_SEI_NUT then
 		if payloadType == 0 then
 			print("buffering_period")
-			buffering_period(payloadSize)
+			--buffering_period(payloadSize)
 		elseif payloadType == 1 then
-			print("pic_timing( payloadSize)")
+			print("pic_timing( payloadSize) 5")
 			pic_timing( payloadSize)
 		elseif payloadType == 2 then
-			print("pan_scan_rect( payloadSize)")
-			pan_scan_rect( payloadSize)
+			print("pan_scan_rect( payloadSize) 5")
 		elseif payloadType == 3 then
-			print("filler_payload( payloadSize)")
+			print("filler_payload( payloadSize) 5")
 		elseif payloadType == 4 then
-			print("user_data_registered_itu_t_t35( payloadSize)")
+			print("user_data_registered_itu_t_t35( payloadSize) 5")
 		elseif payloadType == 5 then
-			print("user_data_unregistered( payloadSize)")
+			print("user_data_unregistered( payloadSize) 5")
 		elseif payloadType == 6 then
-			print("recovery_point( payloadSize)")
+			print("recovery_point( payloadSize) 5")
 		elseif payloadType == 7 then
-			print("dec_ref_pic_marking_repetition( payloadSize)")
+			print("dec_ref_pic_marking_repetition( payloadSize) 5")
 		elseif payloadType == 8 then
-			print("spare_pic( payloadSize)")
+			print("spare_pic( payloadSize) 5")
 		elseif payloadType == 9 then
-			print("scene_info( payloadSize)")
+			print("scene_info( payloadSize) 5")
 		elseif payloadType == 10 then
-			print("sub_seq_info( payloadSize)")
+			print("sub_seq_info( payloadSize) 5")
 		elseif payloadType == 11 then
-			print("sub_seq_layer_characteristics( payloadSize)")
+			print("sub_seq_layer_characteristics( payloadSize) 5")
 		elseif payloadType == 12 then
-			print("sub_seq_characteristics( payloadSize)")
+			print("sub_seq_characteristics( payloadSize) 5")
 		elseif payloadType == 13 then
-			print("full_frame_freeze( payloadSize)")
+			print("full_frame_freeze( payloadSize) 5")
 		elseif payloadType == 14 then
-			print("full_frame_freeze_release( payloadSize)")
+			print("full_frame_freeze_release( payloadSize) 5")
 		elseif payloadType == 15 then
-			print("full_frame_snapshot( payloadSize)")
+			print("full_frame_snapshot( payloadSize) 5")
 		elseif payloadType == 16 then
-			print("progressive_refinement_segment_start( payloadSize)")
+			print("progressive_refinement_segment_start( payloadSize) 5")
 		elseif payloadType == 17 then
-			print("progressive_refinement_segment_end( payloadSize)")
+			print("progressive_refinement_segment_end( payloadSize) 5")
 		elseif payloadType == 18 then
-			print("motion_constrained_slice_group_set( payloadSize)")
+			print("motion_constrained_slice_group_set( payloadSize) 5")
 		elseif payloadType == 19 then
-			print("film_grain_characteristics( payloadSize)")
+			print("film_grain_characteristics( payloadSize) 5")
 		elseif payloadType == 20 then
-			print("deblocking_filter_display_preference( payloadSize)")
+			print("deblocking_filter_display_preference( payloadSize) 5")
 		elseif payloadType == 21 then
-			print("stereo_video_info( payloadSize)")
+			print("stereo_video_info( payloadSize) 5")
 		elseif payloadType == 22 then
-			print("post_filter_hint( payloadSize)")
+			print("post_filter_hint( payloadSize) 5")
 		elseif payloadType == 23 then
-			print("tone_mapping_info( payloadSize)")
+			print("tone_mapping_info( payloadSize) 5")
 		elseif payloadType == 24 then
-			print("scalability_info( payloadSize) ")
+			print("scalability_info( payloadSize)  5")
 		elseif payloadType == 25 then
-			print("sub_pic_scalable_layer( payloadSize) ")
+			print("sub_pic_scalable_layer( payloadSize)  5")
 		elseif payloadType == 26 then
-			print("non_required_layer_rep( payloadSize) ")
+			print("non_required_layer_rep( payloadSize)  5")
 		elseif payloadType == 27 then
-			print("priority_layer_info( payloadSize) ")
+			print("priority_layer_info( payloadSize)  5")
 		elseif payloadType == 28 then
-			print("layers_not_present( payloadSize) ")
+			print("layers_not_present( payloadSize)  5")
 		elseif payloadType == 29 then
-			print("layer_dependency_change( payloadSize) ")
+			print("layer_dependency_change( payloadSize)  5")
 		elseif payloadType == 30 then
-			print("scalable_nesting( payloadSize) ")
+			print("scalable_nesting( payloadSize)  5")
 		elseif payloadType == 31 then
-			print("base_layer_temporal_hrd( payloadSize) ")
+			print("base_layer_temporal_hrd( payloadSize)  5")
 		elseif payloadType == 32 then
-			print("quality_layer_integrity_check( payloadSize) ")
+			print("quality_layer_integrity_check( payloadSize)  5")
 		elseif payloadType == 33 then
-			print("redundant_pic_property( payloadSize) ")
+			print("redundant_pic_property( payloadSize)  5")
 		elseif payloadType == 34 then
-			print("tl0_dep_rep_index( payloadSize) ")
+			print("tl0_dep_rep_index( payloadSize)  5")
 		elseif payloadType == 35 then
-			print("tl_switching_point( payloadSize) ")
+			print("tl_switching_point( payloadSize)  5")
 		elseif payloadType == 36 then
-			print("parallel_decoding_info( payloadSize) ")
+			print("parallel_decoding_info( payloadSize)  5")
 		elseif payloadType == 37 then
-			print("mvc_scalable_nesting( payloadSize) ")
+			print("mvc_scalable_nesting( payloadSize)  5")
 		elseif payloadType == 38 then
-			print("view_scalability_info( payloadSize) ")
+			print("view_scalability_info( payloadSize)  5")
 		elseif payloadType == 39 then
-			print("multiview_scene_info( payloadSize) ")
+			print("multiview_scene_info( payloadSize)  5")
 		elseif payloadType == 40 then
-			print("multiview_acquisition_info( payloadSize) ")
+			print("multiview_acquisition_info( payloadSize)  5")
 		elseif payloadType == 41 then
-			print("non_required_view_component( payloadSize) ")
+			print("non_required_view_component( payloadSize)  5")
 		elseif payloadType == 42 then
-			print("view_dependency_change( payloadSize) ")
+			print("view_dependency_change( payloadSize)  5")
 		elseif payloadType == 43 then
-			print("operation_points_not_present( payloadSize) ")
+			print("operation_points_not_present( payloadSize)  5")
 		elseif payloadType == 44 then
-			print("base_view_temporal_hrd( payloadSize) ")
+			print("base_view_temporal_hrd( payloadSize)  5")
 		elseif payloadType == 45 then
-			print("frame_packing_arrangement( payloadSize)")
+			print("frame_packing_arrangement( payloadSize) 5")
 		elseif payloadType == 46 then
-			print("multiview_view_position( payloadSize) ")
+			print("multiview_view_position( payloadSize)  5")
 		elseif payloadType == 47 then
-			print("display_orientation( payloadSize)")
+			print("display_orientation( payloadSize) 5")
 		elseif payloadType == 48 then
-			print("mvcd_scalable_nesting( payloadSize) ")
+			print("mvcd_scalable_nesting( payloadSize)  5")
 		elseif payloadType == 49 then
-			print("mvcd_view_scalability_info( payloadSize) ")
+			print("mvcd_view_scalability_info( payloadSize)  5")
 		elseif payloadType == 50 then
-			print("depth_representation_info( payloadSize) ")
+			print("depth_representation_info( payloadSize)  5")
 		elseif payloadType == 51 then
-			print("three_dimensional_reference_displays_info( payloadSize)")
+			print("three_dimensional_reference_displays_info( payloadSize) 5")
 		elseif payloadType == 52 then
-			print("depth_timing( payloadSize) ")
+			print("depth_timing( payloadSize)  5")
 		elseif payloadType == 53 then
-			print("depth_sampling_info( payloadSize) ")
+			print("depth_sampling_info( payloadSize)  5")
 		elseif payloadType == 128 then
 			print("structure_of_pictures_info( payloadSize)")
 		elseif payloadType == 129 then
@@ -1756,7 +1769,7 @@ function sei_payload(payloadType, payloadSize)
 			print("time_code( payloadSize)")
 		elseif payloadType == 137 then
 			print("mastering_display_colour_volume")
-			-- mastering_display_colour_volume( payloadSize)
+			mastering_display_colour_volume( payloadSize)
 		elseif payloadType == 138 then
 			print("segmented_rect_frame_packing_arrangement( payloadSize)")
 		elseif payloadType == 139 then
@@ -1859,7 +1872,7 @@ function payload_extension_present(payloadSize, begin)
 end
 
 function buffering_period(payloadSize)
-	local begin_bit = select(2, cur()) 
+ 	local begin_bit = select(2, cur()) 
 	
 	rexp("bp_seq_parameter_set_id") -- ue(v)
 	if get("sub_pic_hrd_params_present_flag") == 0 then 
@@ -1908,7 +1921,7 @@ end
 
 
 function pic_timing( payloadSize)
-	if get("frame_field_info_present_flag") == 1 then
+ 	if get("frame_field_info_present_flag") == 1 then
 		rbit("pic_struct", 4) -- u(4))
 		rbit("source_scan_type", 2) -- u(2))
 		rbit("duplicate_flag", 1) -- u(1))
@@ -1921,7 +1934,7 @@ function pic_timing( payloadSize)
 		CpbDpbDelaysPresentFlag = 1
 	end
 	
-	if CpbDpbDelaysPresentFlag == 1 then
+	if( CpbDpbDelaysPresentFlag) == 1 then
 		rbit("au_cpb_removal_delay_minus1", get("au_cpb_removal_delay_length_minus1") + 1) -- u(v))
 		rbit("pic_dpb_output_delay", get("dpb_output_delay_length_minus1") + 1) -- u(v))
 		if get("sub_pic_hrd_params_present_flag") == 1 then
@@ -1946,7 +1959,7 @@ function pic_timing( payloadSize)
 end
 
 function pan_scan_rect( payloadSize)
-	rexp("pan_scan_rect_id") -- ue(v))
+ 	rexp("pan_scan_rect_id") -- ue(v))
 	rbit("pan_scan_rect_cancel_flag", 1) -- u(1))
 	if get("pan_scan_rect_cancel_flag") == 0 then
 		rexp("pan_scan_cnt_minus1") -- ue(v))
@@ -1961,7 +1974,7 @@ function pan_scan_rect( payloadSize)
 end
 
 function mastering_display_colour_volume( payloadSize)
-	for c = 0, c < 3 -1 do
+ 	for c = 0, 3 - 1 do
 		rbit("display_primaries_x[ c ]", 16) -- u(16)
 		rbit("display_primaries_y[ c ]", 16) -- u(16)
 	end
@@ -1972,7 +1985,7 @@ function mastering_display_colour_volume( payloadSize)
 end
 
 function nal_unit(rbsp, NumBytesInNALunit, is_vcl)
-	if is_vcl == nil then is_vcl = true end
+ 	if is_vcl == nil then is_vcl = true end
 	nal_unit_header() -- 2bytes
 	
 	local NumBytesInRbsp = 0
@@ -1994,7 +2007,7 @@ function nal_unit(rbsp, NumBytesInNALunit, is_vcl)
 		local i = 2
 		local ofs
 		while true do
-			ofs = fstr("00 00 03", false, NumBytesInNALunit-i)
+			ofs = fstr("00 00 03", NumBytesInNALunit-i, false)
 			if ofs+2 < NumBytesInNALunit-i then 
 				tbyte("rbsp", ofs+2, rbsp)
 				cbyte("emulation_prevention_three_byte", 1, 3) -- equal to 0x03
@@ -2018,7 +2031,7 @@ function nal_unit(rbsp, NumBytesInNALunit, is_vcl)
 end
 
 function nal_unit_header()
-	cbit("forbidden_zero_bit", 1, 0) -- f(1)
+ 	cbit("forbidden_zero_bit", 1, 0) -- f(1)
 	rbit("nal_unit_type", 6) -- u(6)
 	rbit("nuh_layer_id", 6) -- u(6)
 	rbit("nuh_temporal_id_plus1", 3) -- u(3)
@@ -2026,7 +2039,7 @@ end
 
 local randam_access_flag = true
 function nal_unit_payload(rbsp, NumBytesInRbsp)
-	local begin = cur()
+ 	local begin = cur()
 	local nal_unit_type = get("nal_unit_type")
 	
 	-- randam_access
@@ -2047,37 +2060,37 @@ function nal_unit_payload(rbsp, NumBytesInRbsp)
     	randam_access_flag = false
     end
     
-	if     nal_unit_type == TRAIL_N        then print("  TRAIL_N")     slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == TRAIL_R        then print("  TRAIL_R")     slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == TSA_N          then print("  TSA_N")       slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == TSA_R          then print("  TSA_R")       slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == STSA_N         then print("  STSA_N")      slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == STSA_R         then print("  STSA_R")      slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == RADL_N         then print("  RADL_N")      slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == RADL_R         then print("  RADL_R")      slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == RASL_N         then print("  RASL_N")      slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == RASL_R         then print("  RASL_R")      slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == RSV_VCL_N      then print("  RSV_VCL_N10") slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == RSV_VCL_N      then print("  RSV_VCL_N12") slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == RSV_VCL_N      then print("  RSV_VCL_N14") slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == RSV_VCL_R      then print("  RSV_VCL_R11") slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == RSV_VCL_R      then print("  RSV_VCL_R13") slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == RSV_VCL_R      then print("  RSV_VCL_R15") slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == BLA_W_LP       then print("  BLA_W_LP")    slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == BLA_W_RADL     then print("  BLA_W_RADL")  slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == BLA_N_LP       then print("  BLA_N_LP")    slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == IDR_W_RADL     then print("  IDR_W_RADL")  slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == IDR_N_LP       then print("  IDR_N_LP")    slice_segment_layer_rbsp(nal_unit_type)
-    elseif nal_unit_type == CRA_NUT        then print("  CRA_NUT")     slice_segment_layer_rbsp(nal_unit_type)
-	elseif nal_unit_type == VPS_NUT        then print("  VPS_NUT")     video_parameter_set_rbsp(NumBytesInRbsp)
-	elseif nal_unit_type == SPS_NUT        then print("  SPS_NUT")     seq_parameter_set_rbsp(NumBytesInRbsp)
-	elseif nal_unit_type == PPS_NUT        then print("  PPS_NUT")     pic_parameter_set_rbsp(NumBytesInRbsp)
-	elseif nal_unit_type == AUD_NUT        then print("  AUD_NUT")     access_unit_delimiter_rbsp()
-	elseif nal_unit_type == EOS_NUT        then print("  EOS_NUT")     end_of_seq_rbsp()
-	elseif nal_unit_type == EOB_NUT        then print("  EOB_NUT")     end_of_bitstream_rbsp()
-	elseif nal_unit_type == FD_NUT         then print("  FD_NUT ")     filler_data_rbsp()
-	elseif nal_unit_type == PREFIX_SEI_NUT then print("  PREFIX_SEI_NUT ") sei_rbsp(NumBytesInRbsp)
-	elseif nal_unit_type == SUFFIX_SEI_NUT then print("  SUFFIX_SEI_NUT ") sei_rbsp(NumBytesInRbsp)
+	if     nal_unit_type == TRAIL_N        then print("  TRAIL_N")        nest_call("TRAIL_N", slice_segment_layer_rbsp, nal_unit_type)
+    elseif nal_unit_type == TRAIL_R        then print("  TRAIL_R")        nest_call("TRAIL_R", slice_segment_layer_rbsp, nal_unit_type)
+    elseif nal_unit_type == TSA_N          then print("  TSA_N")          nest_call("TSA_N", slice_segment_layer_rbsp, nal_unit_type)
+    elseif nal_unit_type == TSA_R          then print("  TSA_R")          nest_call("TSA_R", slice_segment_layer_rbsp, nal_unit_type)
+    elseif nal_unit_type == STSA_N         then print("  STSA_N")         nest_call("STSA_N", slice_segment_layer_rbsp, nal_unit_type)
+    elseif nal_unit_type == STSA_R         then print("  STSA_R")         nest_call("STSA_R", slice_segment_layer_rbsp, nal_unit_type)
+    elseif nal_unit_type == RADL_N         then print("  RADL_N")         nest_call("RADL_N", slice_segment_layer_rbsp, nal_unit_type)
+    elseif nal_unit_type == RADL_R         then print("  RADL_R")         nest_call("RADL_R", slice_segment_layer_rbsp, nal_unit_type)
+    elseif nal_unit_type == RASL_N         then print("  RASL_N")         nest_call("RASL_N", slice_segment_layer_rbsp, nal_unit_type)
+    elseif nal_unit_type == RASL_R         then print("  RASL_R")         nest_call("RASL_R", slice_segment_layer_rbsp, nal_unit_type)
+    elseif nal_unit_type == RSV_VCL_N      then print("  RSV_VCL_N10")    nest_call("RSV_VCL_N10", slice_segment_layer_rbsp, nal_unit_type)
+    elseif nal_unit_type == RSV_VCL_N      then print("  RSV_VCL_N12")    nest_call("RSV_VCL_N12", slice_segment_layer_rbsp, nal_unit_type)
+    elseif nal_unit_type == RSV_VCL_N      then print("  RSV_VCL_N14")    nest_call("RSV_VCL_N14", slice_segment_layer_rbsp, nal_unit_type)
+    elseif nal_unit_type == RSV_VCL_R      then print("  RSV_VCL_R11")    nest_call("RSV_VCL_R11", slice_segment_layer_rbsp, nal_unit_type)
+    elseif nal_unit_type == RSV_VCL_R      then print("  RSV_VCL_R13")    nest_call("RSV_VCL_R13", slice_segment_layer_rbsp, nal_unit_type)
+    elseif nal_unit_type == RSV_VCL_R      then print("  RSV_VCL_R15")    nest_call("RSV_VCL_R15", slice_segment_layer_rbsp, nal_unit_type)
+    elseif nal_unit_type == BLA_W_LP       then print("  BLA_W_LP")       nest_call("BLA_W_LP", slice_segment_layer_rbsp, nal_unit_type)
+    elseif nal_unit_type == BLA_W_RADL     then print("  BLA_W_RADL")     nest_call("BLA_W_RADL", slice_segment_layer_rbsp, nal_unit_type)
+    elseif nal_unit_type == BLA_N_LP       then print("  BLA_N_LP")       nest_call("BLA_N_LP", slice_segment_layer_rbsp, nal_unit_type)
+    elseif nal_unit_type == IDR_W_RADL     then print("  IDR_W_RADL")     nest_call("IDR_W_RADL", slice_segment_layer_rbsp, nal_unit_type)
+    elseif nal_unit_type == IDR_N_LP       then print("  IDR_N_LP")       nest_call("IDR_N_LP", slice_segment_layer_rbsp, nal_unit_type)
+    elseif nal_unit_type == CRA_NUT        then print("  CRA_NUT")        nest_call("CRA_NUT",  slice_segment_layer_rbsp, nal_unit_type)
+	elseif nal_unit_type == VPS_NUT        then print("  VPS_NUT")        nest_call("VPS_NUT",  video_parameter_set_rbsp, NumBytesInRbsp)
+	elseif nal_unit_type == SPS_NUT        then print("  SPS_NUT")        nest_call("SPS_NUT",  seq_parameter_set_rbsp, NumBytesInRbsp)
+	elseif nal_unit_type == PPS_NUT        then print("  PPS_NUT")        nest_call("PPS_NUT",  pic_parameter_set_rbsp, NumBytesInRbsp)
+	elseif nal_unit_type == AUD_NUT        then print("  AUD_NUT")        nest_call("AUD_NUT",  access_unit_delimiter_rbsp)
+	elseif nal_unit_type == EOS_NUT        then print("  EOS_NUT")        nest_call("EOS_NUT",  end_of_seq_rbsp)
+	elseif nal_unit_type == EOB_NUT        then print("  EOB_NUT")        nest_call("EOB_NUT",  end_of_bitstream_rbsp)
+	elseif nal_unit_type == FD_NUT         then print("  FD_NUT ")        nest_call("FD_NUT ",  filler_data_rbsp)
+	elseif nal_unit_type == PREFIX_SEI_NUT then print("  PREFIX_SEI_NUT") nest_call("PREFIX_SEI_NUT", sei_rbsp, NumBytesInRbsp)
+	elseif nal_unit_type == SUFFIX_SEI_NUT then print("  SUFFIX_SEI_NUT") nest_call("SUFFIX_SEI_NUT", sei_rbsp, NumBytesInRbsp)
 	end
 	
 	-- とりあえず余ったデータを読み捨てる
@@ -2099,7 +2112,7 @@ print("------------"..hexstr(cur()).."------------")
 	end
 	cbyte("start_code_prefix_one_3bytes", 3, 0x000001)
 	
-	local NumBytesInNALunit = math.min(fstr("00 00 00", false), fstr("00 00 01", false), remain_size)
+	local NumBytesInNALunit = math.min(fstr("00 00 00", 0x7fffffff, false), fstr("00 00 01", 0x7fffffff, false), remain_size)
 	if NumBytesInNALunit == remain_size then
 		print("return big size to exit")
 		return 100000
@@ -2108,6 +2121,7 @@ print("------------"..hexstr(cur()).."------------")
 	nal_unit(rbsp, NumBytesInNALunit)
 
 	while more_data_in_byte_stream()
+	and cur()+4 < get_size()
 	and lbyte(3) ~= 0x000001
 	and lbyte(4) ~= 0x00000001 do
 		cbit("trailing_zero_8bits", 8, 0)
@@ -2119,13 +2133,11 @@ end
 function byte_stream(max_length)
 	local rbsp, prev= open(1024*1024*5)
 	swap(prev)
-	rbsp:enable_print(false)
-	prev:enable_print(false)
 
 	reset_initial_values()
 
 	local total_size = 0;
-	while total_size < max_length do
+	while total_size < max_length - 10 do
 		total_size = total_size + byte_stream_nal_unit(rbsp, max_length-total_size)
 	end
 end
@@ -2134,8 +2146,6 @@ end
 function length_stream(lenght_size)
 	local rbsp, prev = open(1024*1024*3)
 	swap(prev)
-	prev:enable_print(true)
-	rbsp:enable_print(true)
 
 	reset_initial_values()
 	
@@ -2149,9 +2159,7 @@ function length_stream(lenght_size)
 end
 
 if __stream_ext__ == ".h265" then
-	--open(__stream_path__)
-	enable_print(false)
+	-- enable_print(false)
 	byte_stream(get_size()/10)
-	print_status()
 end
 

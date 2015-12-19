@@ -20,14 +20,14 @@ function exec_cmd(cmd_str)
 		elseif c[1] == "info" then
 
 			local command = [[
-				select main_byte, count(*), name, value
+				select main_byte, count(*), name, id, value
 				from bitstream
 				group by name;]]
 			local stmt = sql_prepare(command)
-			print("------------  ---------  -------------------------------------------------  ----------")
-			print("main_byte     count      name                                               last_value")
-			print("------------  ---------  -------------------------------------------------  ----------")
-			sql_print(stmt, "  0x%08x %10d  %-50s %-8s")
+			print("------------  ---------  ---------------------------------------  -------  ----------")
+			print("offset        count      name                                     last_id  last_value")
+			print("------------  ---------  ---------------------------------------  -------  ----------")
+			sql_print(stmt, "  0x%08x %10d  %-40s %7d  %-8s")
 			print("")
 			print_status()
 						
@@ -47,16 +47,16 @@ function exec_cmd(cmd_str)
 			end
 			
 			local command = [[
-				select main_byte, count(*), name, value
+				select main_byte, count(*), name, id, value
 				from bitstream
 				where name like "%]]..c[2]..[[%" 
 				group by name
 				limit ]]..tonumber(c[3])..", "..tonumber(c[4])..[[;]]
 			local stmt = sql_prepare(command)
-			print("------------  ---------  -------------------------------------------------  ----------")
-			print("main_byte     count      name                                               last_value")
-			print("------------  ---------  -------------------------------------------------  ----------")
-			sql_print(stmt, "  0x%08x %10d  %-50s %-8s")
+			print("------------  ---------  ---------------------------------------  -------  ----------")
+			print("offset        count      name                                     last_id  last_value")
+			print("------------  ---------  ---------------------------------------  -------  ----------")
+			sql_print(stmt, "  0x%08x %10d  %-40s %7d  %-8s")
 			
 		elseif c[1] == "list" then
 		

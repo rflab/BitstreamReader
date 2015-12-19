@@ -2,6 +2,7 @@
 Win32
 x64/
 test/
+out/
 streamreader_d.exe
 streamreader(x64)_d.exe
 *.csv
@@ -32,6 +33,7 @@ streamreader(x64)_d.exe
 *.test
 *.bmp
 *.ilk
+*.xml
 *.pdb
 *.db
 *.db-journal

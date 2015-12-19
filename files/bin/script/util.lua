@@ -139,18 +139,25 @@ end
 
 -- ストリーム状態表示
 function print_status()
-	print("-----------")
-	print("main_stream")
-	print("-----------")
-	gs_global.main_stream:print_status()
-	print("")
-	print("--------------")
-	print("current_stream")
-	print("--------------")
-	if gs_global.main_stream ~= gs_cur_stream then
-		gs_cur_stream:print_status()
+	if gs_global.main_stream == gs_cur_stream then
+		print("------")
+		print("stream")
+		print("------")
+		gs_global.main_stream:print_status()
+		print(" records : "..touint(sql_column([[select max(id) from bitstream]], 0)))
+		print("")
 	else
-		print("  == main_stream")
+		print("-------------------------")
+		print("main_stream")
+		print("-------------------------")
+		gs_global.main_stream:print_status()
+		print(" records : "..touint(sql_column([[select max(id) from bitstream]], 0)))
+		print("")
+		print("--------------")
+		print("current_stream")
+		print("--------------")
+		gs_cur_stream:print_status()
+		print("")
 	end
 end
 
@@ -513,7 +520,7 @@ function abort(what)
 	save_error_info()
 	-- print_status()
 	print("")
-	assert(false)
+	assert(false, "abort() is called.")
 end
 
 -- デバッグ設定用に エラー情報を__error_info_path__に書き込む
@@ -536,7 +543,6 @@ end
 function load_error_info()
 	local f = io.open(__error_info_path__, "r")
 	if f == nil then 
-		print("no previous error.")
 		return
 	end
 	
@@ -555,7 +561,7 @@ function load_error_info()
 		return
 	end
 
-	print("previous error log is found.")
+	print("error log is found.")
 	print("set debug by previous error info? [y/n/num (default:y)]")
 	local input = io.read()
 	if input == "n" then
@@ -944,7 +950,7 @@ function sql_begin()
 		if id%100000 == 0 then
 			sql:exec("commit")
 			sql:exec("begin")
-			print("sql_commit")
+			-- print("sql_commit")
 		end
 	end
 	

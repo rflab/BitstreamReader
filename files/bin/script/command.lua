@@ -18,7 +18,7 @@ function exec_cmd(cmd_str)
 			end
 		
 		elseif c[1] == "info" then
-		
+
 			local command = [[
 				select main_byte, count(*), name, value
 				from bitstream
@@ -30,13 +30,7 @@ function exec_cmd(cmd_str)
 			sql_print(stmt, "  0x%08x %10d  %-50s %-8s")
 			print("")
 			print_status()
-			print("")
-			print("--------")
-			print("database")
-			print("--------")
-			print(" records : "..touint(sql_column([[select max(id) from bitstream]], 0)))
-			print("")
-			
+						
 		elseif c[1] == "grep" then
 		
 			if c[2] == nil then
@@ -168,7 +162,6 @@ function exec_cmd(cmd_str)
 			
 		elseif c[1] == "export" then
 		
-			print("export", c[2])
 			if type(c[2]) ~= "string" then
 				print("error:no filename")
 				break
@@ -186,6 +179,7 @@ function exec_cmd(cmd_str)
 
 			-- 追加するか確認（出力ファイルがすでにあるか）
 			local file_exits = io.open(__out_dir__..c[3], "r")
+			
 			if file_exits ~= nil then 
 				file_exits:close()
 			end
@@ -372,9 +366,14 @@ function exec_cmd(cmd_str)
 					
 					-- とりあえずこうやってメインのストリームかを判定する
 					if main_byte == byte then
-						printf("\n  [%s] main_byte=%x byte=%x(+%d) size=0x%x(+%d)", name, main_byte, byte, bit, size>>3, size%8)
 						get_main_stream():seek(main_byte)
-						get_main_stream():dump((size+7)>>3)
+						if size ~= 0 then
+							printf("\n  [%s] main_byte=%x byte=%x(+%d) size=0x%x(+%d)", name, main_byte, byte, bit, size>>3, size%8)
+							get_main_stream():dump((size+7)>>3)
+						else
+							printf("\n  <%s> main_byte=%x byte=%x(+%d) size=0(TAG)", name, main_byte, byte, bit)
+							get_main_stream():dump(0x30)
+						end
 					else
 						print("dump of sub stream is unsupported")
 					end
@@ -757,7 +756,9 @@ end
 function cmd()
 	local c
 	
-	print("<< command mode : q:quit, h:help >>")
+	print("-----------------------------")
+	print("command mode : q:quit, h:help")
+	print("-----------------------------")
 	while true do
 		io.write("cmd>")
 		c = io.read()

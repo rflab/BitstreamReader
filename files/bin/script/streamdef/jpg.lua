@@ -408,7 +408,7 @@ function start_scan()
 		print("Done")
 		
 		-- ファイル・コンソール出力
-		bmp:write(__out_dir__.."out.bmp")
+		bmp:write(__out_dir__..__stream_name__..".bmp")
 		local sb = bmp:create_scaled_bmp(120, nil)
 		sb:print_ascii(120, nil)
 	until true

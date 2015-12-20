@@ -490,17 +490,28 @@ function exec_cmd(cmd_str)
 			print("dump {OFFSET}               : dump from OFFSET")
 			print("find {PATTERN} {OFFSET}     : find byte or PATTERN from OFFSET, e.g. find \"00 00 01\" ")
 			print("")
-			print("------------------------")
+			print("------")
 			print("others")
-			print("------------------------")
+			print("------")
 			print("edit                        : open stream by hex editor")
 			print("tedit                       : open stream by text editor")
 			print("sql                         : open database")
 			print("dir                         : open .exe directory")
 			print("test                        : test command")
+			print("help                        : help with example")
 			print("exit                        : exit command mode")
 			print("q                           : exit command mode")
-
+			if (c[1] == "help") or (c[1] == "h") or (c[1] == "?") then
+				print("")
+				print("---------")
+				print("<example>")
+				print("---------")
+				print("grep hoge                   : show informations of \"*hoge*\"")
+				print("list hoge                   : show record list for \"*hoge*\"")
+				print("view hoge                   : show records from fist \"*hoge*\"")
+				print("dump hoge                   : dump records from \"*hoge*\"")
+				print("dump 0x10                   : dump from offset 0x10")
+			end
 		end
 	until true
 end

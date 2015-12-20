@@ -14,10 +14,11 @@ files/bin/streamreader.exeにファイルをドロップすると、自動的に
 -- とりあえず取得した値を全部見る
 cmd>info
 
--- 名前に foo や bar を含む値の情報を表示
-cmd>grep foo
-cmd>list foo
-cmd>dump foo
+-- 名前に hoge を含む値の情報を表示
+cmd>grep hoge
+cmd>list hoge
+cmd>view hoge
+cmd>dump hoge
 
 -- その他ヘルプ
 cmd>help

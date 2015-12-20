@@ -88,24 +88,62 @@ function exec_cmd(cmd_str)
 		
 		elseif c[1] == "view" then
 			
-			if tonumber(c[2]) == nil then
-				c[2] = 0
-			end
+			if type(c[2]) == "number" or c[2] == nil then
+
+				if tonumber(c[2]) == nil then
+					c[2] = 0
+				end
+				
+				if tonumber(c[3]) == nil then
+					c[3] = 20
+				end
+
+				local command = [[
+					select *
+					from bitstream
+					limit ]]..tonumber(c[2])..", "..tonumber(c[3])..[[;]]
+				local stmt = sql_prepare(command)
+
+				print("-------  ------------------------  ----------  ----------  ---  ----------  ------------")
+				print("id       name                      main_byte   byte        bit  size        value")
+				print("-------  ------------------------  ----------  ----------  ---  ----------  ------------")
+				sql_print(stmt, "%7d  %-25s 0x%08x  0x%08x%3d %13d %13s")
+
+			elseif type(c[2]) == "string" then
+
+				
+				if tonumber(c[3]) == nil then
+					c[3] = 0
+				end
 			
-			if tonumber(c[3]) == nil then
-				c[3] = 20
+				if tonumber(c[4]) == nil then
+					c[4] = 20
+				end
+	
+				-- SQLiteはネスト非サポートなので、名前に応じたidを探してその後表示
+				local com_find_id = [[
+					select id
+					from bitstream
+					where name like "%]]..c[2]..[[%"
+					limit 1 offset 0;]]
+					--limit ]]..tonumber(c[4])..[[ offset ]]..tonumber(c[3])..[[;]]
+				local stmt1 = sql_prepare(com_find_id)
+				if sql_step(stmt1) == true then
+					local id = math.ceil(sql_column(stmt1, 0))
+					local com_view_from_id = [[
+						select * 
+						from bitstream
+						where id >= ]]..id ..[[
+						limit ]]..tonumber(c[4])..[[ offset ]]..tonumber(c[3])..[[;]]
+					local stmt2 = sql_prepare(com_view_from_id)
+					print("-------  ------------------------  ----------  ----------  ---  ----------  ------------")
+					print("id       name                      main_byte   byte        bit  size        value")
+					print("-------  ------------------------  ----------  ----------  ---  ----------  ------------")
+					sql_print(stmt2, "%7d  %-25s 0x%08x  0x%08x%3d %13d %13s")
+				end
+
+
 			end
-
-			local command = [[
-				select *
-				from bitstream
-				limit ]]..tonumber(c[2])..", "..tonumber(c[3])..[[;]]
-			local stmt = sql_prepare(command)
-
-			print("-------  ------------------------  ----------  ----------  ---  ----------  ------------")
-			print("id       name                      main_byte   byte        bit  size        value")
-			print("-------  ------------------------  ----------  ----------  ---  ----------  ------------")
-			sql_print(stmt, "%7d  %-25s 0x%08x  0x%08x%3d %13d %13s")
 		
 		elseif c[1] == "xmlexport" then
 			
@@ -344,7 +382,7 @@ function exec_cmd(cmd_str)
 			elseif type(c[2]) == "string" then
 				
 				if tonumber(c[3]) == nil then
-					c[3] = 1
+					c[3] = 0
 				end
 			
 				if tonumber(c[4]) == nil then
@@ -437,6 +475,7 @@ function exec_cmd(cmd_str)
 			print("history                     : show history")
 			print("info                        : show record information")
 			print("view [FROM] [LIMIT]         : show records")
+			print("view {REGEX} [FROM] [LIMIT] : show records by regex")
 			print("grep {REGEX} [FROM] [LIMIT] : show records by regex")
 			print("list {REGEX} [FROM] [LIMIT] : show record list by regex")
 			print("export {FILENAME} [REGEX]   : export records to csv file")

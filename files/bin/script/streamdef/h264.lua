@@ -697,15 +697,15 @@ function nal_unit_payload(rbsp, NumBytesInRbsp)
 			print(" -> slice_header found.")
 			has_slice_header = true
 		end
-		slice_header()
+		nest_call("slice_header", slice_header)
 	elseif nal_unit_type == 6 then
-		sei_rbsp()
+		nest_call("sei_rbsp", sei_rbsp)
 	elseif nal_unit_type == 7 then
-		seq_parameter_set_rbsp()
+		nest_call("seq_parameter_set_rbsp", seq_parameter_set_rbsp)
 	elseif nal_unit_type == 8 then
-		pic_parameter_set_rbsp()
+		nest_call("pic_parameter_set_rbsp", pic_parameter_set_rbsp)
 	elseif nal_unit_type == 9 then
-		access_unit_delimiter_rbsp()
+		nest_call("access_unit_delimiter_rbsp", access_unit_delimiter_rbsp)
 	end
 	
 	-- とりあえず余ったデータを読み捨てる

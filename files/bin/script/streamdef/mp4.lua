@@ -921,27 +921,33 @@ function analyse_trak(trak)
 	
 	
 	
-	print("analyze es? [y/n (default:n)]")
-	if io.read() == "y" then
-		if trak.descriptor == "avc1" then
+	if trak.descriptor == "avc1" then
+		print("analyze H.264? [y/n (default:n)]")
+		if io.read() == "y" then
 			dofile(__streamdef_dir__.."h264.lua")
 			local stream, prev = open(out_file_name)
 			length_stream(get("lengthSizeMinusOne")+1)
 			swap(prev)
-		elseif trak.descriptor == "hvc1"
-		or     trak.descriptor == "hev1" then
+		end
+	elseif trak.descriptor == "hvc1"
+	or     trak.descriptor == "hev1" then
+		print("analyze H.265? [y/n (default:n)]")
+		if io.read() == "y" then
 			dofile(__streamdef_dir__.."h265.lua")
 			local stream, prev = open(out_file_name)
 			length_stream(get("lengthSizeMinusOne")+1)
 			swap(prev)
-		--elseif trak.descriptor == "mp4a" then
-		--	dofile(__streamdef_dir__.."aac.lua")
-		--	local stream, prev = open(out_file_name)
-		--	adts_sequence(get_size())
-		--	swap(prev)
-		else
-			print("unsupported es type ".. trak.descriptor)
 		end
+	elseif trak.descriptor == "mp4a" then
+		print("analyze ADTS? [y/n (default:n)]")
+		if io.read() == "y" then
+			dofile(__streamdef_dir__.."aac.lua")
+			local stream, prev = open(out_file_name)
+			adts_sequence(get_size())
+			swap(prev)
+		end
+	else
+		print("unsupported es type ".. trak.descriptor)
 	end
 
 	print("================================")

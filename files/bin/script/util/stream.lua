@@ -64,10 +64,10 @@ function _m:new(param, openmode)
 end
 
 function _m:print_status()	
-	printf(" name    : %s", self.file_name)
-	printf(" size    : 0x%08x", self:get_size())
-	printf(" cursor  : 0x%08x(%d)", self:cur(), self:cur())
-	printf(" remain  : 0x%08x", self:get_size() - self:cur())
+	printf("name    : %s", self.file_name)
+	printf("size    : 0x%08x", self:get_size())
+	printf("cursor  : 0x%08x(%d)", self:cur(), self:cur())
+	printf("remain  : 0x%08x", self:get_size() - self:cur())
 	perf:print()
 end
 

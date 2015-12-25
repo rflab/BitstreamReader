@@ -95,20 +95,20 @@ function exec_cmd(cmd_str)
 				end
 				
 				if tonumber(c[3]) == nil then
-					c[3] = 20
+						c[3] = 20
 				end
-
+	
 				local command = [[
 					select *
 					from bitstream
 					limit ]]..tonumber(c[2])..", "..tonumber(c[3])..[[;]]
 				local stmt = sql_prepare(command)
-
-				print("-------  ------------------------  ----------  ----------  ---  ----------  ------------")
-				print("id       name                      main_byte   byte        bit  size        value")
-				print("-------  ------------------------  ----------  ----------  ---  ----------  ------------")
-				sql_print(stmt, "%7d  %-25s 0x%08x  0x%08x%3d %13d %13s")
-
+	
+				print("-------  ---------------------------------------  ----------  ----------  ---  ----------  ------------")
+				print("id       name                                     main_byte   byte        bit  size        value")
+				print("-------  ---------------------------------------  ----------  ----------  ---  ----------  ------------")
+				sql_print(stmt, "%7d  %-40s 0x%08x  0x%08x%3d %13d %13s")
+		
 			elseif type(c[2]) == "string" then
 
 				
@@ -136,10 +136,10 @@ function exec_cmd(cmd_str)
 						where id >= ]]..id ..[[
 						limit ]]..tonumber(c[4])..[[ offset ]]..tonumber(c[3])..[[;]]
 					local stmt2 = sql_prepare(com_view_from_id)
-					print("-------  ------------------------  ----------  ----------  ---  ----------  ------------")
-					print("id       name                      main_byte   byte        bit  size        value")
-					print("-------  ------------------------  ----------  ----------  ---  ----------  ------------")
-					sql_print(stmt2, "%7d  %-25s 0x%08x  0x%08x%3d %13d %13s")
+					print("-------  ---------------------------------------  ----------  ----------  ---  ----------  ------------")
+					print("id       name                                     main_byte   byte        bit  size        value")
+					print("-------  ---------------------------------------  ----------  ----------  ---  ----------  ------------")
+					sql_print(stmt2, "%7d  %-40s 0x%08x  0x%08x%3d %13d %13s")
 				end
 
 
@@ -310,7 +310,7 @@ function exec_cmd(cmd_str)
 			 	end
 			 	
 				local direction = "n"
-			 	while true do
+				while true do
 					if direction == "n"  then
 						local ofs = fbyte(c[2], 0x10000, true)
 						if ofs == 0x10000 then

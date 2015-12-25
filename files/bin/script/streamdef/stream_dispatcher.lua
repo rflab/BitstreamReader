@@ -390,6 +390,7 @@ function dispatch_stream(stream)
 
 	elseif st == ".h265" then
 		dofile(__streamdef_dir__.."h265.lua")
+		byte_stream(get_size()/10)
 
 	elseif st == ".mp4" then
 		dofile(__streamdef_dir__.."mp4.lua")

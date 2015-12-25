@@ -909,18 +909,13 @@ function analyse_trak(trak)
 			write(out_file_name, val2str(nal_size[i], get("lengthSizeMinusOne")+1))
 			tbyte("nal", nal_size[i], out_file_name)
 		end
-	else
-		for i = 1, #Offset do
-			seek(Offset[i])
-			tbyte("es", Size[i], out_file_name)
-		end
+	end
+	for i = 1, #Offset do
+		seek(Offset[i])
+		tbyte("es", Size[i], out_file_name)
 	end
 	
-	
-	
-	
-	
-	
+	-- ES解析
 	if trak.descriptor == "avc1" then
 		print("analyze H.264? [y/n (default:n)]")
 		if io.read() == "y" then

@@ -39,7 +39,7 @@ local B = 0 -- (B slice)
 local P = 1 -- (P slice)
 local I = 2 -- (I slice)
 
-local NumDeltaPocs = {}
+local NumDeltaPocs = {0}
 local NumNegativePics = {}
 local NumPositivePics = {}
 local UsedByCurrPicS0 = {}
@@ -780,6 +780,7 @@ function scaling_list_data()
 end
 
 function sei_message()
+	
  	local payloadType = 0
 	while lbyte(1) == 0xff do
 		cbit("ff_byte", 8, 0xff) -- f(8)
@@ -2158,8 +2159,4 @@ function length_stream(lenght_size)
 	end
 end
 
-if __stream_ext__ == ".h265" then
-	-- enable_print(false)
-	byte_stream(get_size()/10)
-end
 

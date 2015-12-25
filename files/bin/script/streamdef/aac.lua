@@ -89,6 +89,16 @@ function adts_error_check()
 	end
 end
 
+
+function adts_header_error_check()
+	if get("protection_absent") == 0 then
+		for i = 1, get("number_of_raw_data_blocks_in_frame") do
+			rbit("raw_data_block_position[i]", 16) -- uimsfb
+		end
+	end
+	rbit("crc_check", 16) -- rpchof
+end
+
 function raw_data_stream()
 	while data_available() do
 		raw_data_block();

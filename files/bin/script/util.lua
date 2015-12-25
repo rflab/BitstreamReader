@@ -77,7 +77,11 @@ end
 local function store_record(name, byte, bit, size, value, main_byte)
 	-- 読込結果がエラーの場合はエラー情報をシリアライズしてabort()
 	if value == false then
-		abort("read data failed [".. name.."] at "..hexstr(main_byte))
+		print("read data failed [".. name.."] at "..hexstr(main_byte))
+		print("abort? [y/n (default:y)]")
+		if io.read() ~= "n" then
+			abort("read data failed [".. name.."] at "..hexstr(main_byte))
+		end
 	end
 
 	-- SQLレコード保存
@@ -144,14 +148,14 @@ function print_status()
 		print("stream")
 		print("------")
 		gs_global.main_stream:print_status()
-		print(" records : "..touint(sql_column([[select max(id) from bitstream]], 0)))
+		print("records : "..touint(sql_column([[select max(id) from bitstream]], 0)))
 		print("")
 	else
 		print("-------------------------")
 		print("main_stream")
 		print("-------------------------")
 		gs_global.main_stream:print_status()
-		print(" records : "..touint(sql_column([[select max(id) from bitstream]], 0)))
+		print("records : "..touint(sql_column([[select max(id) from bitstream]], 0)))
 		print("")
 		print("--------------")
 		print("current_stream")

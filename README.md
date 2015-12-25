@@ -1,7 +1,7 @@
 # Stream Reader
 
 各種バイナリをビット単位で解析し、情報表示やデコードをするツールです。
-（現在の対応フォーマット:mp4, mpg (ts, tts), jpg(jfif, exif), iff(avi, wav, aiff), mp3(ID3tag), bmp, pes, h264, h265, など）
+（現在の対応フォーマット:mp4, mpg (ts, tts), jpg(jfif, exif), iff(avi, wav, aiff), mp3(ID3tag), aac(adts), bmp, pes, h264, h265, など）
 
 ## 使い方
 

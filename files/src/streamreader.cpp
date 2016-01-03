@@ -1,12 +1,28 @@
-﻿#include "rflib/bighead.h"
-#include "rflib/data/bitstream.h"
-#include "rflib/wrapper/sqlwrapper.h"
-#include "rflib/wrapper/luabinder.hpp"
+﻿#include "pch.h"
+#include <stdint.h>
+#include <iostream>
+#include <iomanip>
+#include <vector>
+#include <array>
+#include <map>
+#include <memory>
+#include <utility>
+#include <sstream>
+#include <fstream>
+#include <algorithm>
+#include <regex>
+#include <cctype>
+#include <cstring>
+#include "common/function.h"
+#include "data/bitstream.h"
+#include "wrapper/sqlwrapper.h"
+#include "wrapper/luabinder.hpp"
 
 #define noexcept(x) throw(...)
 
 namespace rf
 {
+	using namespace std;
 	using namespace wrapper;
 	using namespace data;
 

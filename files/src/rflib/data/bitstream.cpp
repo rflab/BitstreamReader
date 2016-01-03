@@ -1,6 +1,10 @@
-﻿// ビットストリームクラス
+﻿#include "pch.h"
 #include "bitstream.h"
+#include <sstream>
+#include <algorithm>
+#include "common/function.h"
 
+using namespace std;
 using namespace rf;
 using namespace rf::data;
 

@@ -1,12 +1,18 @@
 ﻿#ifndef _RF_BITSTREAM_
 #define _RF_BITSTREAM_
 
-#include "bighead.h"
+#include <memory>
+#include <iostream>
+#include <string>
+#include "common/type.h"
 
 namespace rf
 {
 	namespace data
 	{
+		using std::unique_ptr;
+		using std::string;
+
 		class Bitstream final
 		{
 		private:

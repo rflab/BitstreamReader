@@ -1,7 +1,8 @@
 #ifndef __RF_SQLWRAPPER__
 #define __RF_SQLWRAPPER__
 
-#include "bighead.h"
+#include <string>
+#include <vector>
 #include "sqlite3.h"
 
 namespace rf

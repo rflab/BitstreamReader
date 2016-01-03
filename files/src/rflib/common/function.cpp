@@ -1,4 +1,5 @@
-﻿#include "bighead.h"
+﻿#include "pch.h"
+#include "function.h"
 
 bool rf::fail(bool b, int line, const std::string &fn, const std::string &exp)
 {

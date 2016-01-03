@@ -10,7 +10,6 @@
 #include <sstream>
 #include <stdexcept>
 #include <type_traits>
-
 #include "lua.hpp"
 
 // コンパイラ依存？

@@ -1,6 +1,9 @@
+#include "pch.h"
 #include "sqlwrapper.h"
+#include "common/function.h"
 
 using namespace rf;
+using namespace std;
 using namespace rf::wrapper;
 
 void SqliteWrapper::close()

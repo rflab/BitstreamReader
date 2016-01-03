@@ -1,8 +1,9 @@
 #
-Win32
+Win32/
 x64/
 test/
 out/
+ipch/
 streamreader_d.exe
 streamreader(x64)_d.exe
 *.csv

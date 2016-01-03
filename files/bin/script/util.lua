@@ -1072,6 +1072,14 @@ function get_main_stream()
 	return gs_global.main_stream
 end
 
+-- c++内部エラー発生時はこれが呼ばれる
+function error_handler()
+	print("------------")
+	print("handle error")
+	print("------------")
+	cmd()
+end
+
 --------------------------------------
 -- 古い、使わない
 --------------------------------------

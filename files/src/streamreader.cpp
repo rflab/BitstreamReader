@@ -1020,6 +1020,21 @@ int main(int argc, char** argv)
 	}
 
 	// luaファイル実行(引数でファイル名を指定した場合)
+#if 1
+	if (argc > 1)
+	{
+		if (FAIL(lua->dofile(lua_file_name)))
+		{
+			ERR << "lua->dofile err" << endl;
+			if (FAIL(lua->dostring("error_handler()")))
+			{
+				ERR << "lua->error_handler err" << endl;
+			}
+		}
+
+	}
+
+#else
 	if (argc > 1)
 	{
 		for (;;)
@@ -1055,6 +1070,7 @@ int main(int argc, char** argv)
 			ERR << "lua.dostring err" << endl;
 		}
 	};
+#endif
 
 	stdout_to_file(false);
 	return 0;

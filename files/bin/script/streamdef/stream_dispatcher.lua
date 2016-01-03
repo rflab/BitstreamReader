@@ -347,6 +347,11 @@ local function analyse_stream_type(s)
 	return ret
 end
 
+function beta_ver(str)
+	print(str.." is beta ver. press any key..")
+	io.read()
+end
+
 function dispatch_stream(stream)
 	local st = analyse_stream_type(stream)
 	
@@ -369,6 +374,7 @@ function dispatch_stream(stream)
 		dofile(__streamdef_dir__.."jpg.lua")
 		
 	elseif st == ".mp3" then
+		beta_ver(st)
 		dofile(__streamdef_dir__.."mp3.lua")
 		
 	elseif st == ".ts"
@@ -399,14 +405,17 @@ function dispatch_stream(stream)
 		dofile(__streamdef_dir__.."dat.lua")
 		
 	elseif st == ".aac" then
+		beta_ver(st)
 		dofile(__streamdef_dir__.."aac.lua")
 		adts_sequence(get_size())
 		
 	elseif st == ".ac3" then
+		beta_ver(st)
 		dofile(__streamdef_dir__.."ac3.lua")
 		ac3_bitstream(get_size())
 		
 	elseif st == ".flv" then
+		beta_ver(st)
 		dofile(__streamdef_dir__.."flv.lua")
 		flv_file(get_size())
 		

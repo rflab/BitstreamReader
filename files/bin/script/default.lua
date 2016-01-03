@@ -36,4 +36,3 @@ collectgarbage("collect")
 
 -- 解析コマンド起動
 cmd()
-

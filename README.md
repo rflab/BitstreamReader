@@ -1,4 +1,4 @@
-# Stream Reader
+# BitStream Reader
 
 各種バイナリをビット単位で解析し、情報表示やデコードをするツールです。
 （現在の対応フォーマット:mp4, mpeg (ps, ts, tts, pes), h264/avc, h265/hevc, jpg(jfif, exif), iff(avi, wav, aiff), mp3(ID3tag), aac(adts), ac3, bmp など）

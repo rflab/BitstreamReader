@@ -25,5 +25,5 @@ cmd>dump hoge
 -- その他ヘルプ
 cmd>help
 ```
-
+# スクリーンショット
 ![](screenshot.png)

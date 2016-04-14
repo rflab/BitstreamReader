@@ -1020,7 +1020,6 @@ int main(int argc, char** argv)
 	}
 
 	// luaファイル実行(引数でファイル名を指定した場合)
-#if 1
 	if (argc > 1)
 	{
 		if (FAIL(lua->dofile(lua_file_name)))
@@ -1033,44 +1032,24 @@ int main(int argc, char** argv)
 		}
 
 	}
-
-#else
-	if (argc > 1)
+	else
 	{
+		// 引数がなければとりあえずluaコマンド実行
+		cout << "q:quit" << endl;
 		for (;;)
 		{
-			if (FAIL(lua->dofile(lua_file_name)))
+			cout << ">" << std::flush;
+			string str;
+			std::getline(cin, str);
+			if (str == "q")
+				break;
+
+			if (FAIL(lua->dostring(str)))
 			{
-				ERR << "lua.dofile err" << endl;
-				cout << "r:retry" << endl;
-				string str;
-				std::getline(cin, str);
-				if (str == "r")
-				{
-					continue;
-				}
+				ERR << "lua.dostring err" << endl;
 			}
-
-			break;
-		}
+		};
 	}
-
-	// luaコマンド実行
-	cout << "q:quit" << endl;
-	for (;;)
-	{
-		cout << ">" << std::flush;
-		string str;
-		std::getline(cin, str);
-		if (str == "q")
-			break;
-
-		if (FAIL(lua->dostring(str)))
-		{
-			ERR << "lua.dostring err" << endl;
-		}
-	};
-#endif
 
 	stdout_to_file(false);
 	return 0;
